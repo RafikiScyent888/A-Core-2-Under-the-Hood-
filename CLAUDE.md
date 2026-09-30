@@ -582,16 +582,53 @@ office and the help desk chat. It was not pushed.
 | Malware IR | The key is sound. It grades against PICERL (incident response). A+ Core 2 teaches CompTIA's malware removal best-practice steps. Which to follow is OPEN. |
 | Tier 1 Router, WiFi AP, Neighboring Routers | Sound. Router 3 on channel 11 clears the neighbours on 1 and 6. |
 
+### Settled on 30 Sept, after the audit and the 3D discussion
+
+The owner: "Use the floor plan, swap port forwarding, follow CompTIA malware
+steps". They also said yes to each 3D point and to the company shape.
+
+- **Port Forwarding is swapped.** The Windows PC stays on the LAN and is
+  reached by a port-forward rule (TCP 3389). The game console goes in the
+  screened subnet.
+- **Malware follows CompTIA's malware-removal steps**, not PICERL.
+- **The 3D model is the WiFi sim's office_map.PNG, built as an office the
+  student can walk around.**
+  - It is sized to standard office dimensions:
+    - private offices of 100-150 sq ft
+    - corridors at least 44 in wide
+    - conference rooms at 20-25 sq ft a person
+  - Each desk's PC is a machine the student opens. The seven Malware-sim
+    machines live in it: HR and Finance in Office 1 (the plan has three
+    offices for five workstations), Sales in Office 2, Dev in Office 3,
+    Reception at the counter, and the file and mail servers in the
+    network closet with the access point.
+- **Wi-Fi coverage is drawn in the model from the student's own router
+  settings and the walls.**
+  - 2.4 GHz gets through the thick walls; 5 GHz does not.
+  - The Office 3 tablet connects or drops, and says so in words.
+  - The model shows what the settings do, never what they should be.
+- **The three houses from Router_houses.png get a 3D street.** It shows each
+  router's reach and channel.
+- **The company's shape:**
+  - The student is a Tier 1 technician at Rafiki's IT Services.
+  - Mason is their team lead.
+  - The seven-PC office is Rafiki's own.
+  - The callers, the port-forwarding home, the three houses and the
+    replacement-router office are customers.
+- **The 3D preview** (scratchpad `c2sims/geo/`, not pushed) is drawn fresh
+  for Core 2. It uses only the three.js library and a CC0 Poly Haven
+  daylight HDRI from the @pmndrs/assets npm package. The owner asked for
+  views "realistic … like you see on Google Maps". The preview has a
+  tilted aerial, a top-down, a cutaway, the Wi-Fi heatmap at 2.4 and
+  5 GHz, a street-level view, and the street with each router's channel.
+  It is clean 3D, not photographic. Photo textures (Poly Haven, ambientCG)
+  are blocked by this environment's network policy.
+
 ### OPEN, as of this entry
 
-- **The company's shape.** RECOMMENDED: the student is a Tier 1 technician at
-  Rafiki's IT Services, on their own workstation with a ticket queue.
-  - The seven-PC office from Malware IR is Rafiki's own office.
-  - Mason is the student's lead.
-  - The help desk callers, the port-forwarding home, the three neighbouring
-    houses and the replacement-router branch are Rafiki's customers.
-- **The 3D model.** RECOMMENDED: the office from the WiFi sim's office map.
-- **The rulings** on each finding in the audit table above.
+- **Still to rule on from the audit:**
+  - Wireless Reliability's variant A and variant C keys
+  - the "3x Faster" email
 - **The code:** Core 2's own, or keep the plumbing copied from Core 1.
 - **Wireless Reliability:** keep it in Core 2, or move it to Networking.
 - **The doc's topics that have no sim** (OS installation, file systems,
