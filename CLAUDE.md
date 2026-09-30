@@ -8,14 +8,15 @@ Read with `/root/.claude/CLAUDE.md`, which sets the rules and wins over this
 file. The coaching role is in `/root/.claude/exam-prep-coach.md`.
 
 **DIRECTION CHANGED on 30 September 2026. Section 8 overrides everything
-above it; read it first.** The build described in section 7 is live and the
-owner said to leave it up ("leave the website up period"), but it mixed Core 1
-into Core 2 and is not the design going forward.
+above it; read it first.** Sections 1 and 4–6 record the first design,
+which mixed Core 1 into Core 2 and was replaced. Section 7 is what is built
+now: VM build 1, the live-office design of section 8.
 
-**Status (as first built): the Windows Tools Console's four core stages are BUILT and
-verified** (30 September 2026): six jobs, one base plus five, each played
-end to end through the real page. The lab and project stages, and the
-other seven labs, are not built yet. Section 7 is the build as it stands.
+**Status: VM build 1 is BUILT and verified** (30 September 2026). It covers:
+- the office, the machines, the Help Desk and the 3D office
+- the two App sims as twelve tickets (six each)
+
+The mail client, malware, router and chat builds are not built yet.
 Last updated 30 September 2026.
 
 | | |
@@ -395,132 +396,132 @@ Every check is shown to fail before its pass is trusted.
   - whether Core-2-Sims gets its contrast and footer fixed
   - photos for the later labs
 
-## 7. What is built — 30 September 2026
+## 7. What is built — VM build 1, 30 September 2026
+
+The first build (six jobs on a 3D desk, with Core 1's plumbing) was taken
+down and replaced by this one. Every file copied from Core 1 was removed:
+the renderer, the hints, options, rng, reading, theme and instructor
+modules, and the desk model.
 
 ### Runtime (what GitHub Pages serves)
 
-`index.html` and `assets/`. Static HTML, CSS and vanilla JS modules; no
-build step, no runtime fetches.
+`index.html` and `assets/`. Static HTML, CSS and vanilla ES modules. There
+is no build step, and nothing is fetched at runtime.
 
-**Copied from the Core 1 build, unchanged unless noted:**
-- the 3D engine: `three.module.min.js`, `scene.js`, `shape.js`, `surface.js`,
-  `tiles.js`, `bench.js`
-- `hints.js` (the ladder), `options.js` (six options), `rng.js`
-- `reading.js` and `theme.js`. **Their storage keys are the Core 1 keys on
-  purpose**: both sites are on the same github.io origin, so a student's
-  dyslexia and theme choices follow them between the two.
-- `instructor.js`: the PIN dialog only (PIN 3693, not persisted)
-- `style.css`: the top half (tokens, light theme, bench, dyslexia mode, PIN
-  dialog). The bottom half is this build's own.
+| File | What it is |
+|---|---|
+| `machine.js` | One simulated PC as plain JSON. It holds processes, files, runtimes, PATH, logs, apps, power and Group Policy. **The DLL loader:** the app folder, then SysWOW64 (32-bit) or System32 (64-bit), then PATH; wrong bitness gives 0xc000007b; missing gives Windows' popup and Event 1000. Also repair and reinstall, runtime install, boot. No DOM, so the checks run it under Node |
+| `cmd.js` | The typed Command Prompt and PowerShell. It reaches other PCs by `\\HOST\C$\...`, and FS01's share by `\\FS01\Software`. It covers `copy`, `robocopy`, `regsvr32` (its real error), `setx` (`/m` needs elevation), `echo %PATH%`, `gpupdate /force` with its restart prompt, `gpresult /r`, running installers, and Windows' own wording for every refusal |
+| `mech.js` | The "What just happened" line under each command |
+| `fleet.js` | The eight machines, the office's five programs and Software Center's catalogue |
+| `tickets.js` | The twelve tickets: setup, goal, judge, hints, rung-3 moves, close question and note check |
+| `engine.js` | The session. Snapshots, guesses, the hint ladder (`rungFor`) and the rung-3 survivor rule. Saved to `localStorage` (`c2vm.session.v1`) after every action |
+| `desktop.js` | One PC's Windows 11 screen, as real HTML: taskbar, Start (with Run as administrator), Run box, desktop shortcuts, UAC, the tools listed above, the blue screen |
+| `app.js` | The page: machine list, clipboard (ticket, hints, revert, instructor answer), the Help Desk UI, the 3D office |
+| `order.js` | The order six options are shown in |
+| `office3d.js` | The walkable 3D office from the WiFi sim's floor plan, on three.js. Clicking a desk sits you at that PC |
+| `prefs.js` | Dyslexia text (persists), light background (persists), instructor PIN 3693 (does not) |
+| `three/`, `daylight-hdri.txt` | three.js 0.160 (MIT) and a CC0 Poly Haven HDRI |
 
-**This build's own:**
-- **`machine.js`**: the simulated PC — processes, disks and partitions,
-  system-file health, the spare drive's cabling, a small file system. No
-  DOM, so the checks run it under Node.
-- **`cmd.js`**: the typed Command Prompt, PowerShell's listed cmdlets and
-  DiskPart.
-  - It uses the owner's 82-command list plus DISM, with Windows' own
-    wording for every refusal and result.
-  - Every result has a kind, and the kind decides what counts as a guess:
-    look, help, error, change, refused.
-- **`mech.js`**: the "what just happened" line under each command.
-- **`desktop.js`**: the Windows 11 screen, as real HTML.
-  - Start menu with Run as administrator, and the Run box.
-  - UAC consent, and the credential prompt for a standard user.
-  - Task Manager: sortable columns, the facts panel, End task, Run new
-    task. The critical-process warning leads to a blue screen.
-  - Disk Management: Online, Initialize with no default, Convert, New Simple
-    Volume, Delete, Change Drive Letter.
-  - The keyboard shortcuts as buttons.
-- **`bench-desk.js`**: the 3D desk.
-  - The tower is Core 1's `pcTower`, rebuilt as five walls so the side
-    panel can come off. There is a drive cage, SATA ports, a power supply,
-    SATA data and power leads, the drive in an anti-static bag, a monitor
-    whose screen shows the machine's state, and mains and network cables.
-  - Every action is an HTML control.
-- **`lab-tools.js`**: the six jobs and the four core stages. `order.js`
-  sets the order six options are shown in.
-- **`runner.js`**: steps, the hint ladder, wrong picks that stay red,
-  reset to the last point got right, the mechanism panels.
-- **`labs.js`**: the doc's eleven topics (no numbers), lengths, stages and
-  the seven planned labs.
-- **`app.js`**: the page: job picker, lengths, progress, instructor job
-  sheet.
+**The machines** (the Malware sim's seven, plus yours):
 
-### The jobs
+| Host | Who | Where |
+|---|---|---|
+| TECH-01 | you | your workstation |
+| WS1-HR | John Doe | Office 1 |
+| WS4-FIN | Farah Nkemelu | Office 1 |
+| WS2-SALES | Brenda Smith | Office 2 |
+| WS3-DEV | Dev Patel | Office 3 |
+| WS5-RECEPT | Rosa Ortiz | Reception |
+| FS01 | file server | network closet |
+| MAIL01 | mail server | network closet |
 
-| Job | Slow (column → right call) | Admin | Disk |
+Everyone signs in as a standard user, you included. The admin credentials
+for UAC are RAFIKI\itadmin / Bench-Tech-2026, and they are on the
+clipboard.
+
+### The tickets
+
+| Ticket | PC | Fault | Right outcome |
 |---|---|---|---|
-| Harbourside Vets | Memory → end Edge | sfc | 4 TB |
-| Keel & Rudder | Disk → pause OneDrive | sfc, DISM, sfc | 6 TB, split 1 TB + rest |
-| Ridgeline Physio | CPU → leave Windows Update | chkdsk /f, restart, sfc | 3 TB |
-| Northgate Print | CPU → reschedule the AV scan | restart, then sfc | 8 TB, comes up Offline |
-| Brightwater | CPU → malware: unplug the network | sfc finds nothing | 10 TB with an old MBR volume |
-| St Aldric's | CPU → end the hung Excel | standard user: credentials | 12 TB, must be R: |
+| **L1** (sim) | WS4 | Testing: VC++ 2010 x86 missing | repair/reinstall Testing |
+| L2 | WS2 | PayWise: VC++ 2015 x86 missing | repair/reinstall PayWise |
+| L3 | WS3 | Scan2Doc: VC++ 2013 x86 missing, installer does not carry it | repair, then escalate |
+| L4 | WS5 | Testing: config file damaged | repair |
+| L5 | WS1 | LabelPro shortcut points at the old folder | repair |
+| L6 | WS4 | ChartView crashes inside itself | repair, then escalate |
+| **D1** (sim) | WS1 | Testing: VC++ 2010 x86 missing; the sim's Event Viewer entries 2184–2191 and the BugCheck distractor | x86 runtime, or repair; cause = 2190 |
+| D2 | WS4 | PayWise: installer does not carry the runtime | x86 VC++ 2015 runtime, elevated |
+| D3 | WS5 | the deployment wiped the PATH | put Common Files\Rafiki back, or repair |
+| D4 | WS3 | Group Policy install pending a restart | `gpupdate /force`, Y |
+| D5 | WS2 | a 64-bit msvcp100.dll in Testing's folder | delete it, or repair |
+| D6 | WS3 | LabelPro 64-bit, x64 runtime missing | x64 runtime, or repair |
 
-Every drive is over 2 TiB, so MBR is always the trap.
+**What counts as a guess.** Looking never counts:
+- opening a tool, reading a log, running the program to test it
+- `dir`, `help`, a typo
 
-### Checks: `verify/` (need Playwright; the site does not)
+These do count:
+- a change that does not move the machine closer to fixed
+- anything refused
+- anything out of the ticket's tier
+- trying to Resolve or Escalate while the machine is still broken
+
+**Putting back your own change does not count.** If the machine had moved
+away from the snapshot and the action returns it there, it is not a guess.
+
+**Rung 3** strikes four options, each with its reason, and leaves two
+alive. The wrong one left alive is one the student has not already ruled
+out, and of those the one nearest the right answer in length, so "pick the
+longer one" never works.
+
+### Checks: `verify/`
 
 ```
-node verify/logic.mjs      # no browser · 16 plants
-node verify/page.mjs       # drives the page · 8 plants
-node verify/contrast.mjs   # AAA on painted pixels, dark / light / dyslexia · 3 plants
+node verify/logic.mjs      # no browser · 17 plants
+node verify/page.mjs       # drives the page · 10 plants
+node verify/contrast.mjs   # AAA on painted pixels, dark / light / dyslexia · 4 plants
 ```
 
-`--plant` on any of them runs the calibration. Each plant must be caught by
-the check it was written for, not by another check it trips on the way.
+`--plant` runs the calibration. Each plant must be caught by the check it
+was written for. `ONLY=CLOSE node verify/page.mjs --plant` runs one.
 
-**What the contrast sweep does not measure, and why:**
-- **Text behind a modal's scrim, or under the Start menu or Run box.** It is
-  covered, not shown.
-- **Text scrolled out of its own box.**
-- **The hidden inside of a closed `<details>`.** Chromium keeps a layout box
-  for it and paints nothing.
-
-Each of these first showed up as a false failure of 1.0:1. The plants prove
-the sweep still catches real ones inside Task Manager's scrolled table.
+**What the contrast sweep does not measure:**
+- text behind a modal's scrim, or under the Start menu or Run box
+- text scrolled out of its own box
+- the hidden inside of a closed `<details>`
 
 ### Found while building, and fixed
 
-- **Right answer always first.** `sixOptions` leaves a list of exactly six
-  in authored order, which put the right answer first on every question.
-  `order.js` now places it by a stable hash, and the check measures the
-  order the student actually sees.
-- **Length bias, twice.**
-  - First the right answer was the longest option in 13 of 18 questions.
-  - The rebalance then made it the longest in 0 of 18, which is a pattern
-    too.
-  - It is now 2 of 18, close to chance. The check fails either way.
-- **The case drew as a solid block.** Taking the panel off showed the side
-  of a box, with the drive cage buried inside it. The case is now five
-  walls.
-- **The right move always sat first in rung 3.** The moves are authored
-  right-answer-first, so the top line of every rung 3 was the answer. They
-  now use the same ordering as the questions, and a check holds their
-  spread.
-- **The camera was too frontal.** It could not see into the open side, and
-  was turned.
-- **A selected, ruled-out Task Manager row** had dark red text on royal
-  blue.
+- **The right close answer was the longest option in 10 of 12 tickets.**
+  The wording was rebalanced, and the check allows at most a third.
+- **Right answers clustered in slot 5** (5 of 12). A new salt spreads them
+  1-2-2-2-2-3.
+- **Opening a ticket, or reverting, closed the Help Desk.** It now reopens
+  on TECH-01.
+- **A primary button went pale grey on hover, under white text:** 1.24:1.
+  Found by the sweep.
+- **Enter in the instructor PIN box** unlocked instructor mode and then
+  clicked the button again, turning it straight back off.
+- **Robocopy printed the local path** for a `\\HOST\C$` source. It now
+  prints the real one.
+- **Rung 3 left alive a move the student had already tried** (D1's
+  robocopy, which they had watched fail). Moves the machine recorded them
+  making are now always struck.
+- **`powershell <command>` at cmd left the console in PowerShell.** It now
+  runs the one command and returns, as Windows does.
+- **Deleting a DLL you had just put there counted as a guess.** It no
+  longer does (see above).
 
 ### Known, not yet done
 
-- **The lab and project stages** (deploy, launch, startup, net, usb, extend,
-  handover) are not built.
-  - Lab and Project lengths are not offered until they exist.
-  - Layered offers nothing extra yet, and says so.
-- **The other seven labs** are listed on the front page as planned.
-- **Resuming a job restarts the stage you were on.** Finished stages and
-  hint counts are kept, and the page says this.
-- **On a six-option choice question, rung 3 arrives with the field already
-  down to one.** Wrong picks stay red, so by the fifth wrong pick the
-  student has eliminated all five wrong options themselves. This follows
-  from the settled numbers (six options, rung 3 on guess 5), as in the
-  Core 1 build. Rung 3 does its real work on typed and hands-on tasks,
-  where guesses are unlimited.
-- **No photographs yet.** The desk is modelled, not photographed; photos
-  of a real tower with the side panel off would improve it.
+- **The other nine sims are not built yet:** mail and Email Threat, Malware
+  IR, the router's web admin and app, the router sims with the 3D coverage
+  and the movable microwave, and the two chats.
+- **The 3D office is a way in, not yet a tool.** The Wi-Fi coverage and
+  the street come with the router build.
+- **Photo textures** are blocked by this environment's network policy, so
+  the office is clean 3D, not photographic.
 
 ## 8. The direction from 30 September 2026 — SETTLED
 
@@ -656,7 +657,9 @@ steps". They also said yes to each 3D point and to the company shape.
 ### OPEN, as of this entry
 
 
-- **The code:** Core 2's own, or keep the plumbing copied from Core 1.
+- **The code:** VM build 1 uses Core 2's own code only; every file copied
+  from Core 1 was removed (section 7). The owner has not ruled on this
+  explicitly.
 - **Wireless Reliability:** keep it in Core 2, or move it to Networking.
 - **The doc's topics that have no sim** (OS installation, file systems,
   mobile, backup and recovery, safety): new tickets on the same PC, or sims

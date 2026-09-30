@@ -1,197 +1,228 @@
 /* =====================================================================
    A+ Core2 Under the Hood labs — the page.
 
-   Pick a lab, pick a job, pick how long you have, and work through the
-   stages. Progress is kept in this browser so a closed tab comes back to
-   the stage it was on; the machine inside a stage starts fresh when you
-   come back to it, and the page says so.
+   You are a Tier 1 technician at Rafiki's IT Services. Your own
+   workstation holds the Help Desk queue; the office's other machines are
+   one click away, in the 3D office or in the machine list. The ticket
+   you are working stays on your clipboard beside the screen, with the
+   hints and the snapshot.
    ===================================================================== */
-import * as READING from "./reading.js";
-import * as THEME from "./theme.js";
-import * as INSTRUCTOR from "./instructor.js";
-import { LABS, LENGTHS, PLANNED, stagesFor, optionalFor, lengthsFor, topicById } from "./labs.js";
-import { JOBS, jobByKey, buildStage, machineFor } from "./lab-tools.js";
-import { createRunner } from "./runner.js";
-
-const KEY = "c2uth.job.v1";
-function load() { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; } }
-function save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { /* private window: fine */ } }
-function clear() { try { localStorage.removeItem(KEY); } catch (e) {} }
+import * as P from "./prefs.js";
+import { ROSTER, rosterOf } from "./fleet.js";
+import { createEngine, rungFor } from "./engine.js";
+import { createDesktop } from "./desktop.js";
+import { TICKETS } from "./tickets.js";
+import { ordered } from "./order.js";
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-function btn(label, cls, fn) { const b = el("button", cls || "btn", label); b.type = "button"; b.addEventListener("click", fn); return b; }
+function btn(label, cls, fn, aria) { const b = el("button", cls || "btn", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
 
-READING.mountToggle(document.getElementById("reading"));
-THEME.mountToggle(document.getElementById("theme"));
-INSTRUCTOR.mountToggle(document.getElementById("instructor"));
+P.mountReading(document.getElementById("set-reading"));
+P.mountTheme(document.getElementById("set-theme"));
+P.mountInstructor(document.getElementById("set-instructor"));
 
-const lab = LABS[0];
-const planHost = document.getElementById("plan");
-const pickHost = document.getElementById("pick");
-const sheetHost = document.getElementById("insSheet");
-let state = load();
-let runner = null;
-let choice = { job: (state && state.job) || JOBS[0].key, length: (state && state.length) || "layered" };
+const E = createEngine();
+let selected = "TECH";
+const desktops = {};
+const screenHost = document.getElementById("screen");
+const listHost = document.getElementById("machines");
+const clipHost = document.getElementById("clipboard");
+let office = null;
 
-function stageList(st) {
-  const base = stagesFor(lab, st.length).map(function (s) { return s.key; });
-  return base.concat((st.extra || []).filter(function (k) { return base.indexOf(k) < 0; }));
-}
 
-/* ------------------------------------------------------ the picker */
-function drawPick() {
-  pickHost.innerHTML = "";
-  const card = el("section", "panel labcard");
-  card.setAttribute("aria-labelledby", "lab-h");
-  const h = el("h3", null, lab.name); h.id = "lab-h";
-  card.appendChild(h);
-  card.appendChild(el("p", null, lab.blurb));
-  card.appendChild(el("p", "note", "Seven more labs are planned, one for each part of the objectives this one does not cover:"));
-  const ul = el("ul", "coming");
-  PLANNED.forEach(function (p) { ul.appendChild(el("li", null, p.name + " — " + p.topics.map(function (t) { return topicById(t).title; }).join(", "))); });
-  card.appendChild(ul);
-  pickHost.appendChild(card);
 
-  if (state && state.at != null) {
-    const r = el("div", "panel resume");
-    r.setAttribute("role", "region");
-    r.setAttribute("aria-label", "Job in progress");
-    const j = jobByKey(state.job);
-    const keys = stageList(state);
-    r.appendChild(el("h3", null, "You have a job in progress"));
-    r.appendChild(el("p", null, (j ? j.name : state.job) + " — stage " + Math.min(keys.length, state.at + 1) + " of " + keys.length + ". Stages you finished stay finished; the stage you were on starts again from the beginning, with your hints where they were."));
-    r.appendChild(btn("Carry on", "btn primary", function () { go(state.at); }));
-    r.appendChild(document.createTextNode(" "));
-    r.appendChild(btn("Put it down and start a different job", "btn secondary", function () { clear(); state = null; drawPick(); }));
-    pickHost.appendChild(r);
-  }
-
-  const fs = el("fieldset", "jobs");
-  fs.appendChild(el("legend", null, "Choose the job"));
-  JOBS.forEach(function (j) {
-    const lb = el("label", "job");
-    const r = el("input"); r.type = "radio"; r.name = "job"; r.value = j.key; r.checked = choice.job === j.key;
-    r.addEventListener("change", function () { choice.job = j.key; });
-    const t = el("span");
-    t.appendChild(el("strong", null, j.name));
-    t.appendChild(el("span", null, j.who + ", " + j.role));
-    lb.appendChild(r); lb.appendChild(t);
-    fs.appendChild(lb);
+/* ------------------------------------------------------ the screens */
+function desktopFor(id) {
+  if (desktops[id]) return desktops[id];
+  const host = el("div", "screen-host"); host.dataset.machine = id; screenHost.appendChild(host);
+  desktops[id] = createDesktop(host, {
+    machine: function () { return E.machine(id); },
+    fleetLookup: E.lookup,
+    isTech: id === "TECH",
+    before: E.before,
+    onAct: function (a) { E.onAct(a); drawClip(); drawList(); },
+    helpdesk: drawHelpdesk
   });
-  pickHost.appendChild(fs);
-
-  const pk = el("div", "picker");
-  const d1 = el("div");
-  const lab_ = el("label", null, "How long have you got?"); lab_.setAttribute("for", "length");
-  const sel = el("select"); sel.id = "length";
-  lengthsFor(lab).forEach(function (k) { const o = el("option", null, LENGTHS[k].label); o.value = k; sel.appendChild(o); });
-  sel.value = lengthsFor(lab).indexOf(choice.length) >= 0 ? choice.length : "layered";
-  d1.appendChild(lab_); d1.appendChild(sel);
-  const note = el("p", "note");
-  const list = el("ol", "plan-list");
-  function upd() {
-    choice.length = sel.value;
-    note.textContent = LENGTHS[sel.value].note;
-    list.innerHTML = "";
-    stagesFor(lab, sel.value).forEach(function (s) { const li = el("li", null, s.title); li.appendChild(el("span", "tier", s.tier)); list.appendChild(li); });
-  }
-  sel.addEventListener("change", upd);
-  pk.appendChild(d1);
-  pk.appendChild(btn("Start this job", "btn primary", function () {
-    state = { job: choice.job, length: choice.length, at: 0, done: {}, attempts: {}, extra: [] };
-    save(state); go(0);
-  }));
-  pickHost.appendChild(pk);
-  pickHost.appendChild(note);
-  const ph = el("p", null, "The stages:");
-  pickHost.appendChild(ph);
-  pickHost.appendChild(list);
-  const later = lab.stages.filter(function (s) { return !s.built; });
-  if (later.length) {
-    pickHost.appendChild(el("p", "note", "Being built for this lab, and added to the longer lengths as each one is finished:"));
-    const ul2 = el("ul", "plan-list");
-    later.forEach(function (s) { const li = el("li", null, s.title); li.appendChild(el("span", "tier", s.tier)); ul2.appendChild(li); });
-    pickHost.appendChild(ul2);
-  }
-  upd();
-  pickHost.hidden = false;
-  planHost.innerHTML = "";
-  drawSheet();
+  return desktops[id];
+}
+function select(id) {
+  selected = id;
+  Object.keys(desktops).forEach(function (k) { desktops[k].element.parentNode.hidden = k !== id; });
+  desktopFor(id).element.parentNode.hidden = false;
+  desktopFor(id).draw();
+  if (office) office.select(id);
+  drawList();
+  const r = rosterOf(id);
+  document.getElementById("screen-h").textContent = "On the screen: " + r.host + " — " + r.fullName + (r.where ? ", " + r.where : "");
 }
 
-/* ------------------------------------------------------ a stage */
-function go(i) {
-  if (runner) { runner.dispose(); runner = null; }
-  const keys = stageList(state);
-  if (i >= keys.length) return finished();
-  state.at = i; save(state);
-  pickHost.hidden = true;
-  const key = keys[i];
-  const meta = lab.stages.filter(function (s) { return s.key === key; })[0];
-  const job = jobByKey(state.job);
-  const stage = buildStage(key, job);
-  planHost.innerHTML = "";
-  const bar = el("div", "stage-bar");
-  bar.appendChild(btn("‹ Back to the jobs", "btn secondary", function () { if (runner) { runner.dispose(); runner = null; } drawPick(); window.scrollTo(0, 0); }));
-  bar.appendChild(el("span", "note", " " + job.name + " — " + LENGTHS[state.length].label));
-  planHost.appendChild(bar);
-  const host = el("div");
-  planHost.appendChild(host);
-  runner = createRunner(host, {
-    stage: stage, meta: meta, job: job, index: i, total: keys.length,
-    machine: function () { return machineFor(job, key); },
-    resume: { attempts: state.attempts || {} },
-    onProgress: function (p) { state.attempts = Object.assign(state.attempts || {}, p.attempts || {}); save(state); },
-    onStageDone: function () { state.done = state.done || {}; state.done[key] = true; save(state); },
-    onGo: function (n) { go(n); window.scrollTo(0, 0); }
+/* --------------------------------------------------- the machine list */
+function drawList() {
+  listHost.innerHTML = "";
+  const t = E.ticket();
+  ROSTER.forEach(function (r) {
+    const b = btn("", "mc" + (r.id === selected ? " on" : ""), function () { select(r.id); });
+    b.setAttribute("aria-pressed", String(r.id === selected));
+    b.appendChild(el("strong", null, r.host)); b.appendChild(el("span", null, r.fullName + " · " + r.where));
+    if (t && t.machine === r.id) b.appendChild(el("span", "mc-tag", "This ticket's PC"));
+    listHost.appendChild(b);
   });
-  drawSheet();
 }
 
-function finished() {
-  pickHost.hidden = true;
-  planHost.innerHTML = "";
-  const job = jobByKey(state.job);
-  const box = el("section", "panel jobdone");
-  box.appendChild(el("h2", null, "Job finished: " + job.name));
-  box.appendChild(el("p", null, "Every stage of this job is done on the machine. " + job.who.split(" ")[0] + "’s PC is fixed, and you know why each fix worked."));
-  const more = optionalFor(lab, state.length).filter(function (s) { return (state.extra || []).indexOf(s.key) < 0; });
-  if (LENGTHS[state.length].offersRest) {
-    if (more.length) {
-      box.appendChild(el("p", null, "Want to go deeper? These stages go with this job:"));
-      more.forEach(function (s) { box.appendChild(btn(s.title, "btn", function () { state.extra = (state.extra || []).concat([s.key]); save(state); go(stageList(state).indexOf(s.key)); })); });
-    } else box.appendChild(el("p", "note", "The deeper stages for this lab are being built. When they are finished they will be offered here."));
+/* ----------------------------------------------------- the clipboard */
+function drawClip() {
+  clipHost.innerHTML = "";
+  const t = E.ticket(), st = E.T();
+  const cred = el("div", "panel creds");
+  cred.appendChild(el("h3", null, "Your technician account"));
+  cred.appendChild(el("p", null, "Office users are standard users. When Windows asks for an administrator, use RAFIKI\\itadmin, password Bench-Tech-2026."));
+  if (!t) {
+    const p = el("div", "panel"); p.appendChild(el("h3", null, "No ticket open"));
+    p.appendChild(el("p", null, "Your Help Desk queue is on your own workstation, TECH-01. Open it from the desktop or the Start menu, and pick a ticket."));
+    p.appendChild(btn("Go to your workstation", "btn primary", function () { select("TECH"); desktopFor("TECH").open("helpdesk"); }));
+    clipHost.appendChild(p); clipHost.appendChild(cred); return;
   }
-  box.appendChild(btn("Choose another job", "btn primary", function () { clear(); state = null; drawPick(); window.scrollTo(0, 0); }));
-  planHost.appendChild(box);
+  const p = el("section", "panel ticket"); p.setAttribute("aria-labelledby", "clip-h");
+  const h = el("h3", null, "Ticket " + t.id + ": " + t.title); h.id = "clip-h"; p.appendChild(h);
+  p.appendChild(el("p", "tk-meta", "From " + t.from + " · " + rosterOf(t.machine).host + " · Tier " + t.tier + " · based on the " + t.sim + " sim" + (t.base ? " (the sim itself)" : "")));
+  t.brief.forEach(function (x) { p.appendChild(el("p", "tk-brief", x)); });
+  const stage = { work: "Working: fix it on the machine, then Resolve or Escalate in the Help Desk.", close: "Nearly done: pick the cause and write the ticket note in the Help Desk.", done: "Closed." }[st.stage];
+  p.appendChild(el("p", "tk-stage", stage));
+  p.appendChild(el("p", "tk-count", st.guesses ? "Moves that did not help so far: " + st.guesses + (st.guesses < 3 ? ". Hints start after 3." : ".") : "Looking around, reading logs, running a program to test it, and typos never count against you."));
+  if (st.lastSay) { const s = el("p", "tk-say", st.lastSay); s.setAttribute("role", "status"); p.appendChild(s); }
+  const g = E.guidance();
+  if (g && g.rung && st.stage === "work") p.appendChild(drawGuide(g, t));
+  if (st.stage !== "done") {
+    const rv = el("div", "tk-revert");
+    /* Every screen goes back to its desktop — an open console still holds
+       the machine as it was — and the Help Desk reopens on TECH-01. */
+    rv.appendChild(btn("Revert to snapshot", "btn secondary", function () { E.revert(); Object.values(desktops).forEach(function (d) { d.reset(); }); desktopFor("TECH").open("helpdesk"); drawClip(); drawList(); desktopFor(selected).draw(); }));
+    rv.appendChild(el("span", "setting-note", "Puts the machines back to the last point you got right. Your hints carry on."));
+    p.appendChild(rv);
+  }
+  if (P.isInstructor()) {
+    const a = el("div", "ins-answer"); a.appendChild(el("strong", null, "Instructor: "));
+    const mv = t.moves(E.fleet()).filter(function (x) { return x.correct; })[0];
+    a.appendChild(document.createTextNode("Fix: " + (mv ? mv.label : "") + ". Outcome: " + t.outcome + ". Cause: " + t.close.options.filter(function (x) { return x.correct; })[0].label + "."));
+    p.appendChild(a);
+  }
+  clipHost.appendChild(p); clipHost.appendChild(cred);
 }
-
-/* ------------------------------------------------ instructor sheet */
-function drawSheet() {
-  sheetHost.innerHTML = "";
-  if (!INSTRUCTOR.isOn()) return;
-  const box = el("section", "panel ins-sheet");
-  box.appendChild(el("h2", null, "Job sheet — instructor mode"));
-  box.appendChild(el("p", "note", "Every job and every stage's declared answer. The same job gives the same questions on every machine, so a class can be set one by name."));
-  const ol = el("ol", "ins-jobs");
-  JOBS.forEach(function (j) {
-    const li = el("li");
-    li.appendChild(el("p", "ins-job-name", j.name + " — " + j.who));
-    const ul = el("ul");
-    stagesFor(lab, "project").forEach(function (s) {
-      const st = buildStage(s.key, j);
-      if (!st) return;
-      st.steps.forEach(function (x) { ul.appendChild(el("li", null, s.key + ": " + (x.answer_text || x.answer))); });
+function drawGuide(g, t) {
+  const box = el("div", "guide rung-" + g.rung); box.setAttribute("role", "note");
+  box.appendChild(el("h4", null, ["", "Hint 1 of 3: where to look", "Hint 2 of 3: the principle", "Hint 3 of 3: the field narrowed (this one repeats for as long as you need it)"][g.rung]));
+  box.appendChild(el("p", null, g.where));
+  if (g.principle) box.appendChild(el("p", "principle", g.principle));
+  if (g.moves) {
+    box.appendChild(el("p", null, "Six possible next moves. Four are ruled out, each with its reason; two are still alive. You still do it yourself."));
+    const ul = el("ul", "narrow");
+    ordered(g.moves, t.id + "m").forEach(function (x) {
+      const li = el("li", x.struck ? "struck" : "alive");
+      li.appendChild(el("span", "opt-mark", x.struck ? "✕ Ruled out" : "● Still alive"));
+      li.appendChild(el("span", "narrow-label", x.label));
+      if (x.struck) li.appendChild(el("span", "opt-why", x.why));
+      ul.appendChild(li);
     });
-    li.appendChild(ul);
-    ol.appendChild(li);
-  });
-  box.appendChild(ol);
-  sheetHost.appendChild(box);
+    box.appendChild(ul);
+  }
+  return box;
 }
-INSTRUCTOR.onChange(function () { drawSheet(); if (runner && state) go(state.at); });
 
-/* A seam for verify/: which job and stage is open. Nothing in the page reads it. */
-window.__C2UTH = { state: function () { return state; }, runner: function () { return runner; } };
+/* ------------------------------------------- the Help Desk (on TECH-01) */
+function drawHelpdesk(body, api) {
+  const wrap = el("div", "hd");
+  const t = E.ticket(), st = E.T();
+  if (t && st && st.stage !== "done") {
+    const cur = el("section", "hd-cur"); cur.appendChild(el("h4", null, "Open ticket " + t.id + ": " + t.title));
+    cur.appendChild(el("p", null, "Requester: " + t.from + " · Device: " + rosterOf(t.machine).host));
+    if (st.stage === "work") {
+      const row = el("div", "hd-acts");
+      row.appendChild(btn("Resolve", "w-btn primary", function () { E.submit("resolve"); drawClip(); api.refresh(); }));
+      row.appendChild(btn("Escalate to Tier 2", "w-btn", function () { E.submit("escalate"); drawClip(); api.refresh(); }));
+      cur.appendChild(row);
+      if (st.lastSay) { const s = el("p", "hd-say", st.lastSay); s.setAttribute("role", "status"); cur.appendChild(s); }
+    }
+    if (st.stage === "close") cur.appendChild(drawCloseForm(t, st, api));
+    wrap.appendChild(cur);
+  }
+  if (t && st && st.stage === "done") {
+    const d = el("section", "hd-done"); d.setAttribute("role", "status");
+    d.appendChild(el("strong", null, "✓ Ticket " + t.id + " is closed."));
+    d.appendChild(el("p", null, "Your note: " + st.note));
+    d.appendChild(el("p", null, "Pick the next ticket from the queue."));
+    wrap.appendChild(d);
+  }
+  wrap.appendChild(el("h4", "hd-qh", "Queue"));
+  const tbl = el("table", "hd-q"); const hr = el("tr");
+  ["Ticket", "Summary", "From", "Tier", "Status", ""].forEach(function (c) { const th = el("th", null, c); th.setAttribute("scope", "col"); hr.appendChild(th); });
+  const hd = el("thead"); hd.appendChild(hr); tbl.appendChild(hd); const tb = el("tbody");
+  E.tickets().forEach(function (x) {
+    const tr = el("tr", x.t.id === (t && t.id) ? "cur" : "");
+    [x.t.id, x.t.title, x.t.from, "Tier " + x.t.tier, x.st ? (x.st.status === "closed" ? "Closed" : "In progress") : "New"].forEach(function (v) { tr.appendChild(el("td", null, v)); });
+    const td = el("td");
+    td.appendChild(btn(x.st && x.st.status === "closed" ? "Work it again" : (x.t.id === (t && t.id) ? "Reopen" : "Open"), "w-btn small", function () {
+      if (x.st && x.st.status === "closed") { E.state().tickets[x.t.id] = null; }
+      /* A fresh snapshot of the office: every screen goes back to its
+         desktop, except that the Help Desk stays open here. */
+      E.openTicket(x.t.id); Object.values(desktops).forEach(function (d) { d.reset(); }); drawClip(); drawList(); desktopFor("TECH").open("helpdesk");
+    }, "Open ticket " + x.t.id));
+    tr.appendChild(td); tb.appendChild(tr);
+  });
+  tbl.appendChild(tb); const sc = el("div", "hd-scroll"); sc.appendChild(tbl); wrap.appendChild(sc);
+  body.appendChild(wrap);
+}
+function drawCloseForm(t, st, api) {
+  const box = el("div", "hd-close");
+  box.appendChild(el("h4", null, t.outcome === "escalate" ? "Escalation accepted by Tier 2 — now record it" : "Fixed — " + t.from.split(",")[0] + " confirms it works. Now close it properly"));
+  box.appendChild(el("p", "hd-q1", t.close.prompt));
+  const opts = el("div", "options"); opts.setAttribute("role", "group"); opts.setAttribute("aria-label", t.close.prompt);
+  const g = E.guidance(); const strike = g && g.strike || {};
+  ordered(t.close.options, t.id + "close").forEach(function (o) {
+    const out = !!st.picked[o.label] && !o.correct, struck = !out && strike[o.label];
+    const b = el("button", "opt" + (out ? " out" : "") + (st.closeOK && o.correct ? " right" : "") + (struck ? " out struck-hint" : "")); b.type = "button";
+    if (out || struck) { b.appendChild(el("span", "opt-mark", out ? "✕ Ruled out" : "✕ Ruled out by the hint")); b.appendChild(el("span", "opt-label", o.label)); b.appendChild(el("span", "opt-why", o.why)); b.setAttribute("aria-disabled", "true"); }
+    else if (st.closeOK && o.correct) { b.appendChild(el("span", "opt-mark", "✓ Right")); b.appendChild(el("span", "opt-label", o.label)); }
+    else b.appendChild(el("span", "opt-label", o.label));
+    b.disabled = st.closeOK || out || !!struck;
+    b.addEventListener("click", function () { E.pick(o.label); drawClip(); api.refresh(); });
+    opts.appendChild(b);
+  });
+  box.appendChild(opts);
+  if (g && g.rung && !st.closeOK) { box.appendChild(drawGuide({ rung: g.rung, where: g.where, principle: g.principle }, t)); }
+  if (st.closeOK) {
+    const lab = el("label", "hd-notel", "Ticket note — " + t.note.tip); const ta = el("textarea", "w-input hd-note"); ta.id = "hd-note"; lab.setAttribute("for", "hd-note"); ta.rows = 5; ta.value = st.note || "";
+    box.appendChild(lab); box.appendChild(ta);
+    if (st.noteMissing && st.noteMissing.length) { const m = el("p", "dlg-err", "Not closed yet. The note needs " + st.noteMissing.join("; and ") + "."); m.setAttribute("role", "alert"); box.appendChild(m); }
+    box.appendChild(btn("Close the ticket", "w-btn primary", function () { E.writeNote(ta.value); drawClip(); api.refresh(); }));
+  }
+  return box;
+}
+P.onInstructor(function () { drawClip(); });
 
-if (state && state.at != null && location.hash === "#resume") go(state.at); else drawPick();
+/* ------------------------------------------------------------ start */
+drawList(); drawClip(); select("TECH");
+if (!E.ticket()) desktopFor("TECH").open("helpdesk");
+E.on(function (ev) { if (ev.type === "ticket-open" || ev.type === "revert" || ev.type === "reset") { drawList(); drawClip(); } });
+
+document.getElementById("reset-all").addEventListener("click", function () {
+  if (!confirm("Start again from the beginning? Every ticket goes back to New and every machine to how it started.")) return;
+  E.resetAll(); Object.values(desktops).forEach(function (d) { d.reset(); }); drawList(); drawClip(); select("TECH"); desktopFor("TECH").open("helpdesk");
+});
+
+/* The 3D office, loaded after the page works, so a machine with no WebGL
+   (or a slow one) never waits for it. */
+(async function () {
+  const host = document.getElementById("office");
+  try {
+    const mod = await import("./office3d.js");
+    if (!mod.webglOK()) throw new Error("no webgl");
+    office = await mod.mountOffice(host, { machines: ROSTER, onPick: select, height: 360 });
+    office.select(selected);
+    document.getElementById("office-note").textContent = "Drag to turn the office, scroll to zoom, and click a desk's PC to sit at it — or use the list below.";
+  } catch (e) {
+    document.getElementById("office-note").textContent = "The 3D office is off on this computer, so use the machine list below. Everything still works; the model was never the only way in.";
+  }
+})();
+
+/* A seam for verify/. Nothing in the page reads it. */
+window.__C2 = { engine: E, select: select, desktop: desktopFor, tickets: TICKETS, rung: rungFor, office: function () { return office; }, selected: function () { return selected; } };

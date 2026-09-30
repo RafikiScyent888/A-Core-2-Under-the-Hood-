@@ -179,6 +179,20 @@ export function createShell(m, opts) {
     if (sh.mode === "yn") return answerYN(line);
     if (sh.mode === "diskpart") return diskpart(line);
     if (!line) return { out: "", kind: "look" };
+    /* pipes: the two the sims use, sort and findstr */
+    if (/\|/.test(line) && sh.mode === "cmd") {
+      const parts = line.split("|").map(function (x) { return x.trim(); });
+      let r = sh.run.call(null, parts[0]);
+      sh.history.pop();
+      for (let k = 1; k < parts.length; k++) {
+        const q = tokens(parts[k]); const v = (q[0] || "").toLowerCase();
+        const rows = String(r.out || "").split("\n");
+        if (v === "sort") { const body = rows.filter(function (x) { return x.trim() && !/^=+|^Image Name/.test(x); }).sort(function (a, b) { return a.toLowerCase().localeCompare(b.toLowerCase()); }); const head = rows.filter(function (x) { return /^=+|^Image Name/.test(x); }); r = { out: head.concat(body).join("\n"), kind: r.kind }; }
+        else if (v === "findstr" || v === "find") { const pat = (q.slice(1).filter(function (x) { return x[0] !== "/"; })[0] || "").toLowerCase(); r = { out: rows.filter(function (x) { return x.toLowerCase().indexOf(pat) >= 0; }).join("\n"), kind: r.kind }; }
+        else r = { out: NOT_RECOGNIZED(q[0] || ""), kind: "error" };
+      }
+      return r;
+    }
     const t = tokens(line);
     const w0 = t[0].toLowerCase();
     const rest = t.slice(1);
@@ -223,7 +237,11 @@ export function createShell(m, opts) {
       case "sfc": return sfc(low);
       case "dism": case "dism.exe": return dism(low);
       case "chkdsk": return chkdsk(low);
-      case "shutdown": return shutdown(low);
+      case "shutdown": return shutdown(low.map(function (x) { return x.replace(/^-/, "/"); }));
+      case "echo": return echo(rest);
+      case "set": return setVar(rest);
+      case "setx": return setx(rest, low);
+      case "start": return launch(rest.filter(function (x) { return x !== '""'; })[0] || "");
       case "diskpart": return enterDiskpart();
       case "format": return format(rest, low);
       case "ipconfig": return ipconfig(low);
@@ -240,11 +258,21 @@ export function createShell(m, opts) {
            that here will not be surprised by it on a dead machine. */
         return { out: NOT_RECOGNIZED(t[0]) + "\n\n(bootrec only exists inside the Windows Recovery Environment, which you reach when Windows cannot start. It is not part of a running Windows.)", kind: "error" };
       case "powershell": case "powershell.exe":
+        /* `powershell <command>` runs that one command and comes back to
+           cmd; plain `powershell` stays in PowerShell. */
+        if (rest.length) {
+          const inner = line.replace(/^\S+\s+/, "").replace(/^-command\s+/i, "").replace(/^"(.*)"$/, "$1");
+          sh.mode = "ps"; let r;
+          try { r = powershell(tokens(inner), inner); } finally { sh.mode = "cmd"; }
+          return r;
+        }
         sh.mode = "ps";
         return { out: "Windows PowerShell\nCopyright (C) Microsoft Corporation. All rights reserved.", kind: "look" };
       case "regsvr32": return regsvr32(rest);
       case "runas": return runas(rest);
       default:
+        if (/^\\\\/.test(w0) && /(vcredist|vc_redist)/i.test(w0)) return runInstaller(t[0], low);
+        if (M.appByName(m, w0.replace(/^.*\\/, "")) || /\.exe$/i.test(w0) && M.appByName(m, w0.replace(/^.*\\/, ""))) return launch(t[0]);
         if (/^(get|set|stop|start|restart|test|new|remove)-/.test(w0)) {
           return { out: NOT_RECOGNIZED(t[0]) + "\n\n(That is a PowerShell command. Type powershell first, or open Windows PowerShell.)", kind: "error" };
         }
@@ -254,6 +282,43 @@ export function createShell(m, opts) {
 
   /* -------------------- helpers per command -------------------- */
 
+  /* Running a runtime installer from the file server's Software share —
+     the Tier 2 way to put back a Visual C++ runtime. */
+  const INSTALLERS = { "vcredist_x86_2010.exe": "vc2010x86", "vcredist_x86_2013.exe": "vc2013x86", "vc_redist.x86.exe": "vc2015x86", "vc_redist.x64.exe": "vc2015x64" };
+  function runInstaller(path, low) {
+    const loc = locate(path.slice(0, path.lastIndexOf("\\")));
+    const name = path.slice(path.lastIndexOf("\\") + 1).toLowerCase();
+    if (loc.err || !M.findFile(loc.m, loc.path, name)) return { out: "The system cannot find the path specified.", kind: "error" };
+    if (!sh.elevated) { M.note(m, "install-refused", { name: name }); return { out: "Setup needs an administrator. The installation was cancelled.\n\n(Run this from an elevated prompt.)", kind: "refused" }; }
+    const r = M.installRuntime(m, INSTALLERS[name], "installer");
+    return { out: r.text + (low.indexOf("/q") >= 0 || low.indexOf("/quiet") >= 0 ? "" : "\n\nSetup completed. Exit code 0."), kind: "change" };
+  }
+  function launch(name) {
+    const a = M.appByName(m, String(name).replace(/^.*\\/, ""));
+    if (!a) return { out: "The system cannot find the file " + name + ".", kind: "error" };
+    return { out: "", kind: "look", launch: a.name };
+  }
+  function echo(rest) {
+    const s0 = rest.join(" ");
+    return { out: s0.replace(/%path%/ig, m.env.PATH).replace(/%username%/ig, m.user).replace(/%computername%/ig, m.host), kind: "look" };
+  }
+  function setVar(rest) {
+    if (!rest.length) return { out: "COMPUTERNAME=" + m.host + "\nPath=" + m.env.PATH + "\nUSERNAME=" + m.user + "\nwindir=C:\\Windows", kind: "look" };
+    if (/^path$/i.test(rest[0])) return { out: "Path=" + m.env.PATH, kind: "look" };
+    return { out: "Environment variable " + rest[0] + " not defined", kind: "look" };
+  }
+  function setx(rest, low) {
+    const args = rest.filter(function (x) { return x[0] !== "/"; });
+    if (args.length < 2) return { out: "ERROR: Invalid syntax.\nType \"SETX /?\" for usage.", kind: "error" };
+    const machineWide = low.indexOf("/m") >= 0;
+    if (machineWide && !sh.elevated) return { out: "ERROR: Access to the registry path is denied.", kind: "refused" };
+    if (/^path$/i.test(args[0])) {
+      const val = args.slice(1).join(" ").replace(/%path%/ig, m.env.PATH);
+      m.env.PATH = val;
+      M.note(m, "setx", { name: "PATH", value: val, machine: machineWide });
+    } else M.note(m, "setx", { name: args[0] });
+    return { out: "\nSUCCESS: Specified value was saved.", kind: "change" };
+  }
   function whoami(low) {
     const who = (m.host + "\\" + m.user).toLowerCase();
     if (low[0] === "/groups") {
@@ -265,6 +330,25 @@ export function createShell(m, opts) {
     return { out: sh.elevatedAs ? (m.host + "\\" + sh.elevatedAs).toLowerCase() : who, kind: "look" };
   }
 
+  /* \\HOST\C$\path reaches another PC on the office network, through the
+     fleet the shell was given. Returns [machine, path on that machine]. */
+  function locate(p) {
+    const sharePath = String(p || "").replace(/\//g, "\\");
+    const sm = sharePath.match(/^\\\\([^\\]+)\\software(\\.*)?$/i);
+    if (sm) {
+      const srv = opts.fleet ? opts.fleet(sm[1]) : null;
+      if (!srv || !srv.fs["c:\\software"]) return { err: "The network name cannot be found." };
+      return { m: srv, path: "C:\\Software" + (sm[2] || ""), shown: "\\\\" + srv.host + "\\Software" + (sm[2] || "") };
+    }
+    const u = sharePath.match(/^\\\\([^\\]+)\\([a-z])\$(\\.*)?$/i);
+    if (u) {
+      const other = opts.fleet ? opts.fleet(u[1]) : null;
+      if (!other) return { err: "The network path was not found." };
+      if (other.power !== "on" || (other.net && other.net.cable === false)) return { err: "The network path was not found." };
+      return { m: other, path: (u[2].toUpperCase() + ":" + (u[3] || "\\")), shown: "\\\\" + other.host + "\\" + u[2].toUpperCase() + "$" + (u[3] || "") };
+    }
+    return { m: m, path: resolve(p) };
+  }
   function resolve(p) {
     if (!p) return sh.cwd;
     p = p.replace(/\//g, "\\");
@@ -296,8 +380,17 @@ export function createShell(m, opts) {
 
   function dir(rest) {
     const args = rest.filter(function (x) { return x[0] !== "/"; });
-    const r = resolve(args.join(" "));
-    const n = node(r);
+    let target = args.join(" "), pat = null;
+    if (/[*?]/.test(target)) { const cut = target.lastIndexOf("\\"); pat = target.slice(cut + 1); target = cut >= 0 ? target.slice(0, cut) : ""; }
+    const loc = locate(target || sh.cwd); if (loc.err) return { out: loc.err, kind: "look" };
+    const r = loc.path;
+    const n = loc.m.fs[String(r).replace(/\\$/, "").toLowerCase()] || loc.m.fs[String(r).toLowerCase()];
+    if (n && pat) {
+      const re = new RegExp("^" + pat.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$", "i");
+      const files = n.files.filter(function (f) { return re.test(f.name); });
+      if (!files.length) return { out: " Directory of " + n.path + "\n\nFile Not Found", kind: "look" };
+      return { kind: "look", out: " Volume in drive " + n.path[0] + " has no label.\n\n Directory of " + n.path + "\n\n" + files.map(function (f) { return "03/03/2025  10:20 AM " + lpad(commas(f.size), 17) + " " + f.name; }).join("\n") + "\n" + lpad(files.length, 16) + " File(s)" };
+    }
     if (!n) return { out: "File Not Found", kind: "look" };
     const L = n.path[0];
     const lines = [" Volume in drive " + L + " has no label.", " Volume Serial Number is 6E2A-91C4", "", " Directory of " + n.path, ""];
@@ -348,26 +441,37 @@ export function createShell(m, opts) {
     const dirp = r.slice(0, r.lastIndexOf("\\")); const n = node(dirp.length === 2 ? dirp + "\\" : dirp);
     const name = r.slice(r.lastIndexOf("\\") + 1).toLowerCase();
     if (!n || !n.files.some(function (f) { return f.name.toLowerCase() === name; })) return { out: "Could Not Find " + r, kind: "error" };
-    if (/^c:\\windows/i.test(r) && !sh.elevated) return { out: r + "\nAccess is denied.", kind: "refused" };
+    if (/^c:\\(windows|program files)/i.test(r) && !sh.elevated) return { out: r + "\nAccess is denied.", kind: "refused" };
     n.files = n.files.filter(function (f) { return f.name.toLowerCase() !== name; });
     M.note(m, "del", { path: r });
     return { out: "", kind: "change" };
   }
   function copyish(w0, rest) {
     const args = rest.filter(function (x) { return x[0] !== "/"; });
-    if (args.length < 2 && w0 !== "robocopy") return { out: "The syntax of the command is incorrect.", kind: "error" };
-    if (m.copyHook) { const r = m.copyHook(w0, rest, sh); if (r) return r; }
-    if (w0 === "robocopy" && args.length < 2) return { out: USAGE.robocopy, kind: "help" };
-    const src = resolve(args[0]);
-    const sdir = src.slice(0, src.lastIndexOf("\\")); const sn = node(sdir.length === 2 ? sdir + "\\" : sdir);
-    const fname = src.slice(src.lastIndexOf("\\") + 1);
-    const f = sn && sn.files.filter(function (x) { return x.name.toLowerCase() === fname.toLowerCase(); })[0];
-    if (!f) return { out: "The system cannot find the file specified.\n        0 file(s) copied.", kind: "error" };
-    const dst = resolve(args[1]); const dn = node(dst);
-    if (!dn) return { out: "The system cannot find the path specified.\n        0 file(s) copied.", kind: "error" };
-    if (/^c:\\(windows|program files)/i.test(dst) && !sh.elevated) return { out: "Access is denied.\n        0 file(s) copied.", kind: "refused" };
+    if (w0 === "robocopy") {
+      /* robocopy SOURCE_DIR DEST_DIR FILE */
+      if (args.length < 3) return { out: USAGE.robocopy, kind: args.length ? "error" : "help" };
+      return copyOne(locate(args[0]), args[2], locate(args[1]), w0);
+    }
+    if (args.length < 2) return { out: "The syntax of the command is incorrect.", kind: "error" };
+    const src = locate(args[0]); if (src.err) return { out: src.err, kind: "error" };
+    const cut = src.path.lastIndexOf("\\");
+    return copyOne({ m: src.m, path: src.path.slice(0, cut) || src.path, shown: src.shown ? src.shown.slice(0, src.shown.lastIndexOf("\\")) : null }, src.path.slice(cut + 1), locate(args[1]), w0);
+  }
+  function copyOne(from, name, to, w0) {
+    const fail = function (msg) { return { out: w0 === "robocopy" ? "\n-------------------------------------------------------------------------------\n   ROBOCOPY     ::     Robust File Copy for Windows\n-------------------------------------------------------------------------------\n\nERROR 2 (0x00000002) Accessing Source File " + (from.path || "") + "\\" + name + "\nThe system cannot find the file specified." : msg + "\n        0 file(s) copied.", kind: "error" }; };
+    if (from.err) return fail(from.err);
+    if (to.err) return fail(to.err);
+    const sdir = from.m.fs[String(from.path).replace(/\\$/, "").toLowerCase()] || from.m.fs[String(from.path).toLowerCase()];
+    const f = sdir && sdir.files.filter(function (x) { return x.name.toLowerCase() === String(name).toLowerCase(); })[0];
+    if (!f) return fail("The system cannot find the file specified.");
+    const dkey = String(to.path).replace(/\\$/, "").toLowerCase();
+    const dn = to.m.fs[dkey] || to.m.fs[String(to.path).toLowerCase()];
+    if (!dn) return fail("The system cannot find the path specified.");
+    if (/^c:\\(windows|program files)/i.test(to.path) && !sh.elevated && to.m === m) return { out: "Access is denied.\n        0 file(s) copied.", kind: "refused" };
     dn.files = dn.files.filter(function (x) { return x.name.toLowerCase() !== f.name.toLowerCase(); }).concat([Object.assign({}, f)]);
-    M.note(m, "copy", { from: src, to: dst, name: f.name });
+    M.note(to.m, "copy", { from: from.path + "\\" + f.name, to: dn.path, name: f.name, bits: f.bits || null, fromHost: from.m.host });
+    if (w0 === "robocopy") return { kind: "change", out: "\n-------------------------------------------------------------------------------\n   ROBOCOPY     ::     Robust File Copy for Windows\n-------------------------------------------------------------------------------\n\n  Source : " + (from.shown || from.path).replace(/\\$/, "") + "\\\n    Dest : " + (to.shown || dn.path).replace(/\\$/, "") + "\\\n\n   Files : " + f.name + "\n\n------------------------------------------------------------------------------\n\n               Total    Copied   Skipped  Mismatch    FAILED    Extras\n    Files :         1         1         0         0         0         0\n\n   Ended : " + m.clock };
     return { out: "        1 file(s) copied.", kind: "change" };
   }
 
@@ -495,6 +599,11 @@ export function createShell(m, opts) {
       if (a === "n" || a === "no") { sh.mode = "cmd"; sh.pendingYN = null; return { out: "", kind: "look" }; }
       return { out: "(Y/N) ", kind: "error", ask: true };
     }
+    if (sh.pendingYN === "gpo") {
+      sh.mode = "cmd"; sh.pendingYN = null;
+      if (a === "y" || a === "yes") { m.gpoRestart = true; M.note(m, "gpo-restart", {}); return { out: "", kind: "change", power: "restart" }; }
+      return { out: "", kind: "look" };
+    }
     sh.mode = "cmd"; return { out: "", kind: "look" };
   }
 
@@ -507,9 +616,18 @@ export function createShell(m, opts) {
   }
 
   function regsvr32(rest) {
-    if (m.regsvrHook) { const r = m.regsvrHook(rest, sh); if (r) return r; }
-    return { out: "(RegSvr32) The module \"" + (rest[0] || "") + "\" failed to load.\n\nMake sure the binary is stored at the specified path or debug it to check for problems with the binary or dependent .DLL files.\n\nThe specified module could not be found.", kind: "change" };
+    const arg = rest.filter(function (x) { return x[0] !== "/"; })[0] || "";
+    if (!arg) return { out: "(RegSvr32) No DLL name specified.\n\nUsage: regsvr32 [/u] [/s] [/n] [/i[:cmdline]] dllname", kind: "error" };
+    const p = resolve(arg.indexOf("\\") >= 0 ? arg : arg);
+    const dir = p.slice(0, p.lastIndexOf("\\")); const name = p.slice(p.lastIndexOf("\\") + 1);
+    const here = M.findFile(m, dir, name) || M.findFile(m, "C:\\Windows\\System32", name);
+    M.note(m, "regsvr32", { name: name, found: !!here });
+    if (!here) return { out: "(RegSvr32) The module \"" + arg + "\" failed to load.\n\nMake sure the binary is stored at the specified path or debug it to check for problems with the binary or dependent .DLL files.\n\nThe specified module could not be found.", kind: "change" };
+    /* The C++ runtime DLLs are not COM servers. They have nothing to
+       register, and regsvr32 says so — it is not a repair tool. */
+    return { out: "(RegSvr32) The module \"" + arg + "\" was loaded but the entry-point DllRegisterServer was not found.\n\nMake sure that \"" + arg + "\" is a valid DLL or OCX file and then try again.", kind: "change" };
   }
+
 
   function runas(rest) {
     return { out: "Enter the password for " + m.host + "\\" + ((rest.filter(function (x) { return /^\/user:/i.test(x); })[0] || "/user:?").slice(6)) + ":\nAttempting to start cmd as user \"" + m.host + "\\Administrator\" ...\nRUNAS ERROR: Unable to run - cmd\n1327: Account restrictions are preventing this user from signing in. For example: blank passwords aren't allowed, sign-in times are limited, or a policy restriction has been enforced.\n\n(The built-in Administrator account is disabled on Windows 11 unless someone turns it on. Use \"Run as administrator\" on Command Prompt instead.)", kind: "refused" };
@@ -535,11 +653,16 @@ export function createShell(m, opts) {
   }
 
   function gpupdate(low) {
-    M.note(m, "gpupdate", {});
+    M.note(m, "gpupdate", { force: low.indexOf("/force") >= 0 });
+    if (m.gpoPending && low.indexOf("/force") >= 0) {
+      sh.mode = "yn"; sh.pendingYN = "gpo";
+      return { out: "Updating policy...\n\nUser Policy update has completed successfully.\n\nThe following warnings were encountered during computer policy processing:\n\nThe Software Installation computer policy requires a system restart to apply. Certain Computer policies are enabled that can only run during startup.\n\nOK to restart? (Y/N)", kind: "look", ask: true };
+    }
     return { out: "Updating policy...\n\nComputer Policy update has completed successfully.\nUser Policy update has completed successfully.", kind: "change" };
   }
   function gpresult(low) {
     if (low.indexOf("/r") < 0) return { out: USAGE.gpresult, kind: "help" };
+    if (m.gpoPending) return { kind: "look", out: "\nRSOP data for RAFIKI\\" + m.user + " on " + m.host + " : Logging Mode\n------------------------------------------------------------------\n\nCOMPUTER SETTINGS\n------------------\n    Last time Group Policy was applied: " + m.clock + "\n\n    Applied Group Policy Objects\n    -----------------------------\n        Default Domain Policy\n\n    The following GPOs were not applied because they were filtered out\n    -------------------------------------------------------------------\n        Rafiki Apps - " + m.gpoPending + "\n            Filtering:  Not Applied (Pending restart: Software Installation applies at startup)\n" };
     return { kind: "look", out: "\nMicrosoft (R) Windows (R) Operating System Group Policy Result tool v2.0\n\nRSOP data for " + m.host + "\\" + m.user + " on " + m.host + " : Logging Mode\n------------------------------------------------------------------\n\nOS Configuration:            Standalone Workstation\nOS Version:                  " + m.build + "\n\nUSER SETTINGS\n--------------\n    Applied Group Policy Objects\n    -----------------------------\n        N/A\n\n    The user is a part of the following security groups\n    ---------------------------------------------------\n        Users\n" + (m.userIsAdmin ? "        Administrators\n" : "") };
   }
 
@@ -718,7 +841,35 @@ export function createShell(m, opts) {
     if (w === "get-netipaddress") return { kind: "look", out: "\nIPAddress         : 192.168.1.24\nInterfaceAlias    : Ethernet\nAddressFamily     : IPv4\nPrefixLength      : 24\nPrefixOrigin      : Dhcp" };
     if (w === "get-content") return { kind: "look", out: "(Get-Content reads a text file. Nothing on this PC needs reading this way in this job.)" };
     if (NATIVE.indexOf(w) >= 0 || LAUNCH[w]) { sh.mode = "cmd"; try { return sh.run(line); } finally { if (sh.mode === "cmd") sh.mode = "ps"; } }
-    if (w === "ls") { sh.mode = "cmd"; try { return sh.run("dir " + t.slice(1).join(" ")); } finally { sh.mode = "ps"; } }
+    if (w === "ls" || w === "dir" || w === "get-childitem") {
+      /* PowerShell's own listing format, as the App Deployment sim shows it */
+      let target = t.slice(1).join(" "), pat = null;
+      if (/[*?]/.test(target)) { const cut = target.lastIndexOf("\\"); pat = target.slice(cut + 1); target = cut >= 0 ? target.slice(0, cut) : ""; }
+      const loc = locate(target || sh.cwd); if (loc.err) return { out: "ls : Cannot find path because it does not exist.", kind: "look" };
+      const n = loc.m.fs[String(loc.path).replace(/\\$/, "").toLowerCase()] || loc.m.fs[String(loc.path).toLowerCase()];
+      if (!n) return { out: "ls : Cannot find path '" + loc.path + "' because it does not exist.", kind: "look" };
+      const re = pat ? new RegExp("^" + pat.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$", "i") : /./;
+      const files = n.files.filter(function (f) { return re.test(f.name); });
+      const dirs = pat ? [] : n.dirs;
+      return { kind: "look", out: "\n    Directory: " + n.path + "\n\nMode                LastWriteTime         Length Name\n----                -------------         ------ ----\n" +
+        dirs.map(function (d) { return pad("d-----", 20) + pad("03/03/2025     09:45", 22) + lpad("", 8) + " " + d; }).concat(files.map(function (f) { return pad("-a----", 20) + pad("03/03/2025     10:20", 22) + lpad(commas(f.size), 8) + " " + f.name; })).join("\n") };
+    }
+    if (w === "get-wmiobject" || w === "get-ciminstance") {
+      const cls = (t[1] || "").toLowerCase();
+      if (cls === "win32_computersystem") return { kind: "look", out: "\nManufacturer        : Dell Inc.\nModel               : OptiPlex 7090\nName                : " + m.host + "\nPrimaryOwnerName    : " + m.fullName + "\nDomain              : rafiki.local\nTotalPhysicalMemory : " + (m.ramMB * 1048576) };
+      if (cls === "win32_logicaldisk") return { kind: "look", out: "\nDeviceID     : C:\nDriveType    : 3\nFileSystem   : NTFS\nFreeSpace    : 193800000000\nSize         : 509000000000\n\nDeviceID     : D:\nDriveType    : 5" };
+      if (cls === "win32_product") return { kind: "look", out: (m.apps || []).filter(function (a) { return a.installed !== false; }).map(function (a) { return "\nName    : " + a.name + "\nVendor  : " + a.publisher + "\nVersion : " + a.ver; }).join("\n") };
+      return { out: "Get-WmiObject : Invalid class \"" + (t[1] || "") + "\"", kind: "error" };
+    }
+    if (w === "get-eventlog") {
+      const low = t.map(function (x) { return x.toLowerCase(); });
+      const li = low.indexOf("-logname"); const log = li >= 0 ? t[li + 1] : t[1];
+      const ni = low.indexOf("-newest"); const n = ni >= 0 ? parseInt(t[ni + 1], 10) || 8 : 20;
+      const L = m.logs[log ? log[0].toUpperCase() + log.slice(1).toLowerCase() : ""] ;
+      if (!L) return { out: "Get-EventLog : The event log '" + (log || "") + "' on computer '.' does not exist.", kind: "error" };
+      return { kind: "look", out: "\n   Index Time          EntryType   Source                 InstanceID Message\n   ----- ----          ---------   ------                 ---------- -------\n" +
+        L.slice(-n).reverse().map(function (e) { return lpad(e.index, 8) + " " + pad(e.time, 13) + " " + pad(e.level, 11) + " " + pad(e.source, 22) + " " + lpad(e.id, 10) + " " + e.text.slice(0, 48) + "..."; }).join("\n") };
+    }
     return { out: t[0] + " : The term '" + t[0] + "' is not recognized as the name of a cmdlet, function, script file, or operable\nprogram. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.", kind: "error" };
   }
 

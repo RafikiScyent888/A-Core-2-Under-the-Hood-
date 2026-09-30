@@ -4,280 +4,245 @@
      node verify/logic.mjs           the checks
      node verify/logic.mjs --plant   every planted defect must be CAUGHT
 
-   What it holds, for every job and every built stage:
+   What it holds, for all twelve tickets:
 
-     COVERAGE   every stage names real doc topics; every doc topic is
-                covered by a built stage or named in PLANNED, with the lab
-                that will cover it
-     SIX        every choice question: one right, at least five wrong, a
-                reason on every wrong one; six shown, one of them right
-     SPREAD     the right answer does not sit in the same slot, and is not
+     SHAPE      six per sim, one of each is the sim itself, ids unique
+     EXHIBITED  after setup the fault is really on the machine: the
+                program really fails, the way the ticket says it does,
+                and the ticket's goal is not already met
+     SOLVABLE   the known fix, done headless through the real shell and
+                the real repair code, really meets the goal
+     SIX        the close question: six options, one right, a reason on
+                every wrong one; the rung-3 moves the same
+     SPREAD     the right answer does not sit in one slot, and is not
                 usually the longest option
-     EXHIBITED  the generated fault is really there in the machine before
-                the student starts (the culprit really tops its column;
-                the files really are damaged; the drive really is past
-                MBR's reach) — the three bugs that would have marked right
-                answers wrong in the Core 1 build were caught exactly so
-     SOLVABLE   the fix, typed and done headless, really leaves the machine
-                fixed; and the tempting wrong fix really does not
-     NO LEAK    no rung-1 or rung-2 hint contains the answer
-     LADDER     every rung-3 list is six moves, one right, a reason on each
-                wrong one
-     JUDGE      looking, help and typos never count as a guess; a refused
-                repair does
+     NO LEAK    no rung-1 or rung-2 hint names the answer
+     LADDER     rung for guesses 0..9 is 0,0,0,1,2,3,3,3,3,3; rung 3
+                strikes four and leaves two alive, the right one among them
+     JUDGE      looking, help and typos never count; a refused change and
+                the sim's old answer do; undoing your own change does not
+     SNAPSHOT   revert puts the machine back and keeps the hint count;
+                a session survives a reload
+     NOTE       a ticket note needs the words that matter, in any wording
 
    A plant run that passes is reported as a failure: a check that cannot
    fail is not a check.
    ===================================================================== */
 import * as M from "../assets/machine.js";
 import { createShell } from "../assets/cmd.js";
-import * as LT from "../assets/lab-tools.js";
-import * as LABS from "../assets/labs.js";
-import { deskAction } from "../assets/bench-desk.js";
-import { sixOptions } from "../assets/options.js";
-import { shownSix } from "../assets/order.js";
+import { makeFleet, byHost } from "../assets/fleet.js";
+import * as TK from "../assets/tickets.js";
+import { createEngine, rungFor } from "../assets/engine.js";
+import { ordered } from "../assets/order.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
+function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
+
+/* The known fix for each ticket, done the way a student would. */
+export const FIX = {
+  L1: (m) => M.repairApp(m, "Testing", "repair"), L2: (m) => M.repairApp(m, "PayWise", "repair"),
+  L3: (m) => { M.launchApp(m, "Scan2Doc"); M.note(m, "view-log", { log: "Application" }); M.repairApp(m, "Scan2Doc", "repair"); },
+  L4: (m) => M.repairApp(m, "Testing", "repair"), L5: (m) => M.repairApp(m, "LabelPro", "repair"),
+  L6: (m) => { M.launchApp(m, "ChartView"); M.note(m, "view-log", { log: "Application" }); M.repairApp(m, "ChartView", "repair"); },
+  D1: (m, sh) => sh.run("\\\\FS01\\Software\\vcredist_x86_2010.exe"), D2: (m, sh) => sh.run("\\\\FS01\\Software\\VC_redist.x86.exe"),
+  D3: (m, sh) => sh.run('setx /m path "%PATH%;C:\\Program Files (x86)\\Common Files\\Rafiki"'),
+  D4: (m, sh) => { sh.run("gpupdate /force"); const r = sh.run("Y"); if (r.power === "restart") { M.shutdown(m); M.boot(m); } },
+  D5: (m, sh) => sh.run('del "C:\\Program Files (x86)\\Testing\\msvcp100.dll"'),
+  D6: (m, sh) => sh.run("\\\\FS01\\Software\\VC_redist.x64.exe")
+};
+/* How each ticket's fault shows itself before it is fixed. */
+export const SHOWS = { L1: "missing", L2: "missing", L3: "missing", L4: "config", L5: "shortcut", L6: "crash", D1: "missing", D2: "missing", D3: "missing", D4: "notfound", D5: "bitness", D6: "missing" };
+/* Words that would hand over the fix if a rung-1 or rung-2 hint used them. */
+const ANSWER_WORDS = [/vcredist_x86_2010/i, /vc_redist\.x(86|64)\.exe/i, /vcredist_x86_2013/i, /gpupdate \/force/i, /setx \/m/i, /modify\s*→\s*repair/i];
+/* The model note for each ticket: the note check must accept it. */
+const NOTES = {
+  L1: "Testing said MSVCP100.dll was missing. Repaired Testing from Settings and tested that it opens.",
+  L2: "PayWise said VCRUNTIME140.dll was missing. Reinstalled PayWise from Software Center; it opens now.",
+  L3: "Scan2Doc says MSVCR120.dll is missing. Repair changed nothing; Event Viewer shows the same. Escalated to Tier 2 for the runtime.",
+  L4: "Testing gave a configuration error: config.ini was damaged. Repaired Testing, which rewrote the file, and tested it.",
+  L5: "The LabelPro shortcut pointed at the old version's folder. Repaired LabelPro, which recreated the shortcut; tested.",
+  L6: "ChartView crashes with 0xc0000005 in ChartView.exe (Event Viewer, Application Error). Repair did not help. Escalated.",
+  D1: "Event 2190: Testing faulting module MSVCP100.dll. The System32 copy is 64-bit. Installed the x86 redistributable and tested.",
+  D2: "PayWise needed vcruntime140.dll, the 32-bit (x86) runtime. Installed VC_redist.x86 elevated and tested it.",
+  D3: "The deployment wiped the PATH. Added Common Files\\Rafiki back to the system PATH with setx /m and tested Testing.",
+  D4: "Software installation policy was pending a restart. Ran gpupdate /force and restarted; Testing installed.",
+  D5: "A 64-bit msvcp100.dll was in Testing's folder, giving 0xc000007b. Deleted it (elevated) and tested Testing.",
+  D6: "LabelPro is 64-bit and vcruntime140.dll was missing from System32. Installed the x64 runtime and tested."
+};
 
 export function check(D) {
-  const fails = [];
-  const F = (s) => fails.push(s);
-  const lab = D.LABS[0];
+  const fails = []; const F = (s) => fails.push(s);
+  const T = D.TICKETS;
 
-  /* ---- coverage ---- */
-  const ids = D.TOPICS.map((t) => t.id);
-  const covered = new Set();
-  lab.stages.forEach((s) => {
-    if (!s.topics || !s.topics.length) F("stage " + s.key + " has no topics");
-    (s.topics || []).forEach((t) => { if (ids.indexOf(t) < 0) F("stage " + s.key + " names a topic that does not exist: " + t); });
-    if (s.built) { (s.topics || []).forEach((t) => covered.add(t)); if (!D.buildStage(s.key, D.JOBS[0])) F("stage " + s.key + " is marked built and has no builder"); }
+  /* ---- SHAPE ---- */
+  const bySim = {}; const ids = new Set();
+  T.forEach((t) => { if (ids.has(t.id)) F("SHAPE: duplicate id " + t.id); ids.add(t.id); (bySim[t.sim] = bySim[t.sim] || []).push(t); });
+  Object.entries(bySim).forEach(([sim, list]) => {
+    if (list.length !== 6) F("SHAPE: " + sim + " has " + list.length + " tickets, not 1 + 5");
+    if (list.filter((t) => t.base).length !== 1) F("SHAPE: " + sim + " does not have exactly one ticket that is the sim itself");
   });
-  const planned = new Set(); D.PLANNED.forEach((p) => p.topics.forEach((t) => { planned.add(t); if (ids.indexOf(t) < 0) F("PLANNED names a topic that does not exist: " + t); }));
-  ids.forEach((t) => { if (!covered.has(t) && !planned.has(t)) F("topic " + t + " is neither covered by a built stage nor planned in any lab"); });
+  if (Object.keys(bySim).length !== 2) F("SHAPE: expected the two App sims, found " + Object.keys(bySim).length);
 
-  /* ---- per job, per stage ---- */
-  const slots = {}; let longest = 0, nq = 0;
-  D.JOBS.forEach((job) => {
-    lab.stages.filter((s) => s.built).forEach((meta) => {
-      const st = D.buildStage(meta.key, job);
-      if (!st) { F(job.key + "/" + meta.key + ": builder returned nothing"); return; }
-      st.steps.forEach((step) => {
-        const where = job.key + "/" + step.key;
-        if (step.kind === "choice") {
-          const right = step.options.filter((o) => o.correct);
-          const wrong = step.options.filter((o) => !o.correct);
-          if (right.length !== 1) F(where + ": " + right.length + " options marked right");
-          if (wrong.length < 5) F(where + ": only " + wrong.length + " wrong options");
-          wrong.forEach((o) => { if (!o.why || o.why.length < 12) F(where + ": wrong option without a reason: " + o.label); });
-          const six = sixOptions(step.options, 1);
-          if (six.length !== 6 || six.filter((o) => o.correct).length !== 1) F(where + ": sixOptions did not give six with one right");
-          nq++;
-          const shown = D.shownSix(step.options, job.key, step.key);
-          const slot = shown.findIndex((o) => o.correct);
-          slots[slot] = (slots[slot] || 0) + 1;
-          const lens = step.options.map((o) => o.label.length);
-          if (right[0] && right[0].label.length === Math.max.apply(null, lens)) longest++;
-          noLeak(where, step.hints, [right[0] && right[0].label]);
-        }
-        if (step.kind === "number") {
-          if (meta.key === "disk" && Math.abs(step.answer - job.disk.bytes / M.GiB) > 0.006) F(where + ": the calculation's answer is not bytes / 1,073,741,824");
-          ladder(where, step.moves());
-          noLeak(where, step.hints, [step.answer.toFixed(2)]);
-        }
-      });
-      stageSolvable(job, meta.key, st, F, D);
-    });
-  });
-  const ms = D.__moveSlots || {}; const mtot = Object.values(ms).reduce((a, b) => a + b, 0);
-  const mmost = Math.max.apply(null, Object.values(ms).concat([0]));
-  if (mtot && mmost / mtot > 0.4) F("the right move sits in the same slot of rung 3 in " + mmost + " of " + mtot + " lists");
-  const most = Math.max.apply(null, Object.values(slots).concat([0]));
-  if (nq && most / nq > 0.4) F("the right answer sits in the same slot in " + most + " of " + nq + " questions");
-  if (nq && Object.keys(slots).length < 4) F("the right answer only ever appears in " + Object.keys(slots).length + " of the six slots");
-  D.__stats = { nq: nq, longest: longest, slots: slots };
-  /* The opposite bias is a pattern too: a student who learns that the
-     right answer is NEVER the longest has learned something that is not
-     the content. Near chance is one in six. */
-  if (nq >= 12 && longest < 1) F("the right answer is never the longest option, in " + nq + " questions");
-  if (nq && longest / nq > 0.5) F("the right answer is the longest option in " + longest + " of " + nq + " questions");
+  const pos = [0, 0, 0, 0, 0, 0]; let longest = 0, lenQs = 0, movePos = [0, 0, 0, 0, 0, 0];
+  T.forEach((t) => {
+    /* ---- EXHIBITED ---- */
+    const f = D.makeFleet(); t.setup(f); const m = f[t.machine];
+    if (t.goal(f)) F("EXHIBITED " + t.id + ": the goal is already met before the student starts");
+    const via = t.id === "L5" ? "shortcut" : "start";
+    const r = M.launchApp(clone(m), t.app, via);
+    if (r.kind !== D.SHOWS[t.id]) F("EXHIBITED " + t.id + ": " + t.app + " shows '" + r.kind + "', the ticket needs '" + D.SHOWS[t.id] + "'");
+    if (D.score(t, f) >= 10) F("EXHIBITED " + t.id + ": scored as fixed before any work");
 
-  function ladder(where, moves) {
-    if (moves && moves.length === 6) {
-      const shown = D.shownSix(moves.map((x, i) => Object.assign({ key: "m" + i }, x)), where.split("/")[0], where.split("/")[1] || "x");
-      const slot = shown.findIndex((x) => x.correct);
-      D.__moveSlots = D.__moveSlots || {}; D.__moveSlots[slot] = (D.__moveSlots[slot] || 0) + 1;
-    }
-    if (!moves || moves.length !== 6) F(where + ": rung 3 has " + (moves ? moves.length : 0) + " moves, not 6");
-    if (moves && moves.filter((x) => x.correct).length !== 1) F(where + ": rung 3 does not have exactly one right move");
-    (moves || []).forEach((x) => { if (!x.correct && (!x.why || x.why.length < 10)) F(where + ": rung-3 move without a reason: " + x.label); });
-  }
-  function noLeak(where, hints, answers) {
-    (hints || []).forEach((h) => {
-      answers.filter(Boolean).forEach((a) => {
-        if (String(h).toLowerCase().indexOf(String(a).toLowerCase()) >= 0) F(where + ": a hint contains the answer (“" + a + "”)");
+    /* ---- SOLVABLE ---- */
+    const g = clone(f); const gm = g[t.machine];
+    D.FIX[t.id](gm, createShell(gm, { elevated: true, fleet: (h) => byHost(g, h) }));
+    if (!t.goal(g)) F("SOLVABLE " + t.id + ": the known fix does not meet the goal");
+
+    /* ---- SIX: close question and moves ---- */
+    const six = (list, what) => {
+      if (list.length !== 6) F("SIX " + t.id + " " + what + ": " + list.length + " options, not 6");
+      if (list.filter((x) => x.correct).length !== 1) F("SIX " + t.id + " " + what + ": not exactly one right answer");
+      list.filter((x) => !x.correct).forEach((x) => { if (!String(x.why || "").trim()) F("SIX " + t.id + " " + what + ": wrong option has no reason: " + x.label); });
+      if (new Set(list.map((x) => x.label)).size !== list.length) F("SIX " + t.id + " " + what + ": two options share a label");
+    };
+    six(t.close.options, "close");
+    const mv = t.moves(f); six(mv, "moves");
+
+    /* ---- SPREAD ---- */
+    const shown = D.ordered(t.close.options, t.id + "close"); pos[shown.findIndex((x) => x.correct)]++;
+    movePos[D.ordered(mv, t.id + "m").findIndex((x) => x.correct)]++;
+    const L = t.close.options.map((x) => x.label.length); const cl = t.close.options.find((x) => x.correct).label.length;
+    if (new Set(L).size > 1) { lenQs++; if (cl === Math.max(...L) && L.filter((x) => x === cl).length === 1) longest++; }
+
+    /* ---- NO LEAK ---- */
+    const right = t.close.options.find((x) => x.correct).label.toLowerCase();
+    const rightMove = mv.find((x) => x.correct).label.toLowerCase();
+    [f, g].forEach((state) => {
+      const h = t.hints(state);
+      if (!h || h.length < 2) { F("NO LEAK " + t.id + ": hints must give rung 1 and rung 2"); return; }
+      h.forEach((line, i) => {
+        const s = String(line).toLowerCase();
+        if (right.length > 6 && s.indexOf(right) >= 0) F("NO LEAK " + t.id + ": rung " + (i + 1) + " contains the close answer");
+        if (s.indexOf(rightMove) >= 0) F("NO LEAK " + t.id + ": rung " + (i + 1) + " contains the right move");
+        D.ANSWER_WORDS.forEach((re) => { if (re.test(line)) F("NO LEAK " + t.id + ": rung " + (i + 1) + " names the fix (" + re + ")"); });
       });
     });
-  }
+
+    /* ---- NOTE ---- */
+    if (!D.noteOK(t, D.NOTES[t.id]).ok) F("NOTE " + t.id + ": the model note is refused: " + D.noteOK(t, D.NOTES[t.id]).missing.join("; "));
+    if (D.noteOK(t, "Fixed it.").ok) F("NOTE " + t.id + ": a two-word note is accepted");
+    if (D.noteOK(t, "I looked at the computer for a while and then it was working again, so I closed it.").ok) F("NOTE " + t.id + ": a note that says nothing specific is accepted");
+  });
+  if (Math.max(...pos) > 4) F("SPREAD: the right close answer sits in one slot " + Math.max(...pos) + " times of 12 (" + pos.join(" ") + ")");
+  if (Math.max(...movePos) > 4) F("SPREAD: the right move sits in one slot " + Math.max(...movePos) + " times of 12 (" + movePos.join(" ") + ")");
+  if (longest > Math.ceil(lenQs / 3)) F("SPREAD: the right close answer is the longest option in " + longest + " of " + lenQs + " questions");
+
+  /* ---- LADDER ---- */
+  const want = [0, 0, 0, 1, 2, 3, 3, 3, 3, 3];
+  want.forEach((w, n) => { if (D.rungFor(n) !== w) F("LADDER: guess " + n + " gives rung " + D.rungFor(n) + ", should be " + w); });
+  T.forEach((t) => {
+    const E = D.createEngine(memStore()); E.openTicket(t.id);
+    E.T().guesses = 7; const g = E.guidance();
+    if (g.rung !== 3 || !g.moves) { F("LADDER " + t.id + ": seven guesses did not give rung 3 moves"); return; }
+    const alive = g.moves.filter((x) => !x.struck);
+    if (alive.length !== 2) F("LADDER " + t.id + ": rung 3 leaves " + alive.length + " moves alive, not 2");
+    if (!alive.some((x) => x.correct)) F("LADDER " + t.id + ": rung 3 strikes the right move");
+    g.moves.filter((x) => x.struck).forEach((x) => { if (!x.why) F("LADDER " + t.id + ": a struck move has no reason"); });
+    if (JSON.stringify(g).toLowerCase().indexOf("the answer is") >= 0) F("LADDER " + t.id + ": a rung says 'the answer is'");
+    /* the close form's rung 3, after the student has ruled four out themselves */
+    const g2 = D.createEngine(memStore()); g2.openTicket(t.id); const st = g2.T();
+    const sol = g2.fleet(); D.FIX[t.id](sol[t.machine], createShell(sol[t.machine], { elevated: true, fleet: (h) => byHost(sol, h) }));
+    if (!g2.submit(t.outcome).ok) { F("LADDER " + t.id + ": submit refused after the known fix"); return; }
+    t.close.options.filter((x) => !x.correct).slice(0, 4).forEach((x) => g2.pick(x.label));
+    const gc = g2.guidance();
+    if (gc.rung !== 2) F("LADDER " + t.id + ": four wrong picks give rung " + gc.rung + ", should be 2");
+    t.close.options.filter((x) => !x.correct).slice(4).forEach((x) => g2.pick(x.label));
+    const g5 = g2.guidance(); const struck = Object.keys(g5.strike || {});
+    if (g5.rung !== 3 || struck.length !== 4) F("LADDER " + t.id + ": five wrong picks did not strike four");
+    if (struck.some((l) => t.close.options.find((x) => x.label === l).correct)) F("LADDER " + t.id + ": the close hint strikes the right answer");
+    if (Object.keys(st.picked).length !== 5) F("LADDER " + t.id + ": wrong picks did not all stay marked (red stays red)");
+  });
+
+  /* ---- JUDGE ---- */
+  const E = D.createEngine(memStore()); E.openTicket("D1");
+  const f = E.fleet(), m = f.WS1; const sh = createShell(m, { elevated: true, fleet: E.lookup });
+  const run = (line) => { const b = E.before(); const res = sh.run(line); E.onAct({ type: "cmd", line, res, elevated: true, before: b }); return E.T().guesses; };
+  let n = E.T().guesses;
+  ["dir", "tasklist", "help", "copy /?", "xyzzy", "echo %PATH%", "ipconfig", "hostname"].forEach((c) => { if (run(c) !== n) F("JUDGE: '" + c + "' counted as a guess"); });
+  E.onAct({ type: "launch", app: "Testing", res: M.launchApp(m, "Testing") }); if (E.T().guesses !== n) F("JUDGE: running the program to test it counted as a guess");
+  E.onAct({ type: "view-log", log: "Application" }); if (E.T().guesses !== n) F("JUDGE: reading Event Viewer counted as a guess");
+  n = run('robocopy \\\\WS4-FIN\\C$\\Windows\\System32 "C:\\Program Files (x86)\\Testing" msvcp100.dll');
+  if (n !== 1) F("JUDGE: the sim's old answer (robocopy from System32) did not count");
+  if (M.launchApp(clone(m), "Testing").kind !== "bitness") F("JUDGE: the old answer did not give 0xc000007b");
+  n = run("regsvr32 msvcp100.dll"); if (n !== 2) F("JUDGE: regsvr32 did not count");
+  { const keep = E.T().guesses; E.T().guesses = 7; const gt = E.guidance();
+    (gt.moves || []).filter((x) => /^(robocopy|regsvr32)/i.test(x.label)).forEach((x) => { if (!x.struck) F("LADDER: rung 3 leaves alive a move the student already tried and saw fail: " + x.label); });
+    E.T().guesses = keep; }
+  n = run('del "C:\\Program Files (x86)\\Testing\\msvcp100.dll"'); if (n !== 2) F("JUDGE: deleting the file you just put there counted as a guess");
+  n = run('copy \\\\WS4-FIN\\C$\\Windows\\SysWOW64\\msvcp100.dll "C:\\Program Files (x86)\\Testing"');
+  if (n !== 2) F("JUDGE: copying the right (32-bit) file counted as a guess — it is progress");
+  const E2 = D.createEngine(memStore()); E2.openTicket("L1");
+  const sh2 = createShell(E2.fleet().WS4, { elevated: false, fleet: E2.lookup }); const b2 = E2.before();
+  const res2 = sh2.run('copy \\\\WS1-HR\\C$\\Windows\\SysWOW64\\msvcp100.dll "C:\\Program Files (x86)\\Testing"');
+  E2.onAct({ type: "cmd", line: "copy", res: res2, before: b2 });
+  if (res2.kind !== "refused" || E2.T().guesses !== 1) F("JUDGE: a refused copy (Access is denied) did not count");
+  E2.onAct({ type: "catalogue-admin", key: "vc2010x86", before: E2.before() }); if (E2.T().guesses !== 2) F("JUDGE: a Tier 2 action on a Tier 1 ticket did not count");
+  const r2 = E2.submit("resolve"); if (r2.ok || E2.T().guesses !== 3) F("JUDGE: resolving while still broken did not count, or was accepted");
+
+  /* ---- SNAPSHOT ---- */
+  const store = memStore(); const E3 = D.createEngine(store); E3.openTicket("D5");
+  const k0 = JSON.stringify(E3.fleet().WS2.fs);
+  const sh3 = createShell(E3.fleet().WS2, { elevated: true, fleet: E3.lookup }); const b3 = E3.before();
+  E3.onAct({ type: "cmd", line: "del", res: sh3.run('del "C:\\Windows\\SysWOW64\\msvcp100.dll"'), before: b3 });
+  const g3 = E3.T().guesses; if (g3 !== 1) F("SNAPSHOT: deleting a system runtime on D5 did not count");
+  E3.revert();
+  if (JSON.stringify(E3.fleet().WS2.fs) !== k0) F("SNAPSHOT: revert did not put the machine back");
+  if (E3.T().guesses !== g3) F("SNAPSHOT: revert reset the hint count (it must carry on)");
+  const E4 = D.createEngine(store);
+  if (!E4.ticket() || E4.ticket().id !== "D5" || E4.T().guesses !== g3) F("SNAPSHOT: the session did not survive a reload");
 
   return fails;
-
-  /* ------------------------------------------------------------------ */
-  function stageSolvable(job, key, st, F, D) {
-    const ctxOf = (m) => ({ blamed: null, elevatedSeen: false, ruled: {}, get events() { return m.events; } });
-    const step = (k) => st.steps.filter((x) => x.key === k)[0];
-    if (key === "slow") {
-      const m = D.machineFor(job, "slow"); const ctx = ctxOf(m);
-      const find = step("slow-find");
-      if (find.goal(m, ctx)) F(job.key + "/slow-find: done before the student starts");
-      /* EXHIBITED: the culprit is the top row of the column that matches the symptom */
-      const col = job.slow.column;
-      const top = m.procs.slice().sort((a, b) => (b[col] || 0) - (a[col] || 0))[0];
-      if (!top || top.tag !== job.slow.culprit) F(job.key + "/slow: sorted by " + col + ", the top row is " + (top && top.name) + ", not the culprit");
-      ladder(job.key + "/slow-find", find.moves(m, ctx));
-      noLeak(job.key + "/slow-find", find.hints(m, ctx), [job.slow.procs.filter((p) => p.tag === job.slow.culprit)[0].desc]);
-      ctx.blamed = job.slow.culprit;
-      if (!find.goal(m, ctx)) F(job.key + "/slow-find: blaming the culprit does not finish it");
-      const act = step("slow-act");
-      if (act) {
-        ladder(job.key + "/slow-act", act.moves(m, ctx));
-        if (act.goal(m, ctx)) F(job.key + "/slow-act: done before the student acts");
-        if (job.slow.act.kind === "end") { const p = m.procs.filter((x) => x.tag === job.slow.act.tag)[0]; M.endProcess(m, p.pid); }
-        else deskAction(m, "net-unplug");
-        if (!act.goal(m, ctx)) F(job.key + "/slow-act: doing it does not finish it");
-      }
-      return;
-    }
-    if (key === "admin") {
-      const fix = step("admin-fix");
-      const v = job.admin.variant;
-      const m = D.machineFor(job, "admin"); const ctx = ctxOf(m);
-      if (fix.goal(m, ctx)) F(job.key + "/admin-fix: done before the student starts");
-      if (v !== "clean" && M.sysHealthy(m)) F(job.key + "/admin: the system files are not actually damaged");
-      /* JUDGE: looking, help and typos never count; a refused repair does */
-      const std = createShell(m, {});
-      const before = clone(m.sys);
-      ["dir", "help", "sfc /?", "sfcc /scannow", "whoami", "tasklist"].forEach((c) => {
-        const res = std.run(c);
-        if (fix.judge({ type: "cmd", line: c, res: res }, m, ctx, before)) F(job.key + "/admin: “" + c + "” was counted as a guess");
-      });
-      const r = std.run("sfc /scannow");
-      if (!fix.judge({ type: "cmd", line: "sfc /scannow", res: r }, m, ctx, before)) F(job.key + "/admin: a refused sfc in a standard prompt was not counted");
-      ladder(job.key + "/admin-fix", fix.moves(m, ctx));
-      /* SOLVABLE: the known path, typed */
-      const sh = createShell(m, { elevated: true }); ctx.elevatedSeen = true;
-      const seq = { sfc: ["sfc /scannow"], dism: ["sfc /scannow", "DISM /Online /Cleanup-Image /RestoreHealth", "sfc /scannow"],
-        chkdsk: ["sfc /scannow", "chkdsk C: /f", "Y", "#boot", "sfc /scannow"], pending: ["sfc /scannow", "#boot", "sfc /scannow"],
-        clean: ["sfc /scannow"], creds: ["sfc /scannow"] }[v];
-      let sh2 = sh;
-      seq.forEach((c) => {
-        if (c === "#boot") { M.shutdown(m); M.boot(m); sh2 = createShell(m, { elevated: true }); return; }
-        const b = clone(m.sys); const res = sh2.run(c);
-        if (fix.judge({ type: "cmd", line: c, res: res }, m, ctx, b)) F(job.key + "/admin: the right move “" + c + "” was counted as a guess");
-      });
-      if (!fix.goal(m, ctx)) F(job.key + "/admin-fix: the known fix does not leave the machine fixed");
-      /* the tempting wrong path must NOT fix it */
-      const m2 = D.machineFor(job, "admin"); const c2 = ctxOf(m2); const s2 = createShell(m2, { elevated: true });
-      if (v === "dism") { s2.run("sfc /scannow"); s2.run("sfc /scannow"); if (fix.goal(m2, c2)) F(job.key + "/admin: sfc alone fixed a damaged component store"); }
-      if (v === "chkdsk") { s2.run("DISM /Online /Cleanup-Image /RestoreHealth"); s2.run("sfc /scannow"); if (fix.goal(m2, c2)) F(job.key + "/admin: the files were fixed without repairing the file system"); }
-      if (v === "pending") { s2.run("sfc /scannow"); s2.run("sfc /scannow"); if (fix.goal(m2, c2)) F(job.key + "/admin: the files were fixed without the pending restart"); }
-      return;
-    }
-    if (key === "disk") {
-      const fit = step("disk-fit"), setup = step("disk-setup");
-      const m = D.machineFor(job, "disk"); const ctx = ctxOf(m);
-      if (job.disk.bytes <= M.MBR_LIMIT) F(job.key + "/disk: the drive is not past MBR's limit, so the trap is not there");
-      if (fit.goal(m, ctx)) F(job.key + "/disk-fit: done before the student starts");
-      const r0 = deskAction(m, "panel-off");
-      if (!r0.refused) F(job.key + "/disk-fit: the case opened with the PC running");
-      if (!fit.judge({ type: "hw", id: "panel-off", res: r0 }, m, ctx)) F(job.key + "/disk-fit: opening a running PC was not counted");
-      ladder(job.key + "/disk-fit", fit.moves(m, ctx));
-      M.shutdown(m);
-      const r1 = deskAction(m, "panel-off");
-      if (!r1.refused) F(job.key + "/disk-fit: the case opened with the mains lead still in");
-      ["mains-out", "panel-off", "drive-in", "data-in", "power-in", "panel-on", "mains-in", "power-on"].forEach((id) => {
-        const res = deskAction(m, id);
-        if (fit.judge({ type: "hw", id: id, res: res }, m, ctx)) F(job.key + "/disk-fit: the right move " + id + " was counted as a guess");
-      });
-      if (!fit.goal(m, ctx)) F(job.key + "/disk-fit: the known steps do not leave the drive fitted");
-      if (!LT.spareDisk(m)) F(job.key + "/disk: the fitted, cabled drive is not detected");
-      if (setup.goal(m, ctx)) F(job.key + "/disk-setup: done before the student starts");
-      ladder(job.key + "/disk-setup", setup.moves(m, ctx));
-      /* the MBR path must not satisfy it */
-      const mb = clone(m);
-      doSetup(mb, job, "MBR");
-      if (setup.goal(mb, ctx)) F(job.key + "/disk-setup: an MBR disk was accepted");
-      doSetup(m, job, "GPT");
-      if (!setup.goal(m, ctx)) F(job.key + "/disk-setup: the known steps do not leave the drive usable");
-      /* a drive with a lead missing is not detected */
-      const m3 = D.machineFor(job, "disk"); M.shutdown(m3);
-      ["mains-out", "panel-off", "drive-in", "data-in", "panel-on", "mains-in", "power-on"].forEach((id) => deskAction(m3, id));
-      if (LT.spareDisk(m3)) F(job.key + "/disk: the drive was detected with no SATA power");
-    }
-  }
 }
 
-function doSetup(m, job, style) {
-  const d = LT.spareDisk(m);
-  if (m.hw.spare.offline) m.hw.spare.offline = false;
-  if (d.parts.some((p) => p.kind === "data")) {
-    const i = d.parts.findIndex((p) => p.kind === "data"); M.deleteVolume(m, d.n, i);
-    if (style === "GPT") M.convertDisk(m, d.n, "GPT");
-  } else M.initDisk(m, d.n, style);
-  const n = job.disk.need;
-  if (n.volumes > 1) { M.newVolume(m, d.n, { size: 1048576 * 1048576, fs: "NTFS", letter: "E", label: "Scan" }); M.newVolume(m, d.n, { fs: "NTFS", letter: "F", label: job.disk.label }); }
-  else M.newVolume(m, d.n, { fs: "NTFS", letter: n.letter || "E", label: job.disk.label });
-}
+const BASE = { TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
-/* ------------------------------------------------------------ run */
-const BASE = { shownSix: shownSix, JOBS: LT.JOBS, LABS: LABS.LABS, PLANNED: LABS.PLANNED, TOPICS: LABS.TOPICS, buildStage: LT.buildStage, machineFor: LT.machineFor };
-
-const PLANTS = {
-  "a topic nobody covers": (D) => { D.PLANNED = D.PLANNED.map((p) => Object.assign({}, p, { topics: p.topics.filter((t) => t !== "op-backup") })); return D; },
-  "a stage naming a topic that does not exist": (D) => { D.LABS = clone(D.LABS); D.LABS[0].stages[0].topics = ["os-tools", "made-up"]; return D; },
-  "two right answers": (D) => { D.JOBS = clone(D.JOBS); D.JOBS[0].desk.wrong[0] = [D.JOBS[0].desk.wrong[0][0], D.JOBS[0].desk.wrong[0][1]]; const bs = D.buildStage; D.buildStage = (k, j) => { const s = bs(k, j); if (s && k === "desk" && j.key === D.JOBS[0].key) s.steps[0].options[1].correct = true; return s; }; return D; },
-  "a wrong option with no reason": (D) => { D.JOBS = clone(D.JOBS); D.JOBS[1].desk.wrong[2][1] = ""; return D; },
-  "files not actually damaged": (D) => { D.JOBS = clone(D.JOBS); D.JOBS[1].admin.sys = {}; return D; },
-  "the culprit is not the top row": (D) => { D.JOBS = clone(D.JOBS); D.JOBS[2].slow.procs[0].cpu = 0.2; return D; },
-  "a hint that gives the answer": (D) => { D.JOBS = clone(D.JOBS); D.JOBS[0].desk.where = "It is this one: " + D.JOBS[0].desk.correct; return D; },
-  "a wrong calculation answer": (D) => { const bs = D.buildStage; D.buildStage = (k, j) => { const s = bs(k, j); if (s && k === "disk") s.steps[0].answer = j.disk.bytes / 1e9; return s; }; return D; },
-  "a drive under the MBR limit": (D) => { D.JOBS = clone(D.JOBS); D.JOBS[3].disk.bytes = 2000398934016; return D; },
-  "a rung-3 list of five": (D) => { const bs = D.buildStage; D.buildStage = (k, j) => { const s = bs(k, j); if (s && k === "disk") { const f = s.steps[1].moves; s.steps[1].moves = (m) => f(m).slice(0, 5); } return s; }; return D; },
-  "a judge that counts typos": (D) => { const bs = D.buildStage; D.buildStage = (k, j) => { const s = bs(k, j); if (s && k === "admin") { const f = s.steps[0].judge; s.steps[0].judge = (a, m, c, b) => (a.res && a.res.kind === "error") || f(a, m, c, b); } return s; }; return D; },
-  "sfc repairing from a damaged store": (D) => { const mf = D.machineFor; D.machineFor = (j, k) => { const m = mf(j, k); if (k === "admin" && j.admin.variant === "dism") { m.sys.storeCorrupt = false; } return m; }; return D; },
-  "the right answer always first": (D) => { D.shownSix = (opts) => sixOptions(opts, 1).slice().sort((a, b) => (b.correct ? 1 : 0) - (a.correct ? 1 : 0)); return D; },
-  "the right answer never the longest": (D) => { const bs = D.buildStage; D.buildStage = (k, j) => { const s = bs(k, j); if (s) s.steps.forEach((st) => (st.options || []).forEach((o) => { if (o.correct) o.label = o.label.slice(0, 8); })); return s; }; return D; },
-  "rung 3 lists the right move first": (D) => { D.shownSix = (opts, a, b) => (opts[0] && /^m\d$/.test(opts[0].key)) ? opts.slice() : shownSix(opts, a, b); return D; },
-  "an MBR disk accepted": (D) => { const bs = D.buildStage; D.buildStage = (k, j) => { const s = bs(k, j); if (s && k === "disk") { const g = s.steps[2].goal; s.steps[2].goal = (m, c) => { const d = LT.spareDisk(m); if (d && d.style === "MBR" && d.parts.some((p) => p.kind === "data")) return true; return g(m, c); }; } return s; }; return D; }
-};
+/* Each plant is one defect a check exists to catch, and the check it must
+   be caught BY (a prefix of the failure). */
+const PLANTS = [
+  ["SHAPE", "a sixth App Launch variant dropped", () => ({ TICKETS: BASE.TICKETS.filter((t) => t.id !== "L6") })],
+  ["EXHIBITED", "D1's setup forgets to remove the runtime", () => ({ TICKETS: withTicket("D1", (t) => ({ setup: (f) => { t.setup(f); f.WS1.runtimes.vc2010x86 = true; M.syncRuntimes(f.WS1); } })) })],
+  ["EXHIBITED", "D5 plants a 32-bit copy, so there is no 0xc000007b", () => ({ TICKETS: withTicket("D5", (t) => ({ setup: (f) => { t.setup(f); const d = M.dirOf(f.WS2, "C:\\Program Files (x86)\\Testing"); d.files.forEach((x) => { if (/msvcp100/i.test(x.name)) x.bits = 32; }); } })) })],
+  ["SOLVABLE", "D6's fix installs the x86 runtime instead", () => ({ FIX: Object.assign({}, FIX, { D6: (m, sh) => sh.run("\\\\FS01\\Software\\VC_redist.x86.exe") }) })],
+  ["SOLVABLE", "D4 answers N to the restart", () => ({ FIX: Object.assign({}, FIX, { D4: (m, sh) => { sh.run("gpupdate /force"); sh.run("N"); } }) })],
+  ["SIX", "L2's close question loses an option", () => ({ TICKETS: withTicket("L2", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.slice(0, 5) }) })) })],
+  ["SIX", "a wrong option on D3 has no reason", () => ({ TICKETS: withTicket("D3", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.map((x, i) => (i === 2 ? Object.assign({}, x, { why: "" }) : x)) }) })) })],
+  ["SPREAD", "the options shown in authored order (right answer first)", () => ({ ordered: (o) => o.slice() })],
+  ["SPREAD", "every right answer padded to be the longest", () => ({ TICKETS: BASE.TICKETS.map((t) => Object.assign({}, t, { close: Object.assign({}, t.close, { options: t.close.options.map((x) => (x.correct ? Object.assign({}, x, { label: x.label + " — which is what the evidence on this PC shows, taken all together" }) : x)) }) })) })],
+  ["NO LEAK", "D1's rung 1 names the installer", () => ({ TICKETS: withTicket("D1", (t) => ({ hints: (f) => ["Run \\\\FS01\\Software\\vcredist_x86_2010.exe from an elevated prompt.", t.hints(f)[1]] })) })],
+  ["NO LEAK", "L4's rung 2 states the close answer", () => ({ TICKETS: withTicket("L4", (t) => ({ hints: (f) => [t.hints(f)[0], "The cause: " + t.close.options.find((x) => x.correct).label + "."] })) })],
+  ["LADDER", "rung 1 arrives on the second guess", () => ({ rungFor: (n) => (n < 2 ? 0 : Math.min(3, n - 1)) })],
+  ["LADDER", "rung 3 strikes the right move", () => ({ createEngine: (s) => { const E = createEngine(s); const g = E.guidance; E.guidance = () => { const x = g(); if (x && x.moves) x.moves = x.moves.map((y) => Object.assign({}, y, { struck: y.correct || y.struck })); return x; }; return E; } })],
+  ["LADDER", "rung 3 keeps alive a move already tried", () => ({ createEngine: (s) => { const E = createEngine(s); const g = E.guidance; E.guidance = () => { const x = g(); if (x && x.moves) x.moves = x.moves.map((y) => (/^robocopy/i.test(y.label) ? Object.assign({}, y, { struck: false }) : y)); return x; }; return E; } })],
+  ["JUDGE", "typos counted as guesses", () => ({ createEngine: (s) => { const E = createEngine(s); const o = E.onAct; E.onAct = (a) => { o(a); if (a.res && a.res.kind === "error" && E.T()) E.T().guesses++; }; return E; } })],
+  ["SNAPSHOT", "revert keeps the broken machine", () => ({ createEngine: (s) => { const E = createEngine(s); E.revert = () => {}; return E; } })],
+  ["NOTE", "the note check accepts anything forty letters long", () => ({ noteOK: (t, s) => ({ ok: String(s).length >= 40, missing: [] }) })]
+];
 
 const plant = process.argv.includes("--plant");
 if (!plant) {
-  const D0 = Object.assign({}, BASE);
-  const fails = check(D0);
-  console.log("right answer is the longest option in " + D0.__stats.longest + " of " + D0.__stats.nq + "; slots used: " + JSON.stringify(D0.__stats.slots));
-  if (fails.length) { console.log("FAIL\n  " + fails.join("\n  ")); process.exit(1); }
-  console.log("PASS — coverage, six options, spread, exhibited faults, solvable fixes, no leaks, ladders, judge: " + LT.JOBS.length + " jobs × " + LABS.LABS[0].stages.filter((s) => s.built).length + " stages");
+  const f = check(BASE);
+  f.forEach((x) => console.log("FAIL " + x));
+  console.log(f.length ? f.length + " failure(s)" : "PASS — logic: 12 tickets, shape, fault exhibited, solvable, six options, spread, no leak, ladder, judge, snapshot, note");
+  process.exit(f.length ? 1 : 0);
 } else {
   let bad = 0;
-  /* Each plant names words its OWN check says. Being caught by some other
-     check on the way past is not the same thing: that is how a plant can
-     pass while the check it was written for is dead. */
-  const EXPECT = {
-    "a topic nobody covers": "neither covered", "a stage naming a topic that does not exist": "does not exist",
-    "two right answers": "options marked right", "a wrong option with no reason": "without a reason",
-    "files not actually damaged": "not actually damaged", "the culprit is not the top row": "not the culprit",
-    "a hint that gives the answer": "contains the answer", "a wrong calculation answer": "not bytes",
-    "a drive under the MBR limit": "not past MBR", "a rung-3 list of five": "not 6",
-    "a judge that counts typos": "was counted as a guess", "sfc repairing from a damaged store": "counted as a guess",
-    "the right answer always first": "same slot", "the right answer never the longest": "never the longest",
-    "an MBR disk accepted": "MBR disk was accepted", "rung 3 lists the right move first": "right move sits in the same slot"
-  };
-  Object.keys(PLANTS).forEach((name) => {
-    const fails = check(PLANTS[name](Object.assign({}, BASE)));
-    const hit = fails.filter((f) => f.indexOf(EXPECT[name]) >= 0)[0];
-    if (hit) console.log("caught   " + name + "  →  " + hit);
-    else { console.log("MISSED   " + name + (fails.length ? "  (only other checks fired: " + fails[0] + ")" : "")); bad++; }
-  });
-  if (bad) { console.log(bad + " plant(s) not caught"); process.exit(1); }
-  console.log("every plant caught (" + Object.keys(PLANTS).length + ")");
+  for (const [by, what, make] of PLANTS) {
+    const f = check(Object.assign({}, BASE, make()));
+    const caught = f.filter((x) => x.startsWith(by));
+    if (caught.length) console.log("caught  [" + by + "] " + what + "  ← " + caught[0]);
+    else { bad++; console.log("MISSED  [" + by + "] " + what + (f.length ? "  (only tripped: " + f[0] + ")" : "")); }
+  }
+  console.log(bad ? bad + " plant(s) missed" : "PASS — all " + PLANTS.length + " plants caught by the check written for them");
+  process.exit(bad ? 1 : 0);
 }

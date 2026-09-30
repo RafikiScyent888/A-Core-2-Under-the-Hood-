@@ -16,14 +16,16 @@
    white text on a white ancestor when the paint is a gradient; pixels do
    not lie that way. Disabled controls are NOT exempt.
 
-   The states driven: the job picker; a running stage with wrong picks,
-   rungs 1 to 3 and a finished step; Task Manager sorted, a row selected
-   and a row ruled out; a console with a refusal and its "what just
-   happened" line; the UAC prompt and the credential prompt; the Start
-   menu; the desk controls in every state; Disk Management with MBR's
-   unreachable block, and the wizard and Initialize dialogs; the blue
-   screen; the screen switched off; no Explorer; the mechanism panel;
-   instructor mode; the finished job. Dark, light, and dark with the
+   The states driven: the Help Desk queue; a ticket's error box; Event
+   Viewer with an error selected; a console with a refusal and its "what
+   just happened" line; the clipboard at rungs 1 and 3; the Start menu
+   and the Run box; Task Manager sorted with a row selected; Software
+   Center; the UAC credential prompt with its error; Settings and the
+   installer; File Explorer with a file selected; revert; Resolve refused;
+   the close form with wrong picks red, rung 3 struck, the right answer,
+   and a refused note; the closed ticket; the instructor PIN and answers;
+   the critical-process warning, the blue screen and the restart note;
+   no Explorer; the screen switched off. Dark, light, and dark with the
    dyslexia setting on.
    ===================================================================== */
 import { serve, browser } from "./serve.mjs";
@@ -40,7 +42,9 @@ export async function run(extraCss) {
   const found = new Map();
   if (extraCss) await page.addInitScript((css) => { document.addEventListener("DOMContentLoaded", () => { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }); }, extraCss);
 
+  let where = "start";
   async function sweep(state) {
+    where = state;
     await page.waitForTimeout(250);
     const runs = await page.evaluate(() => {
       const out = []; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n;
@@ -108,98 +112,99 @@ export async function run(extraCss) {
     });
   }
 
-  const cur = () => page.evaluate(() => { const r = window.__C2UTH.runner(); return r ? r._state().current : null; });
-  async function choose(label) { await page.locator(".step.now .opt", { hasText: label }).first().click(); await page.waitForTimeout(100); }
-  async function type(cmd) { const i = page.locator(".con-in").last(); await i.fill(cmd); await i.press("Enter"); await page.waitForTimeout(100); }
-  async function hw(label) { await page.locator(".bench-act", { hasText: label }).first().click(); await page.waitForTimeout(120); }
-  async function next() { await page.click(".stage-nav >> text=/Next stage|Finish the job/"); await page.waitForTimeout(500); }
-  const J = async (k) => page.evaluate(async (k) => { const L = await import("./assets/lab-tools.js"); return JSON.parse(JSON.stringify(L.jobByKey(k))); }, k);
+  const scr = () => page.locator(".screen-host:not([hidden])");
+  const machine = (host) => page.locator("#machines .mc", { hasText: host }).click();
+  const startApp = async (label) => { await scr().getByRole("button", { name: "Start menu" }).click(); await scr().getByRole("button", { name: label }).click(); };
+  const typed = async (line) => { const c = scr().locator(".con-in"); await c.fill(line); await c.press("Enter"); await page.waitForTimeout(80); };
+  const okDialog = async () => { if (await scr().locator(".w-dialog").count()) await scr().locator(".w-dialog").getByRole("button", { name: "OK" }).click(); };
+  const creds = async (u, pw) => { await scr().getByLabel("User name").fill(u); await scr().getByLabel("Password").fill(pw); await scr().locator(".w-dialog").getByRole("button", { name: "Yes" }).click(); };
 
   async function pass(theme, reading) {
     const tag = theme + (reading ? "+dyslexia" : "");
     await page.goto(S.url + "/index.html");
-    await page.evaluate(([t, r]) => { localStorage.clear(); localStorage.setItem("uthl.theme.v1", t); if (r) localStorage.setItem("uthl.reading.v1", "dyslexia"); }, [theme, reading]);
-    await page.reload(); await page.waitForTimeout(300);
-    await sweep(tag + ": job picker");
-    /* the parish job: standard user, so the credential prompt appears */
-    await page.check("input[name=job][value=staldric]"); await page.click("text=Start this job"); await page.waitForTimeout(400);
-    const j = await J("staldric");
-    for (let i = 0; i < 4; i++) await choose(j.desk.wrong[i][0]);
-    await page.locator(".mech summary").click();
-    await sweep(tag + ": desk stage, four wrong picks, rung 2, mechanism open");
-    await choose(j.desk.correct); await sweep(tag + ": desk stage finished");
-    await next();
-    await page.click("text=Ctrl + Shift + Esc");
-    await page.locator(".th-btn", { hasText: "CPU" }).click();
-    await page.locator(".tm-row", { hasText: "Microsoft Outlook" }).first().click(); await page.click("text=This is the cause");
-    await page.locator(".tm-row", { hasText: "Microsoft Edge" }).first().click(); await page.click("text=This is the cause");
-    await page.locator(".tm-row", { hasText: "Microsoft OneDrive" }).first().click(); await page.click("text=This is the cause");
-    await page.locator(".tm-row", { hasText: "Excel" }).first().click();
-    await sweep(tag + ": Task Manager sorted, rows ruled out, one selected, rung 1");
-    await page.click("text=This is the cause");
-    await choose(j.slow.remedies.correct[1]);
-    await page.locator(".tm-row", { hasText: "Excel" }).first().click(); await page.locator(".tm-tools button", { hasText: "End task" }).click();
-    await sweep(tag + ": Task Manager after End task");
-    await page.click(".tb-start"); await sweep(tag + ": Start menu");
-    await page.click(".tb-start");
-    await next();
-    await page.click(".tb-start"); await page.locator(".sm-app", { hasText: "Command Prompt" }).locator("text=Open").click();
-    for (let i = 0; i < 5; i++) await type("sfc /scannow");
-    await page.locator(".mech summary").click();
-    for (let k = 0; k < 4; k++) await page.click(".mech-bar >> text=Next");
-    await sweep(tag + ": console with refusals, what-just-happened, rung 3");
-    await page.click(".tb-start"); await page.locator(".sm-app", { hasText: "Command Prompt" }).locator("text=Run as administrator").click();
-    await page.fill("#uac-u", "wrong"); await page.fill("#uac-p", "nope"); await page.click(".w-dialog.uac-creds >> text=Yes");
+    await page.evaluate(([t, r]) => { localStorage.clear(); localStorage.setItem("c2vm.theme", t); if (r) localStorage.setItem("c2vm.reading", "dyslexia"); }, [theme, reading]);
+    await page.reload(); await page.waitForTimeout(600);
+    await sweep(tag + ": Help Desk queue, no ticket");
+    await scr().getByRole("button", { name: "Open ticket L1" }).click();
+    await scr().getByRole("button", { name: "Resolve" }).click();
+    await sweep(tag + ": ticket open, Resolve refused while broken");
+    await machine("WS4-FIN");
+    await scr().getByRole("button", { name: /Open the Testing shortcut/ }).click();
+    await sweep(tag + ": the program's error box");
+    await okDialog();
+    await startApp("Open Event Viewer"); await scr().locator(".ev-row.lvl-err").first().click();
+    await sweep(tag + ": Event Viewer, error selected");
+    await startApp("Open Command Prompt");
+    for (const c of ['copy \\\\WS1-HR\\C$\\Windows\\SysWOW64\\msvcp100.dll "C:\\Program Files (x86)\\Testing"', "regsvr32 msvcp100.dll"]) await typed(c);
+    await sweep(tag + ": console, a refusal, what just happened, rung 1");
+    for (const c of ["setx PATH C:\\Temp", "setx PATH C:\\Temp2", "setx PATH C:\\Temp3"]) await typed(c);
+    await sweep(tag + ": clipboard at rung 3, four moves struck");
+    await scr().getByRole("button", { name: "Start menu" }).click(); await sweep(tag + ": Start menu");
+    await scr().getByRole("button", { name: "Start menu" }).click();
+    await page.getByRole("button", { name: /Windows and R/ }).click(); await scr().locator(".w-dialog.run input").fill("taskmgr"); await sweep(tag + ": Run box");
+    await scr().locator(".w-dialog.run").getByRole("button", { name: "OK", exact: true }).click();
+    await scr().locator(".th-btn", { hasText: "CPU" }).click(); await scr().locator(".tm-row").nth(2).click();
+    await sweep(tag + ": Task Manager sorted, a row selected");
+    await startApp("Open Software Center");
+    await scr().getByRole("button", { name: /(Install|Repair) Microsoft Visual C\+\+ 2013/ }).click();
+    await creds("itadmin", "wrong");
     await sweep(tag + ": UAC credential prompt with its error");
-    await page.fill("#uac-u", "itadmin"); await page.fill("#uac-p", "Bench-Tech-2026"); await page.click(".w-dialog.uac-creds >> text=Yes");
-    await type("sfc /scannow");
-    await choose((await page.evaluate(async () => { const L = await import("./assets/lab-tools.js"); return L.buildStage("admin", L.jobByKey("staldric")).steps[1].answer; })));
-    await next();
-    await page.fill(".num-in", "12000"); await page.click(".numbox >> text=Check");
-    await sweep(tag + ": calculation tried and wrong");
-    await page.fill(".num-in", (j.disk.bytes / 1073741824).toFixed(2)); await page.click(".numbox >> text=Check");
-    await hw("Remove the side panel"); /* refused: running */
-    await page.click(".tb-start"); await page.click(".sm-power >> text=Shut down");
-    await sweep(tag + ": screen off, a refused desk action");
-    for (const a of ["Unplug the mains lead", "Remove the side panel", "Fit the drive in the drive cage", "Connect the SATA data cable", "Connect the SATA power lead"]) await hw(a);
-    await sweep(tag + ": case open, drive cabled");
-    for (const a of ["Refit the side panel", "Plug the mains lead back in", "Press the power button"]) await hw(a);
-    await page.click(".tb-start"); await page.locator(".sm-app", { hasText: "Disk Management" }).locator("text=Open").click();
-    await page.fill("#uac-u", "itadmin"); await page.fill("#uac-p", "Bench-Tech-2026"); await page.click(".w-dialog.uac-creds >> text=Yes");
-    await sweep(tag + ": Initialize Disk dialog");
-    await page.check("#ps-MBR"); await page.click(".w-dialog.init >> text=OK");
-    await page.locator(".dm-row").nth(1).locator(".dm-part.k-unalloc").first().click(); await page.click(".dm-acts >> text=New Simple Volume");
-    await sweep(tag + ": Disk Management, MBR unreachable block, wizard");
-    await page.click(".w-dialog.wizard >> text=Cancel");
-    await page.click("text=Put the PC back to the last point you got right");
-    /* instructor mode, then the blue screen and no Explorer, on a fresh job */
-    await page.click("#instructorBtn"); await page.fill("#pin-in", "3693"); await page.press("#pin-in", "Enter"); await page.waitForTimeout(300);
-    await sweep(tag + ": instructor mode, answers and job sheet");
+    await scr().locator(".w-dialog").getByRole("button", { name: "No" }).click();
+    await sweep(tag + ": Software Center");
+    await startApp("Open Settings"); await scr().getByRole("button", { name: "Modify Testing" }).click(); await creds("RAFIKI\\itadmin", "Bench-Tech-2026");
+    await sweep(tag + ": Settings, the installer dialog");
+    await scr().locator(".w-dialog").getByRole("button", { name: "Cancel" }).click();
+    await startApp("Open File Explorer"); await scr().locator(".fx-addr").fill("C:\\Program Files (x86)\\Testing"); await scr().locator(".fx-addr").press("Enter");
+    await scr().locator(".fx-f").first().click();
+    await sweep(tag + ": File Explorer, a file selected");
+    await page.getByRole("button", { name: "Revert to snapshot" }).click();
+    await sweep(tag + ": reverted");
+    await startApp("Open Software Center"); await scr().getByRole("button", { name: "Reinstall Testing 4.2" }).click(); await okDialog();
+    await machine("TECH-01"); await scr().getByRole("button", { name: "Resolve" }).click();
+    const opts = scr().locator(".hd-close .opt");
+    for (const w of ["licence", "network", "profile", "updates"]) await opts.filter({ hasText: w }).first().click();
+    await sweep(tag + ": close form, four red, rung 2");
+    await opts.filter({ hasText: "Windows Security" }).first().click();
+    await sweep(tag + ": close form, five red, rung 3");
+    await opts.filter({ hasText: "dependency is missing" }).first().click();
+    await scr().locator("#hd-note").fill("Fixed it for her."); await scr().getByRole("button", { name: "Close the ticket" }).click();
+    await sweep(tag + ": right answer marked, note refused");
+    await scr().locator("#hd-note").fill("Testing said MSVCP100.dll was missing. Reinstalled Testing from Software Center and tested it opens.");
+    await scr().getByRole("button", { name: "Close the ticket" }).click();
+    await sweep(tag + ": ticket closed");
+    await page.click("#instructorBtn"); await sweep(tag + ": instructor PIN dialog");
+    await page.fill("#pin-in", "3693"); await page.press("#pin-in", "Enter");
+    await scr().getByRole("button", { name: "Open ticket D1" }).click();
+    await sweep(tag + ": instructor mode, answers on the clipboard");
     await page.click("#instructorBtn");
-    await page.click("text=Back to the jobs"); await page.check("input[name=job][value=harbourside]"); await page.click("text=Start this job"); await page.waitForTimeout(300);
-    await choose((await J("harbourside")).desk.correct); await next();
-    await page.click("text=Ctrl + Shift + Esc");
-    await page.locator(".tm-row", { hasText: "Windows Explorer" }).first().click(); await page.locator(".tm-tools button", { hasText: "End task" }).click();
+    await machine("WS1-HR");
+    await page.getByRole("button", { name: /Ctrl, Shift and Escape/ }).click();
+    await scr().locator(".tm-row", { hasText: "Windows Explorer" }).first().click(); await scr().locator(".tm-tools button", { hasText: "End task" }).click();
     await sweep(tag + ": no Explorer");
-    await page.locator(".tm-row", { hasText: "Client Server Runtime" }).first().click(); await page.locator(".tm-tools button", { hasText: "End task" }).click();
+    await scr().locator(".tm-row", { hasText: "Client Server Runtime" }).first().click(); await scr().locator(".tm-tools button", { hasText: "End task" }).click();
     await sweep(tag + ": critical-process warning");
-    await page.locator(".w-dialog.confirm-critical button", { hasText: "Shut down" }).click();
+    await scr().locator(".w-dialog button", { hasText: "Shut down" }).click();
     await sweep(tag + ": blue screen");
+    await scr().getByRole("button", { name: "Let it restart" }).click();
+    await sweep(tag + ": restarted, boot note");
+    await scr().getByRole("button", { name: "Start menu" }).click(); await scr().locator(".sm-power").getByRole("button", { name: "Shut down" }).click();
+    await sweep(tag + ": screen off");
   }
 
   try {
     await pass("dark", false);
     await pass("light", false);
     await pass("dark", true);
-  } catch (e) { found.set("DRIVE ERROR", { key: "DRIVE ERROR: " + String(e.message).split("\n")[0], worst: 0, need: 7, states: new Set(["-"]), sample: "" }); }
+  } catch (e) { await page.screenshot({ path: (process.env.SHOT || "/tmp") + "/contrast-drive-error.png" }).catch(() => {}); found.set("DRIVE ERROR", { key: "DRIVE ERROR after '" + where + "': " + String(e.message).split("\n")[0], worst: 0, need: 7, states: new Set(["-"]), sample: "" }); }
   await B.close(); S.close();
   return [...found.values()].sort((a, b) => a.worst - b.worst);
 }
 
 const PLANTS = {
-  "sky-blue buttons": ".btn.primary { background: #38bdf8 !important; color: #ffffff !important; }",
-  "faded disabled buttons": ".btn:disabled, .w-btn:disabled { opacity: 0.4 !important; }",
-  "grey Task Manager text": ".tm-table td { color: #9ca3af !important; }"
+  "sky-blue primary buttons (the old sims' dashboard)": ".w-btn.primary, .btn.primary { background: #38bdf8 !important; color: #ffffff !important; }",
+  "a ruled-out reason dimmed to show it is ruled out": ".hd-close .opt.out .opt-why { color: #9ca3af !important; }",
+  "grey text in Task Manager's scrolled table": ".tm-table td { color: #9ca3af !important; }",
+  "the clipboard's struck moves faded": ".narrow .struck { opacity: 0.45 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

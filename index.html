@@ -3,47 +3,58 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>A+ Core2 Under the Hood Labs</title>
-<meta name="description" content="Hands-on A+ Core 2 labs. Sit down at the customer's PC and fix it with Task Manager, the Command Prompt and Disk Management — typed commands, real answers, real consequences. Part of the Cyber Warrior Program.">
+<title>A+ Core2 Under the Hood labs</title>
+<meta name="description" content="A+ Core 2 as a live office: you are a Tier 1 technician at Rafiki's IT Services, working tickets on real-behaving Windows PCs. Built from the Core 2 sims. Part of the Cyber Warrior Program.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/style.css">
+<script type="importmap">{ "imports": { "three": "./assets/three/three.module.min.js", "three/addons/": "./assets/three/addons/" } }</script>
 <!-- Applied before the page paints, so nobody watches the page reflow
-     into the reading face or flash from dark to light. The two keys are
-     SHARED with the Core 1 Under the Hood site on purpose: both live on
-     the same github.io origin, so a student who turned dyslexia-friendly
-     text on over there finds it on here too. Dark is the default. -->
+     into the reading face or flash from dark to light. Dark is the
+     default; only the student's own stored choice changes it. -->
 <script>
   try {
-    document.documentElement.setAttribute("data-reading",
-      localStorage.getItem("uthl.reading.v1") === "dyslexia" ? "dyslexia" : "default");
-  } catch (e) { document.documentElement.setAttribute("data-reading", "default"); }
-  try {
-    document.documentElement.setAttribute("data-theme",
-      localStorage.getItem("uthl.theme.v1") === "light" ? "light" : "dark");
+    document.documentElement.setAttribute("data-reading", localStorage.getItem("c2vm.reading") === "dyslexia" ? "dyslexia" : "default");
+    document.documentElement.setAttribute("data-theme", localStorage.getItem("c2vm.theme") === "light" ? "light" : "dark");
   } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
 </script>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>A+ Core2 Under the Hood Labs</h1>
-    <p>CompTIA A+ Core 2, 220-1202. Sit down at the customer's PC and do the job with the tools
-      Windows gives you. You type the commands; the machine answers; and whatever you do, you live with.</p>
+    <h1>A+ Core2 Under the Hood labs</h1>
+    <p class="lede">You are a Tier 1 technician at <strong>Rafiki's IT Services</strong>. Tickets come in to the Help Desk on your
+      workstation. The office's PCs are running: sit at one, use Windows' own tools, and fix what is really wrong with it.
+      Built from the CompTIA A+ Core 2 (220-1202) sims.</p>
     <div class="settings">
-      <div id="reading"></div>
-      <div id="theme"></div>
-      <div id="instructor"></div>
+      <div id="set-reading"></div>
+      <div id="set-theme"></div>
+      <div id="set-instructor"></div>
     </div>
   </header>
 
-  <div id="pick"></div>
-  <div id="insSheet"></div>
-  <main id="plan" aria-live="polite"></main>
+  <div class="workspace">
+    <aside class="side" aria-label="The office and your ticket">
+      <section class="panel office-panel" aria-labelledby="office-h">
+        <h2 id="office-h">The office</h2>
+        <div id="office" class="office"></div>
+        <p id="office-note" class="setting-note">Loading the 3D office. The machine list below works already.</p>
+        <h3 class="sub-h" id="machines-h">Machines</h3>
+        <div id="machines" class="machines" role="group" aria-labelledby="machines-h"></div>
+      </section>
+      <div id="clipboard" class="clipboard" aria-live="polite"></div>
+      <p><button type="button" class="btn secondary" id="reset-all">Start again from the beginning</button></p>
+    </aside>
+    <main class="main">
+      <h2 id="screen-h" class="screen-h">On the screen</h2>
+      <div id="screen"></div>
+    </main>
+  </div>
 
   <footer class="bot">
     <p>Cyber Warrior Program — built by an instructor, for students, to make certification study more
       interactive. For educational purposes only. Not affiliated with, endorsed by, or sponsored by
       CompTIA&reg;. All trademarks belong to their respective owners.</p>
+    <p class="setting-note">3D: three.js (MIT licence). Daylight: a CC0 HDRI from Poly Haven.</p>
   </footer>
 </div>
 <script type="module" src="assets/app.js"></script>
