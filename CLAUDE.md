@@ -557,6 +557,9 @@ The owner, after seeing the first build:
 - **The router is its own device, reached from the PC** by signing in at
   192.168.1.1 in the browser, or through a router app. Both are used.
 - **Five extra scenarios per sim**, so 11 sims + 55.
+- **Marking** (settled 30 Sept, owner: "Yes"): a ticket closes only when the
+  machine or router is really fixed, and the student then writes the ticket
+  note.
 - **Order of work:** finish Core 2, then Networking, then go back and
   improve Core 1.
 
@@ -587,8 +590,6 @@ office and the help desk chat. It was not pushed.
   - Mason is the student's lead.
   - The help desk callers, the port-forwarding home, the three neighbouring
     houses and the replacement-router branch are Rafiki's customers.
-- **Marking.** RECOMMENDED: a ticket closes only when the machine or router
-  is really fixed, and the student then writes the ticket note.
 - **The 3D model.** RECOMMENDED: the office from the WiFi sim's office map.
 - **The rulings** on each finding in the audit table above.
 - **The code:** Core 2's own, or keep the plumbing copied from Core 1.
