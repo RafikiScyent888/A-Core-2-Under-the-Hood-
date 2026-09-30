@@ -1,9 +1,16 @@
-# A+ Core 2 Under the Hood — build document
+# A+ Core2 Under the Hood labs — build document
+
+**Official name, settled 30 September 2026: "A+ Core2 Under the Hood labs"**,
+matching Core 1's "A+ Core1 Under the Hood labs". Use it verbatim in the
+page title, the heading and anywhere the site is linked from.
 
 Read with `/root/.claude/CLAUDE.md`, which sets the rules and wins over this
 file. The coaching role is in `/root/.claude/exam-prep-coach.md`.
 
-**Status: DESIGN ONLY. Nothing is built until the owner says so.**
+**Status: the Windows Tools Console's four core stages are BUILT and
+verified** (30 September 2026): six jobs, one base plus five, each played
+end to end through the real page. The lab and project stages, and the
+other seven labs, are not built yet. Section 7 is the build as it stands.
 Last updated 30 September 2026.
 
 | | |
@@ -45,6 +52,29 @@ And the answers to the first round of questions:
   deliverable (the owner's Core 1 rule: "Everyone learns differently").
 - **Typed commands.** The student types real commands at a real-looking
   prompt and the machine answers. It is not picked from a list.
+- **Second round, 30 September 2026:** "Yes to all five, add DISM, rebuild
+  App Deployment". That settles five things:
+  - **DISM is in.** `DISM /Online /Cleanup-Image /RestoreHealth` (and
+    `/CheckHealth` and `/ScanHealth`) answer at the prompt, although DISM is
+    not in the owner's 82-command list.
+  - **App Deployment is rebuilt so the old answer is tried and fails.**
+    - The copy from System32 fails with 0xc000007b.
+    - `regsvr32` gives its real DllRegisterServer error.
+    - The mechanism view explains System32 against SysWOW64.
+    - Core-2-Sims itself is not touched.
+  - **What counts as a guess:** the section 5.5 rule.
+    - A command that changes something (or tries to) but doesn't move the
+      job on counts.
+    - So does an action that makes things worse.
+    - Typos, "not recognized" errors, `help` and `/?` do not count.
+    - **Read-only commands never count either**: `dir`, `tasklist`, plain
+      `ipconfig`, `ping`, `winver`, `hostname`, `gpresult`, `cd`, `cls`.
+      Looking before you act is the behaviour being taught, and counting it
+      would punish exactly that.
+  - **The 3D desk reuses the Core 1 tower** (`pcTower` in Core 1's
+    `bench-room.js`), extended with a removable side panel, a drive cage,
+    SATA ports, a monitor, a keyboard and a USB stick.
+  - **The name is "A+ Core2 Under the Hood labs".**
 - **The first lab is the Windows Tools Console.** It builds the simulated
   Windows desktop that four later labs reuse: Install, OS Troubleshooting,
   Malware and Lock It Down.
@@ -318,8 +348,8 @@ Every check is shown to fail before its pass is trusted.
 
 ## 6. Open questions
 
-- **OPEN — the App Deployment sim's answer key contradicts itself, and part
-  of it fails on real Windows.**
+- **SETTLED 30 Sept (rebuild it) — the App Deployment sim's answer key
+  contradicts itself, and part of it fails on real Windows.**
   - The evidence contradicts the explanation. The sim's `ls msvc*` output
     shows `msvcp100.dll` **present** in `C:\Windows\System32`, but the
     explanation says that same output shows the file **missing** from
@@ -343,19 +373,146 @@ Every check is shown to fail before its pass is trusted.
   and the mechanism view explains System32 vs SysWOW64. That makes the two
   sims disagree somewhere real, which is a Core 1 rule. Core-2-Sims itself is
   not touched. **The owner decides.**
-- **OPEN — DISM.** `DISM /Online /Cleanup-Image /RestoreHealth` is the
+- **SETTLED 30 Sept (include it) — DISM.** `DISM /Online /Cleanup-Image /RestoreHealth` is the
   standard repair when `sfc` can't fix what it finds. It is in neither the
   doc nor the owner's 82-command list. Include it, or keep to the list?
-- **OPEN — what counts as a guess** at a typed prompt (section 5.5 has the
+- **SETTLED 30 Sept — what counts as a guess** at a typed prompt (section 5.5 has the
   recommendation).
-- **OPEN — the 3D desk and tower.** RECOMMENDED: reuse the Core 1 tower model
+- **SETTLED 30 Sept (reuse the Core 1 tower) — the 3D desk and tower.** RECOMMENDED: reuse the Core 1 tower model
   (built from the owner's photographs), and add a desk, monitor, drive bay
   and USB stick. Photos of a real technician's desk, or of a tower's drive
   bay with the side panel off, would make it better.
-- **OPEN — the site's name.** RECOMMENDED: "A+ Core2 Under the Hood labs", to
+- **SETTLED 30 Sept — the site's name.** RECOMMENDED: "A+ Core2 Under the Hood labs", to
   match Core 1's official "A+ Core1 Under the Hood labs".
 - **OPEN, from the first round:**
   - how deep macOS and Linux go
   - whether Wireless Reliability is folded into Lock It Down
   - whether Core-2-Sims gets its contrast and footer fixed
   - photos for the later labs
+
+## 7. What is built — 30 September 2026
+
+### Runtime (what GitHub Pages serves)
+
+`index.html` and `assets/`. Static HTML, CSS and vanilla JS modules; no
+build step, no runtime fetches.
+
+**Copied from the Core 1 build, unchanged unless noted:**
+- the 3D engine: `three.module.min.js`, `scene.js`, `shape.js`, `surface.js`,
+  `tiles.js`, `bench.js`
+- `hints.js` (the ladder), `options.js` (six options), `rng.js`
+- `reading.js` and `theme.js`. **Their storage keys are the Core 1 keys on
+  purpose**: both sites are on the same github.io origin, so a student's
+  dyslexia and theme choices follow them between the two.
+- `instructor.js`: the PIN dialog only (PIN 3693, not persisted)
+- `style.css`: the top half (tokens, light theme, bench, dyslexia mode, PIN
+  dialog). The bottom half is this build's own.
+
+**This build's own:**
+- **`machine.js`**: the simulated PC — processes, disks and partitions,
+  system-file health, the spare drive's cabling, a small file system. No
+  DOM, so the checks run it under Node.
+- **`cmd.js`**: the typed Command Prompt, PowerShell's listed cmdlets and
+  DiskPart.
+  - It uses the owner's 82-command list plus DISM, with Windows' own
+    wording for every refusal and result.
+  - Every result has a kind, and the kind decides what counts as a guess:
+    look, help, error, change, refused.
+- **`mech.js`**: the "what just happened" line under each command.
+- **`desktop.js`**: the Windows 11 screen, as real HTML.
+  - Start menu with Run as administrator, and the Run box.
+  - UAC consent, and the credential prompt for a standard user.
+  - Task Manager: sortable columns, the facts panel, End task, Run new
+    task. The critical-process warning leads to a blue screen.
+  - Disk Management: Online, Initialize with no default, Convert, New Simple
+    Volume, Delete, Change Drive Letter.
+  - The keyboard shortcuts as buttons.
+- **`bench-desk.js`**: the 3D desk.
+  - The tower is Core 1's `pcTower`, rebuilt as five walls so the side
+    panel can come off. There is a drive cage, SATA ports, a power supply,
+    SATA data and power leads, the drive in an anti-static bag, a monitor
+    whose screen shows the machine's state, and mains and network cables.
+  - Every action is an HTML control.
+- **`lab-tools.js`**: the six jobs and the four core stages. `order.js`
+  sets the order six options are shown in.
+- **`runner.js`**: steps, the hint ladder, wrong picks that stay red,
+  reset to the last point got right, the mechanism panels.
+- **`labs.js`**: the doc's eleven topics (no numbers), lengths, stages and
+  the seven planned labs.
+- **`app.js`**: the page: job picker, lengths, progress, instructor job
+  sheet.
+
+### The jobs
+
+| Job | Slow (column → right call) | Admin | Disk |
+|---|---|---|---|
+| Harbourside Vets | Memory → end Edge | sfc | 4 TB |
+| Keel & Rudder | Disk → pause OneDrive | sfc, DISM, sfc | 6 TB, split 1 TB + rest |
+| Ridgeline Physio | CPU → leave Windows Update | chkdsk /f, restart, sfc | 3 TB |
+| Northgate Print | CPU → reschedule the AV scan | restart, then sfc | 8 TB, comes up Offline |
+| Brightwater | CPU → malware: unplug the network | sfc finds nothing | 10 TB with an old MBR volume |
+| St Aldric's | CPU → end the hung Excel | standard user: credentials | 12 TB, must be R: |
+
+Every drive is over 2 TiB, so MBR is always the trap.
+
+### Checks: `verify/` (need Playwright; the site does not)
+
+```
+node verify/logic.mjs      # no browser · 16 plants
+node verify/page.mjs       # drives the page · 8 plants
+node verify/contrast.mjs   # AAA on painted pixels, dark / light / dyslexia · 3 plants
+```
+
+`--plant` on any of them runs the calibration. Each plant must be caught by
+the check it was written for, not by another check it trips on the way.
+
+**What the contrast sweep does not measure, and why:**
+- **Text behind a modal's scrim, or under the Start menu or Run box.** It is
+  covered, not shown.
+- **Text scrolled out of its own box.**
+- **The hidden inside of a closed `<details>`.** Chromium keeps a layout box
+  for it and paints nothing.
+
+Each of these first showed up as a false failure of 1.0:1. The plants prove
+the sweep still catches real ones inside Task Manager's scrolled table.
+
+### Found while building, and fixed
+
+- **Right answer always first.** `sixOptions` leaves a list of exactly six
+  in authored order, which put the right answer first on every question.
+  `order.js` now places it by a stable hash, and the check measures the
+  order the student actually sees.
+- **Length bias, twice.**
+  - First the right answer was the longest option in 13 of 18 questions.
+  - The rebalance then made it the longest in 0 of 18, which is a pattern
+    too.
+  - It is now 2 of 18, close to chance. The check fails either way.
+- **The case drew as a solid block.** Taking the panel off showed the side
+  of a box, with the drive cage buried inside it. The case is now five
+  walls.
+- **The right move always sat first in rung 3.** The moves are authored
+  right-answer-first, so the top line of every rung 3 was the answer. They
+  now use the same ordering as the questions, and a check holds their
+  spread.
+- **The camera was too frontal.** It could not see into the open side, and
+  was turned.
+- **A selected, ruled-out Task Manager row** had dark red text on royal
+  blue.
+
+### Known, not yet done
+
+- **The lab and project stages** (deploy, launch, startup, net, usb, extend,
+  handover) are not built.
+  - Lab and Project lengths are not offered until they exist.
+  - Layered offers nothing extra yet, and says so.
+- **The other seven labs** are listed on the front page as planned.
+- **Resuming a job restarts the stage you were on.** Finished stages and
+  hint counts are kept, and the page says this.
+- **On a six-option choice question, rung 3 arrives with the field already
+  down to one.** Wrong picks stay red, so by the fifth wrong pick the
+  student has eliminated all five wrong options themselves. This follows
+  from the settled numbers (six options, rung 3 on guess 5), as in the
+  Core 1 build. Rung 3 does its real work on typed and hands-on tasks,
+  where guesses are unlimited.
+- **No photographs yet.** The desk is modelled, not photographed; photos
+  of a real tower with the side panel off would improve it.

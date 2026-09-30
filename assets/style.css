@@ -1,0 +1,743 @@
+/* =====================================================================
+   A+ Core2 Under the Hood labs — style.
+
+   The tokens, the light theme, the bench, the dyslexia mode and the PIN
+   dialog are the Core 1 build's, copied as they were measured there (each
+   value in them was held to AAA on painted pixels). What follows them is
+   this build's own, and is measured by verify/contrast.mjs here.
+   ===================================================================== */
+/* =====================================================================
+   Under the Hood Labs — theme.
+
+   AAA IS NOT NEGOTIABLE HERE. These students have eye damage from
+   military service. Body text needs 7:1, large text (>=24px, or
+   >=18.66px bold) needs 4.5:1. Every colour below was measured against
+   the surface it actually lands on, not eyeballed.
+
+   The ground is a flat dark charcoal rather than a gradient, and that is
+   deliberate: a gradient means an element's contrast depends on where it
+   happens to sit on the page, which is how the sibling tile pages ended
+   up with their lower links failing while identical markup higher up
+   passed. A flat ground has one answer everywhere.
+   ===================================================================== */
+
+:root {
+  --ground:      #14171f;   /* the page */
+  --panel:       #1c212c;   /* raised surface */
+  --panel-2:     #242b39;   /* raised again — tabs, inputs */
+  --line:        #3a4457;
+  --line-bright: #5a687f;
+
+  --ink:         #eef1f8;   /* body text: 14.8:1 on ground, 12.6:1 on panel */
+  --ink-dim:     #b9c2d4;   /*  supporting text: 8.6:1 on ground, 7.3:1 on panel */
+
+  /* Steel, matching the Interactive Labs tile this sits under in the
+     command centre. Used for structure, never for text on dark. */
+  --steel:       #bcc3c9;
+  --steel-deep:  #6b7684;
+
+  /* Gap badges. Each is a light tint on a dark chip so the text clears
+     7:1 — a saturated mid-tone with white on it would not. */
+  --pbq:   #9ad8ff;
+  --why:   #ffcf8f;
+  --calc:  #a8e6b0;
+  --read:  #e3b8ff;
+
+  --link:  #9ad8ff;   /* 10.4:1 on the ground, 8.9:1 on a panel */
+
+  /* TWO TOKENS NAMED FOR THEIR ROLE, added when the light theme went in
+     and the contrast sweep named exactly these two surfaces.
+
+     `--sunk` is the RECESSED surface — the chip behind a gap badge, a
+     code well, an empty cell. It was hardcoded #0d1017 in eight places,
+     so in the light theme the badge text went dark and the chip behind it
+     stayed near-black: 1.69:1 on a 7:1 floor.
+
+     `--on-steel` is the text that lands ON the steel fill — the active
+     tab and the primary button. Steel is LIGHT in the dark theme and
+     DARK in the light one, so a fixed dark ink on it is right in one and
+     2.12:1 in the other. Naming it by what it sits on is what makes it
+     flip correctly instead of being tuned twice. */
+  --sunk:      #0d1017;
+  --on-steel:  #16192e;
+
+  /* ---------------------------------------------------------------
+     STATE COLOURS, AND THEY ARE NAMED FOR THE STATE, NOT THE HUE.
+
+     `.s-ok` was #7ee89b and `.s-failed` was #ff9b93 — light tints,
+     correct on a dark ground and 1.5:1 on a white one. Naming them
+     `--st-ok` and `--st-bad` is what lets the light theme take them
+     DOWN rather than leaving eight hardcoded pastels to be found one
+     at a time by a student who cannot read them.
+
+     Colour is never the only channel here: every state also prints its
+     words, and a ruled-out option is struck through and labelled as
+     well as dimmed. These carry emphasis, not meaning.
+
+     A BLIND SPOT, WRITTEN DOWN BECAUSE IT COST A WRONG CONCLUSION, AND
+     NOW CLOSED. The contrast sweep measures TEXT. Several of these
+     tokens are used as BORDER colours as often as ink —
+     `.gcol-head.is-dead`, `.bench-status.tone-urgent`, the inset rule on
+     a wrong option — and a border is invisible to the sweep.
+     Calibrating that pass by planting the dark tint into `--st-bad` came
+     back CLEAN, and for a moment that read as a vacuous check; it was a
+     colour the sweep can never see, planted in two labs where no drive
+     had failed. Planting it in `--ink-dim` instead lit up 21 patterns on
+     one lab.
+
+     This note used to end "borders are held by eye and by these
+     definitions, not by the sweep", and HELD BY EYE IS NOT HELD.
+     `verify/borders.mjs` is the check that closes it. It reads every
+     token used in a `border` or `box-shadow` declaration straight out of
+     this file — so a token used as an edge for the first time tomorrow
+     comes under the check tomorrow — separates the meaning-bearing ones
+     from the structural ones by a table that must name a reason for each
+     exemption, and holds two things about every one that is left:
+
+       VISIBLE    3:1 (WCAG 1.4.11) against the WORST of --ground,
+                  --panel, --panel-2 and --sunk, in BOTH themes. The
+                  worst surface rather than the actual one, deliberately:
+                  resolving which background each rule lands on means
+                  re-implementing the cascade, and a checker that
+                  re-implements the cascade can be wrong the same way the
+                  stylesheet is.
+       DIFFERENT  at least 1.5:1 from --line, the plain hairline it
+                  replaces. A state border that measures the same as an
+                  ordinary one carries no information at all, and THAT
+                  failure is invisible even to a contrast check.
+
+     It found three on its first run, all of them feedback boxes whose
+     outline could not be seen against the panel underneath: --bad-line
+     at 1.40:1, --hint-line at 1.69:1, --ok-line at 1.88:1, and the first
+     two measured within 1.2:1 of the plain hairline — so a refused
+     answer was drawn in a box whose edge was identical to an ordinary
+     one. All three are fixed below, in both themes.
+
+     Not decorative hairlines. WCAG asks 3:1 for the boundaries that
+     identify a component, not for every separator, and --line between
+     two rows of a shelf is a separator. Pushing that to 3:1 would turn
+     every panel into a cage. */
+  --st-ok:     #7ee89b;
+  --st-warn:   #ffce7a;
+  --st-watch:  #ffe27a;
+  --st-bad:    #ff9b93;
+  --st-info:   #9ad8ff;
+  --st-idle:   #cbd3e2;
+  --st-empty:  #b9c2d4;
+
+  /* A wrong answer, a reading out of tolerance. Three parts, because a
+     refusal is marked three ways — the words, an inset rule, the
+     colour — and never by colour alone. */
+  --bad-ink:   #ffb3b3;
+  /* THE BOX'S OWN EDGE, RAISED UNTIL IT CAN ACTUALLY BE SEEN.
+
+     It was #6b2f2f: 1.40:1 against the raised panel, and 1.03:1 from the
+     plain hairline — so a refused answer was drawn in a box with no
+     visible outline that measured identically to an ordinary one. The
+     refusal was still marked, by the words and by the inset rule, so
+     nothing looked broken; one of the three channels was simply doing
+     nothing. The text sweep cannot see a border and never would have
+     said so. verify/borders.mjs does. */
+  --bad-line:  #a8635d;
+  --bad-rule:  #c0554f;
+  --bad-bg:    #1a0f0f;
+  --ok-bg:     #0f1a12;
+  --ok-line:   #4f8a63;   /* was #2f5e3a — 1.88:1 on a raised panel */
+
+  /* Struck through by hint rung 3, or a disabled control. */
+  --muted-ink: #b3bccd;
+
+  /* A raised chip: a bench action, a button hover. */
+  --chip-bg:   #2c3547;
+  --chip-hi:   #38435a;
+
+  /* The hint box. Warm, so it reads as help rather than as an error. */
+  --hint-bg:   #16130c;
+  --hint-line: #9a7f4c;   /* was #5e4a2d — 1.69:1, an outline nobody could find */
+}
+
+/* =====================================================================
+   THE LIGHT THEME.
+
+   DARK IS THE DEFAULT and this is the override, which is why it is an
+   attribute selector and not a media query: the student's choice has to
+   beat the machine's. `theme.js` stamps `data-theme` on the root before
+   the page paints.
+
+   IT IS NOT AN INVERSION. Flipping a dark palette produces washed greys
+   on white that measure worse than they look, and "looks fine" is not a
+   standard anybody here can rely on. Every value below was measured
+   against the surface it actually lands on by the painted-pixel sweep in
+   verify/verify.mjs, which drives every view in BOTH themes.
+
+   THE GROUND IS NOT WHITE. #f4f6f9 rather than #ffffff, because a pure
+   white field at full brightness is the thing people with light
+   sensitivity actually complain about, and it costs almost nothing in
+   contrast — the ink still measures over 16:1 on it.
+   ===================================================================== */
+:root[data-theme="light"] {
+  --ground:      #f4f6f9;
+  --panel:       #ffffff;
+  --panel-2:     #e8ecf2;
+  --line:        #c3ccd9;
+  --line-bright: #7c8899;
+
+  --ink:         #14181f;   /* 16.5:1 on the ground, 17.6:1 on a panel */
+  --ink-dim:     #414a58;   /* 8.7:1 on the ground, 9.3:1 on a panel */
+
+  --steel:       #46505f;
+  --steel-deep:  #2a3240;
+
+  /* THE GAP BADGES ARE TEXT, not chips, so they invert in ROLE as well as
+     in value: light tints on dark become deep tints on light. Each is
+     taken down until it clears 7:1 on a white panel, which is a long way
+     past where it stops looking like the dark theme's colour — a "light
+     blue made a bit darker" lands around 4:1 and would fail silently. */
+  --pbq:   #0d4a70;
+  --why:   #6a4008;
+  --calc:  #11542a;
+  --read:  #542178;
+
+  --link:  #0d4a70;
+
+  --sunk:      #e8ecf2;   /* a recessed LIGHT surface, not a dark one */
+  --on-steel:  #ffffff;   /* steel is dark here, so its ink is white */
+
+  /* THE STATE COLOURS, TAKEN ALL THE WAY DOWN. Not "the same green a bit
+     darker" — that lands around 3:1 and fails silently on a white panel.
+     Each of these was pushed until the sweep stopped naming it. */
+  --st-ok:     #0f5c2b;
+  --st-warn:   #6b4208;
+  --st-watch:  #5b4805;
+  --st-bad:    #8e2018;
+  --st-info:   #0d4a70;
+  --st-idle:   #3c4552;
+  --st-empty:  #414a58;
+
+  --bad-ink:   #8e2018;
+  --bad-line:  #b8635a;   /* was #cf9d98 — 1.98:1 on a raised panel */
+  --bad-rule:  #a8433a;
+  --bad-bg:    #fcefed;
+  --ok-bg:     #edf7f0;
+  --ok-line:   #4f8062;   /* was #7fae8d — 2.12:1 on a raised panel */
+
+  --muted-ink: #3d4653;
+
+  --chip-bg:   #dde3ec;
+  --chip-hi:   #cbd4e1;
+
+  --hint-bg:   #fdf6e6;
+  --hint-line: #8a7340;   /* was #d4bf93 — 1.52:1, invisible on the panel it edges */
+}
+
+.bench { display: block; }
+
+.bench-stage {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #e9edee;
+  margin: 0 0 12px;
+}
+
+/* The headline. Tone is carried by a left bar AND a word, never by colour
+   alone — the word is the thing that survives a monochrome screen. */
+.bench-status {
+  display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline;
+  padding: 9px 14px; margin: 0 0 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  border-left: 6px solid var(--line-bright);
+}
+.bench-status-word {
+  font-size: 1.02rem; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.bench-status-detail { color: var(--ink-dim); font-size: 0.94rem; }
+.bench-status.tone-calm   { border-left-color: #7ee89b; }
+.bench-status.tone-warn   { border-left-color: #ffce7a; }
+.bench-status.tone-urgent { border-left-color: var(--st-bad); }
+.bench-status.tone-dead   { border-left-color: var(--st-bad); background: var(--bad-bg); }
+
+.bench-nogl {
+  margin: 0 0 10px; padding: 9px 14px;
+  background: var(--panel); border-radius: 8px; color: var(--ink);
+}
+
+.bench-parts {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.bench-part {
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px 10px;
+}
+
+.bench-part-name {
+  display: grid; gap: 2px; text-align: left; width: 100%;
+  background: none; border: 0; padding: 2px; cursor: pointer;
+  color: var(--ink); font: inherit;
+  border-radius: 6px;
+}
+.bench-part-name:hover { background: #232939; }
+.bench-part-name:focus-visible { outline: 3px solid #9ad8ff; outline-offset: 2px; }
+.bench-part-name[aria-pressed="true"] {
+  background: #26304a; box-shadow: inset 0 0 0 2px #9ad8ff;
+}
+
+/* A part picked and wrong, on a bench that is answering a question.
+   Marked three ways and never by colour alone: a red rule down the side,
+   the text lifted to a warm tint, and a "ruled out" word added by the
+   asker. #ffb3b3 on #1b2130 measures 9.6:1, the same pair the wrong
+   option button already uses. */
+.bench-part-name.bench-part-wrong {
+  box-shadow: inset 3px 0 0 0 #c05656;
+  background: #2a1f22;
+}
+.bench-part-name.bench-part-wrong .bench-part-label { color: var(--bad-ink); }
+.bench-part-name.bench-part-wrong .bench-part-label::after {
+  content: " \2014 ruled out"; font-weight: 400; font-size: 0.9em;
+}
+
+.bench-part-label { font-weight: 700; font-size: 1rem; }
+.bench-part-detail { color: var(--ink-dim); font-size: 0.86rem; }
+
+/* The state, in words. Each colour below was measured against the panel it
+   sits on rather than picked by eye, and every one clears 7:1. The dot in
+   front of it is decoration; the word is the information. */
+.bench-part-state {
+  font-size: 0.9rem; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.bench-part-state::before {
+  content: ""; width: 11px; height: 11px; border-radius: 50%;
+  background: currentColor; flex: none;
+}
+.s-ok         { color: var(--st-ok); }
+.s-active     { color: var(--st-ok); }
+.s-rebuilding { color: var(--st-warn); }
+.s-predictive { color: var(--st-watch); }
+.s-failed     { color: var(--st-bad); }
+.s-spare      { color: var(--st-info); }
+.s-pulled     { color: var(--st-idle); }
+.s-offline    { color: var(--st-idle); }
+.s-empty      { color: var(--st-empty); }
+
+.bench-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.bench-act {
+  font: inherit; font-size: 0.88rem; font-weight: 700;
+  padding: 6px 11px; border-radius: 7px; cursor: pointer;
+  background: var(--chip-bg); color: var(--ink);
+  border: 1px solid var(--line-bright);
+}
+.bench-act:hover { background: var(--chip-hi); }
+.bench-act:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+
+/* What just happened, and why. This is the teaching surface — it is where
+   a consequence explains itself — so it gets room to breathe and a
+   measure short enough to read. */
+.bench-say {
+  margin: 12px 0 0; padding: 11px 14px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 9px; color: var(--ink);
+  max-width: 78ch; min-height: 1.5em;
+}
+.bench-say:empty { display: none; }
+
+/* =====================================================================
+   Dyslexia-friendly reading mode
+
+   Set by assets/reading.js as data-reading="dyslexia" on <html>, before
+   the page paints, and remembered across sessions.
+
+   The font stack names OpenDyslexic and Atkinson Hyperlegible first so a
+   machine that HAS one uses it, then falls back to Verdana and Tahoma.
+   Nothing is downloaded — this build has to work from a memory stick in a
+   room with no network, and a webfont there either fails silently or holds
+   the page up waiting for an answer that never comes.
+
+   Most of the benefit is in the spacing anyway.
+   ===================================================================== */
+
+.reading-toggle {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 10px 0 0; padding: 8px 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+}
+.reading-toggle input { width: 20px; height: 20px; accent-color: #9ad8ff; }
+.reading-toggle label { font-weight: 700; cursor: pointer; }
+.reading-toggle input:focus-visible { outline: 3px solid #9ad8ff; outline-offset: 2px; }
+.reading-note { color: var(--ink-dim); font-size: 0.88rem; flex-basis: 100%; }
+
+:root[data-reading="dyslexia"] body {
+  /* Concrete families all the way down. Ending the stack at `system-ui`
+     let a Linux machine with no Verdana fall through to a monospace
+     default, which is not what anybody asked for. DejaVu and Liberation
+     are what Linux actually ships. */
+  font-family: "OpenDyslexic", "Atkinson Hyperlegible", "Lexend Deca",
+               Verdana, Tahoma, "DejaVu Sans", "Liberation Sans",
+               Arial, Helvetica, sans-serif;
+  letter-spacing: 0.055em;
+  word-spacing: 0.16em;
+  line-height: 1.85;
+}
+
+/* A shorter measure is the single most useful change after spacing: the
+   eye has to find the start of the next line, and a long line is where
+   that goes wrong. */
+:root[data-reading="dyslexia"] p,
+:root[data-reading="dyslexia"] li,
+:root[data-reading="dyslexia"] .bench-say,
+:root[data-reading="dyslexia"] .bench-status-detail {
+  max-width: 58ch;
+}
+
+/* Italics smear at exactly the sizes this matters at. Weight instead. */
+:root[data-reading="dyslexia"] em,
+:root[data-reading="dyslexia"] i {
+  font-style: normal; font-weight: 700;
+}
+
+/* Justified text builds rivers of white space down a paragraph, which is a
+   reading trap rather than a nicety. */
+:root[data-reading="dyslexia"] * { text-align: left; }
+
+/* Uppercase removes word shape, which is one of the things a struggling
+   reader is leaning on. Labels go back to sentence case. */
+:root[data-reading="dyslexia"] .bench-status-word,
+:root[data-reading="dyslexia"] th,
+:root[data-reading="dyslexia"] .gcol-sub,
+:root[data-reading="dyslexia"] .gcell-s,
+:root[data-reading="dyslexia"] .slot-name {
+  text-transform: none; letter-spacing: 0.045em;
+}
+
+:root[data-reading="dyslexia"] .bench-part-label { font-size: 1.06rem; }
+:root[data-reading="dyslexia"] .bench-part-detail { font-size: 0.94rem; }
+:root[data-reading="dyslexia"] .bench-act { font-size: 0.94rem; padding: 8px 13px; }
+
+/* Numbers that line up, so capacity and wattage columns can be compared
+   down the page rather than read one at a time. */
+:root[data-reading="dyslexia"] { font-variant-numeric: tabular-nums; }
+.pin-ov {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+  /* A real scrim rather than a tint, so the page behind cannot be read
+     past the dialog and mistaken for part of it. */
+  background: rgba(0, 0, 0, 0.62);
+}
+.pin-box {
+  width: min(28rem, 100%);
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line-bright); border-radius: 0.6rem;
+  padding: 1.1rem;
+}
+.pin-box h2 { margin: 0 0 0.4rem; font-size: 1.15rem; }
+.pin-box .note { margin: 0 0 0.9rem; color: var(--ink-dim); font-size: 0.94rem; }
+.pin-box label { display: block; margin-bottom: 0.3rem; font-weight: 600; }
+.pin-box input {
+  width: 100%; min-height: 44px; box-sizing: border-box;
+  padding: 0.45rem 0.6rem; font: inherit; font-size: 1.05rem;
+  background: var(--sunk); color: var(--ink);
+  border: 1px solid var(--line-bright); border-radius: 0.35rem;
+}
+/* The refusal is words, a colour AND an inset rule — never one of the
+   three on its own, which is the standing rule for every wrong answer in
+   this build and applies just as well to a wrong PIN. */
+.pin-err {
+  margin: 0.6rem 0 0; padding: 0.4rem 0.6rem;
+  color: var(--bad-ink); background: var(--bad-bg);
+  border: 1px solid var(--bad-line); border-radius: 0.35rem;
+  box-shadow: inset 0.25rem 0 0 0 var(--bad-rule);
+}
+.pin-acts { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+.pin-acts .btn { min-height: 44px; flex: 1 1 auto; }
+
+/* =====================================================================
+   THIS BUILD'S OWN — everything below is measured by verify/contrast.mjs
+   ===================================================================== */
+:root { --accent: #8fb4ff; --royal: #0b3a82; }
+:root[data-theme="light"] { --accent: #0b3a82; }
+
+* { box-sizing: border-box; }
+a { color: var(--link); text-decoration: underline; text-underline-offset: 0.15em; }
+a:focus-visible { outline: 3px solid var(--steel); outline-offset: 2px; }
+body {
+  margin: 0; min-height: 100vh; background: var(--ground); color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.55; font-size: 16px;
+}
+.wrap { max-width: 72rem; margin: 0 auto; padding: 0 1rem 4rem; }
+header.top { padding: 2rem 0 1rem; }
+header.top h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.2rem); text-wrap: balance; }
+header.top > p { margin: 0.4rem 0 0; color: var(--ink-dim); max-width: 46rem; }
+.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0 0.75rem; }
+h2 { font-size: 1.35rem; margin: 1.6rem 0 0.4rem; text-wrap: balance; }
+.note { color: var(--ink-dim); }
+
+.btn {
+  font: inherit; font-weight: 600; min-height: 44px; padding: 0.5rem 1rem;
+  background: var(--chip-bg); color: var(--ink); border: 1px solid var(--line-bright);
+  border-radius: 8px; cursor: pointer;
+}
+.btn:hover:not(:disabled) { background: var(--chip-hi); }
+.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--steel); border-color: var(--steel); color: var(--on-steel); }
+.btn.secondary { background: transparent; }
+/* Disabled is NOT faded. It is dashed and plain, and still readable. */
+.btn:disabled { cursor: default; color: var(--muted-ink); background: var(--panel); border: 2px dashed var(--line-bright); }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; margin: 0.9rem 0; }
+.panel h3 { margin: 0 0 0.4rem; font-size: 1.05rem; }
+.panel p { margin: 0.4rem 0; max-width: 72ch; }
+
+/* ---- the lab and job pickers ---- */
+.labcard { border-left: 4px solid var(--accent); }
+.labcard h3 { font-size: 1.2rem; }
+.coming { margin: 0.4rem 0 0; padding-left: 1.2rem; }
+.coming li { margin: 0.15rem 0; }
+.jobs { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.6rem; margin: 0.6rem 0; padding: 0; border: 0; }
+.jobs legend { font-weight: 700; margin-bottom: 0.4rem; }
+.job { display: flex; gap: 0.6rem; align-items: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0.7rem 0.8rem; cursor: pointer; }
+.job input { width: 20px; height: 20px; margin-top: 0.15rem; accent-color: var(--accent); flex: none; }
+.job strong { display: block; }
+.job span { color: var(--ink-dim); font-size: 0.92rem; }
+.job:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.picker { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: end; margin: 0.8rem 0; }
+.picker label { display: block; font-weight: 700; margin-bottom: 0.25rem; }
+.picker select { font: inherit; min-height: 44px; padding: 0.3rem 0.5rem; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line-bright); border-radius: 8px; }
+.plan-list { margin: 0.3rem 0 0; padding-left: 1.4rem; }
+.plan-list li { margin: 0.2rem 0; }
+.plan-list .tier { display: inline-block; font-size: 0.85rem; padding: 0 0.45rem; border: 1px solid var(--line-bright); border-radius: 999px; margin-left: 0.35rem; color: var(--ink-dim); }
+.resume { border-left: 4px solid var(--st-watch); }
+
+/* ---- a running stage ---- */
+.stage-head { margin-top: 1.4rem; }
+.stage-count { margin: 0; color: var(--ink-dim); font-weight: 600; }
+.stage-head h2 { margin-top: 0.2rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; padding: 0; margin: 0.4rem 0 0; }
+.chip { font-size: 0.86rem; padding: 0.15rem 0.6rem; border-radius: 999px; border: 1px solid var(--line-bright); background: var(--sunk); color: var(--ink); }
+.chip.gap-pbq { color: var(--pbq); } .chip.gap-why { color: var(--why); } .chip.gap-calc { color: var(--calc); } .chip.gap-read { color: var(--read); }
+.brief { border-left: 4px solid var(--read); }
+.brief h3 { color: var(--ink); }
+.sub-h { font-size: 1rem; margin: 0.6rem 0 0.4rem; }
+.work { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+.work.with-screen { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+@media (max-width: 64rem) { .work.with-screen { grid-template-columns: 1fr; } }
+.desk-bench .bench-parts { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 0; list-style: none; margin: 0; }
+
+.steps { list-style: none; padding: 0; margin: 1.2rem 0 0; }
+.step { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 1rem; margin: 0 0 0.8rem; }
+.step.now { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.step.later { background: var(--sunk); }
+.step-head { display: flex; gap: 0.7rem; align-items: baseline; flex-wrap: wrap; }
+.step-state { font-size: 0.85rem; font-weight: 700; padding: 0.05rem 0.55rem; border-radius: 999px; border: 1px solid var(--line-bright); }
+.step.done .step-state { color: var(--st-ok); border-color: var(--ok-line); }
+.step-prompt { margin: 0; font-size: 1.05rem; flex: 1 1 20rem; }
+.options { display: grid; gap: 0.5rem; margin: 0.7rem 0 0; }
+.opt {
+  text-align: left; font: inherit; min-height: 44px; padding: 0.6rem 0.8rem;
+  background: var(--panel-2); color: var(--ink); border: 1px solid var(--line-bright); border-radius: 8px; cursor: pointer;
+  display: grid; gap: 0.15rem;
+}
+.opt:hover:not(:disabled) { background: var(--chip-hi); }
+.opt:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* RULED OUT: three cues, never colour alone — the tint, the inset rule,
+   and the words. It stays until it is solved or reset. */
+.opt.out, .narrow .struck, .tried {
+  color: var(--bad-ink); background: var(--bad-bg); border: 1px solid var(--bad-line);
+  box-shadow: inset 5px 0 0 var(--bad-rule); cursor: default;
+}
+.opt.out:disabled { color: var(--bad-ink); }
+.opt.right { color: var(--st-ok); background: var(--ok-bg); border-color: var(--ok-line); box-shadow: inset 5px 0 0 var(--ok-line); }
+.opt-mark { font-weight: 800; font-size: 0.9rem; }
+.opt-why { font-size: 0.94rem; color: var(--ink); }
+.opt.out .opt-label { text-decoration: line-through; text-decoration-thickness: 2px; }
+.numbox { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; margin-top: 0.6rem; }
+.numbox label { flex-basis: 100%; font-weight: 600; }
+.num-in { font: inherit; min-height: 44px; width: 12rem; padding: 0.3rem 0.6rem; background: var(--sunk); color: var(--ink); border: 1px solid var(--line-bright); border-radius: 8px; }
+.tried { flex-basis: 100%; padding: 0.4rem 0.7rem; border-radius: 8px; margin: 0; }
+.taskbox p { margin: 0.4rem 0 0; }
+.task-where { font-weight: 600; }
+.task-tries { color: var(--ink-dim); }
+.task-done, .num-done, .right-note { color: var(--st-ok); font-weight: 600; margin: 0.5rem 0 0; }
+.right-note { font-weight: 400; color: var(--ink); background: var(--ok-bg); border: 1px solid var(--ok-line); border-radius: 8px; padding: 0.5rem 0.7rem; }
+.flash { margin: 0.6rem 0 0; padding: 0.5rem 0.7rem; background: var(--sunk); border: 1px solid var(--line-bright); border-radius: 8px; }
+.guide { margin: 0.8rem 0 0; padding: 0.7rem 0.9rem; background: var(--hint-bg); border: 1px solid var(--hint-line); border-radius: 8px; }
+.guide h4 { margin: 0 0 0.3rem; font-size: 1rem; color: var(--st-warn); }
+.guide p { margin: 0.3rem 0; }
+.guide .principle { font-weight: 600; }
+.narrow { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.4rem; }
+.narrow li { display: grid; gap: 0.1rem; padding: 0.45rem 0.7rem; border-radius: 8px; }
+.narrow .alive { border: 1px solid var(--accent); box-shadow: inset 5px 0 0 var(--accent); background: var(--panel); }
+.narrow .struck .narrow-label { text-decoration: line-through; text-decoration-thickness: 2px; }
+.narrow-label { font-family: ui-monospace, Consolas, "Cascadia Mono", monospace; }
+.ins-answer { margin: 0.6rem 0 0; padding: 0.4rem 0.7rem; border-left: 4px solid var(--read); background: var(--sunk); }
+.reset-row { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin: 0.4rem 0 1rem; }
+.stage-nav { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; justify-content: flex-end; margin: 1rem 0; }
+.stage-done { margin: 0 auto 0 0; font-weight: 700; color: var(--st-ok); }
+.mech summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
+.mech summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.mech-cap h4 { margin: 0.6rem 0 0.2rem; }
+.mech-bar { display: flex; gap: 0.6rem; align-items: center; margin-top: 0.4rem; }
+.diagram { margin: 0.6rem 0 0; display: grid; gap: 0.3rem; }
+.layer { display: grid; gap: 0.1rem; padding: 0.55rem 0.8rem; border: 1px solid var(--line-bright); border-radius: 8px; background: var(--sunk); }
+.layer.lit { border-color: var(--accent); box-shadow: inset 5px 0 0 var(--accent); background: var(--panel-2); }
+.layer code { font-family: ui-monospace, Consolas, monospace; }
+.layer-arrow { text-align: center; color: var(--ink-dim); font-size: 0.9rem; }
+.strip { display: flex; height: 3.4rem; border: 1px solid var(--line-bright); border-radius: 8px; overflow: hidden; }
+.strip > div { display: flex; align-items: center; padding: 0 0.6rem; font-weight: 600; min-width: 0; }
+.strip-mbr { background: var(--panel-2); color: var(--ink); border-right: 4px solid var(--accent); }
+.strip-rest { flex: 1; background: var(--bad-bg); color: var(--bad-ink); }
+.strip-cap { margin: 0; }
+.jobdone { border-left: 4px solid var(--ok-line); }
+footer.bot { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--ink-dim); }
+footer.bot p { margin: 0.3rem 0; max-width: 72ch; }
+
+/* =====================================================================
+   THE CUSTOMER'S SCREEN — Windows 11, light mode, as the PC would show
+   it. It keeps Windows' own neutral colours in both site themes (it is a
+   device on the desk, not part of this page), with royal blue for
+   selection, and every pair below clears 7:1.
+   ===================================================================== */
+.screen-wrap { background: #16181d; border-radius: 14px; padding: 10px; }
+.screen {
+  position: relative; min-height: 34rem; border-radius: 6px; overflow: hidden;
+  background: #0b1f4a; color: #111827; display: flex; flex-direction: column;
+  font-family: "Segoe UI", -apple-system, Roboto, Arial, sans-serif; font-size: 15px;
+}
+.screen.off { background: #000; align-items: center; justify-content: center; }
+.screen-off { color: #e5e7eb; padding: 1rem 2rem; max-width: 34rem; text-align: center; }
+.screen.bsod { background: #0b3a82; color: #ffffff; }
+.bsod-body { padding: 2rem; max-width: 40rem; }
+.bsod-body p { margin: 0 0 1rem; font-size: 1.05rem; }
+.bsod-face { font-size: 4rem !important; line-height: 1; }
+.bsod-code { font-weight: 700; }
+.bsod-btn { background: #ffffff; color: #0b3a82; }
+.desk-area { flex: 1; padding: 0.6rem; display: grid; gap: 0.6rem; align-content: start; }
+.desk-area.no-shell { background: #000; }
+.noshell-note, .boot-note { margin: 0; padding: 0.5rem 0.8rem; background: #111827; color: #f3f4f6; border: 1px solid #6b7280; border-radius: 6px; display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; }
+.w-btn {
+  font: inherit; min-height: 36px; padding: 0.3rem 0.8rem; background: #f3f4f6; color: #111827;
+  border: 1px solid #6b7280; border-radius: 5px; cursor: pointer;
+}
+.w-btn:hover:not(:disabled) { background: #e5e7eb; }
+.w-btn:focus-visible, .th-btn:focus-visible, .dm-part:focus-visible, .dm-label:focus-visible, .tm-row:focus-visible, .key-btn:focus-visible { outline: 3px solid #ffd426; outline-offset: 1px; }
+.w-btn.primary { background: #0b3a82; color: #ffffff; border-color: #0b3a82; }
+.w-btn.small { min-height: 30px; padding: 0.1rem 0.6rem; font-size: 0.9rem; }
+.w-btn:disabled { background: #ffffff; color: #374151; border: 2px dashed #6b7280; cursor: default; }
+.win { background: #ffffff; color: #111827; border: 1px solid #6b7280; border-radius: 8px; overflow: hidden; }
+.win.active { box-shadow: 0 0 0 2px #0b3a82; }
+.win-bar { display: flex; align-items: center; gap: 0.6rem; background: #f3f4f6; padding: 0.3rem 0.5rem 0.3rem 0.8rem; border-bottom: 1px solid #d1d5db; }
+.win-title { margin: 0; font-size: 0.95rem; font-weight: 600; flex: 1; }
+.con { background: #0c0c0c; color: #f2f2f2; font-family: Consolas, "Cascadia Mono", ui-monospace, monospace; font-size: 14.5px; }
+.con-out { margin: 0; padding: 0.6rem 0.7rem 0; white-space: pre-wrap; word-break: break-word; max-height: 22rem; overflow: auto; font: inherit; }
+.con-cmd { color: #ffffff; font-weight: 700; }
+.con-row { display: flex; align-items: center; padding: 0.2rem 0.7rem 0.6rem; gap: 0; }
+.con-prompt { white-space: pre; }
+.con-in { flex: 1; min-width: 6rem; background: #0c0c0c; color: #ffffff; border: 0; border-bottom: 2px solid #9ca3af; font: inherit; padding: 0.15rem 0.25rem; }
+.con-in:focus { outline: 2px solid #ffd426; outline-offset: 1px; }
+.con-why { margin: 0; padding: 0.5rem 0.8rem; background: #0b1f4a; color: #e8f0ff; border-top: 2px solid #8fb4ff; font-family: "Segoe UI", Arial, sans-serif; font-size: 0.95rem; }
+.con-why strong { color: #fde68a; }
+.tm-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.5rem 0.7rem; border-bottom: 1px solid #e5e7eb; }
+.tm-h { margin: 0 auto 0 0; font-size: 1rem; }
+.tm-flash { margin: 0; padding: 0.4rem 0.8rem; background: #eef2ff; color: #1e1b4b; border-bottom: 1px solid #c7d2fe; }
+.tm-scroll { max-height: 18rem; overflow: auto; }
+.tm-table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.tm-table th { position: sticky; top: 0; background: #f9fafb; text-align: left; padding: 0; border-bottom: 1px solid #d1d5db; }
+.th-btn { font: inherit; font-weight: 600; background: transparent; border: 0; color: #1f2937; padding: 0.4rem 0.6rem; width: 100%; text-align: left; cursor: pointer; min-height: 36px; }
+.tm-table th[aria-sort="descending"] .th-btn, .tm-table th[aria-sort="ascending"] .th-btn { color: #0b3a82; text-decoration: underline; }
+.tm-table td { padding: 0.3rem 0.6rem; border-bottom: 1px solid #e5e7eb; }
+.tm-row { cursor: pointer; }
+.tm-row:hover td { background: #f3f4f6; }
+.tm-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.heat-1 { background: #fef9c3; color: #1f1300; } .heat-2 { background: #fde68a; color: #1f1300; } .heat-3 { background: #fcd34d; color: #1f1300; }
+.tm-row.sel td { background: #0b3a82 !important; color: #ffffff; }
+.tm-row.ruled td { background: #fdecea; color: #7f1d1d; }
+.tm-row.ruled td:first-child { box-shadow: inset 5px 0 0 #b91c1c; }
+.ruled-tag { display: block; font-weight: 700; font-size: 0.88rem; }
+.tm-status { color: #7f1d1d; font-weight: 600; }
+.tm-row.sel .tm-status { color: #ffffff; }
+.tm-info { padding: 0.6rem 0.8rem; background: #eef2ff; color: #1e1b4b; border-top: 1px solid #c7d2fe; }
+.tm-info h4 { margin: 0 0 0.3rem; font-size: 0.95rem; }
+.tm-info p { margin: 0; }
+.tm-info dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 0.8rem; margin: 0; }
+.tm-info dt { font-weight: 700; }
+.tm-info dd { margin: 0; word-break: break-all; }
+.lab-strip { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; padding: 0.55rem 0.8rem; background: #1c212c; color: #eef1f8; border-top: 3px solid #b48cff; }
+.lab-strip-tag { font-weight: 800; color: #e3b8ff; }
+.lab-strip .btn { background: #2c3547; color: #eef1f8; border-color: #5a687f; }
+.lab-strip .btn:disabled { background: #1c212c; color: #b3bccd; border: 2px dashed #5a687f; }
+.dm { font-size: 14px; }
+.dm-volwrap { overflow-x: auto; max-height: 9rem; }
+.dm-vols { border-collapse: collapse; width: 100%; }
+.dm-vols th, .dm-vols td { text-align: left; padding: 0.25rem 0.6rem; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+.dm-vols th { background: #f9fafb; }
+.dm-graph { display: grid; gap: 0.5rem; padding: 0.6rem; background: #f3f4f6; border-top: 1px solid #d1d5db; }
+.dm-row { display: grid; grid-template-columns: 9.5rem 1fr; border: 1px solid #6b7280; background: #ffffff; min-height: 4.6rem; }
+.dm-label { font: inherit; text-align: left; background: #e5e7eb; color: #111827; border: 0; border-right: 1px solid #6b7280; padding: 0.4rem 0.5rem; display: grid; gap: 0.05rem; cursor: pointer; }
+.dm-label.sel, .dm-part.sel { box-shadow: inset 0 0 0 3px #0b3a82; }
+.dm-offnote { font-size: 0.8rem; color: #7f1d1d; font-weight: 600; }
+.dm-parts { display: flex; min-width: 0; }
+.dm-part { font: inherit; font-size: 13px; text-align: left; flex-basis: 0; min-width: 4.5rem; background: #ffffff; color: #111827; border: 0; border-right: 1px solid #9ca3af; padding: 0.55rem 0.45rem 0.4rem; display: grid; align-content: start; gap: 0.05rem; cursor: pointer; position: relative; overflow: hidden; }
+.dm-part-top { position: absolute; left: 0; right: 0; top: 0; height: 7px; background: #0b3a82; }
+.dm-part.k-unalloc .dm-part-top, .dm-part.k-unreach .dm-part-top { background: #111827; }
+.dm-part.k-unalloc { background: repeating-linear-gradient(45deg, #ffffff, #ffffff 7px, #eceef1 7px, #eceef1 14px); }
+.dm-part.k-unreach { background: #fdecea; color: #7f1d1d; box-shadow: inset 5px 0 0 #b91c1c; }
+.dm-part strong, .dm-part span { background: rgba(255,255,255,0.92); width: fit-content; padding: 0 2px; }
+.dm-part.k-unreach strong, .dm-part.k-unreach span { background: #fdecea; }
+.dm-acts { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; padding: 0.55rem 0.7rem; border-top: 1px solid #d1d5db; }
+.dm-acts-h { font-weight: 700; }
+.taskbar { display: flex; gap: 0.35rem; align-items: center; background: #f3f4f6; border-top: 1px solid #9ca3af; padding: 0.3rem 0.5rem; }
+.tb-start { font: inherit; font-weight: 700; min-height: 38px; padding: 0 0.9rem; background: #0b3a82; color: #ffffff; border: 0; border-radius: 5px; cursor: pointer; }
+.tb-start:focus-visible, .tb-app:focus-visible { outline: 3px solid #ffd426; outline-offset: 1px; }
+.tb-app { font: inherit; min-height: 38px; padding: 0 0.7rem; background: #ffffff; color: #111827; border: 1px solid #9ca3af; border-radius: 5px; cursor: pointer; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb-app.on { border-bottom: 3px solid #0b3a82; font-weight: 700; }
+.tb-clock { margin-left: auto; font-variant-numeric: tabular-nums; }
+.startmenu { position: absolute; left: 0.5rem; bottom: 3.3rem; width: min(30rem, calc(100% - 1rem)); background: #ffffff; color: #111827; border: 1px solid #6b7280; border-radius: 8px; padding: 0.7rem; z-index: 4; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.sm-h { margin: 0 0 0.4rem; font-size: 1rem; }
+.sm-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.sm-app { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; justify-content: space-between; padding: 0.35rem 0.4rem; border: 1px solid #e5e7eb; border-radius: 6px; }
+.sm-name { font-weight: 600; }
+.sm-acts { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.sm-foot { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: space-between; align-items: center; margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px solid #e5e7eb; }
+.sm-power { display: flex; gap: 0.35rem; }
+.w-veil { position: absolute; inset: 0; background: rgba(0,0,0,0.62); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 6; }
+.w-dialog { background: #ffffff; color: #111827; border: 1px solid #6b7280; border-radius: 8px; padding: 0.9rem 1rem; width: min(30rem, 100%); max-height: 100%; overflow: auto; }
+.w-dialog.run { position: absolute; left: 0.5rem; bottom: 3.3rem; z-index: 5; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.w-dialog p { margin: 0.35rem 0; }
+.w-dialog label { display: block; font-weight: 600; margin: 0.5rem 0 0.2rem; }
+.dlg-h { margin: 0 0 0.4rem; font-size: 1.05rem; }
+.dlg-row { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: flex-end; margin-top: 0.8rem; }
+.dlg-err { color: #7f1d1d; background: #fdecea; border: 1px solid #b91c1c; box-shadow: inset 5px 0 0 #b91c1c; border-radius: 6px; padding: 0.3rem 0.6rem; font-weight: 600; }
+.dlg-err:empty { display: none; }
+.dlg-note { font-size: 0.9rem; color: #374151; }
+.uac-q { font-weight: 700; font-size: 1.05rem; }
+.w-dialog.uac, .w-dialog.uac-creds { border-top: 6px solid #0b3a82; }
+.w-input { font: inherit; width: 100%; min-height: 36px; padding: 0.25rem 0.5rem; border: 1px solid #6b7280; border-radius: 5px; background: #ffffff; color: #111827; }
+.w-input:focus { outline: 3px solid #0b3a82; outline-offset: 0; }
+.radio-set { border: 1px solid #d1d5db; border-radius: 6px; padding: 0.4rem 0.7rem; margin: 0.4rem 0; }
+.radio-set legend { font-weight: 600; padding: 0 0.3rem; }
+.radio-row, .chk-row { display: flex; gap: 0.5rem; align-items: center; margin: 0.25rem 0; }
+.radio-row label, .chk-row label { margin: 0; font-weight: 400; }
+.radio-row input, .chk-row input { width: 18px; height: 18px; accent-color: #0b3a82; }
+.screen-keys { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; padding: 0.5rem 0.2rem 0; color: #e5e7eb; }
+.keys-label { font-weight: 700; }
+.key-btn { font: inherit; font-size: 0.9rem; min-height: 36px; padding: 0.2rem 0.7rem; background: #2c3547; color: #eef1f8; border: 1px solid #7c8899; border-bottom-width: 3px; border-radius: 6px; cursor: pointer; }
+
+:root[data-reading="dyslexia"] .screen,
+:root[data-reading="dyslexia"] .w-dialog,
+:root[data-reading="dyslexia"] .tm-info { letter-spacing: 0.04em; word-spacing: 0.12em; }
+:root[data-reading="dyslexia"] .con { letter-spacing: 0.02em; line-height: 1.6; }
+:root[data-reading="dyslexia"] .step-prompt, :root[data-reading="dyslexia"] .opt-label { max-width: 58ch; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.bench-status[hidden], .reset-row[hidden] { display: none; }
+.tm-row.sel.ruled td { color: #ffffff; }
+.tm-row.sel.ruled td:first-child { box-shadow: inset 5px 0 0 #fecaca; }
+.layer-arrow { padding: 0.25rem 0; line-height: 1.4; }

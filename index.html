@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A+ Core2 Under the Hood Labs</title>
+<meta name="description" content="Hands-on A+ Core 2 labs. Sit down at the customer's PC and fix it with Task Manager, the Command Prompt and Disk Management — typed commands, real answers, real consequences. Part of the Cyber Warrior Program.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<!-- Applied before the page paints, so nobody watches the page reflow
+     into the reading face or flash from dark to light. The two keys are
+     SHARED with the Core 1 Under the Hood site on purpose: both live on
+     the same github.io origin, so a student who turned dyslexia-friendly
+     text on over there finds it on here too. Dark is the default. -->
+<script>
+  try {
+    document.documentElement.setAttribute("data-reading",
+      localStorage.getItem("uthl.reading.v1") === "dyslexia" ? "dyslexia" : "default");
+  } catch (e) { document.documentElement.setAttribute("data-reading", "default"); }
+  try {
+    document.documentElement.setAttribute("data-theme",
+      localStorage.getItem("uthl.theme.v1") === "light" ? "light" : "dark");
+  } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+</script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>A+ Core2 Under the Hood Labs</h1>
+    <p>CompTIA A+ Core 2, 220-1202. Sit down at the customer's PC and do the job with the tools
+      Windows gives you. You type the commands; the machine answers; and whatever you do, you live with.</p>
+    <div class="settings">
+      <div id="reading"></div>
+      <div id="theme"></div>
+      <div id="instructor"></div>
+    </div>
+  </header>
+
+  <div id="pick"></div>
+  <div id="insSheet"></div>
+  <main id="plan" aria-live="polite"></main>
+
+  <footer class="bot">
+    <p>Cyber Warrior Program — built by an instructor, for students, to make certification study more
+      interactive. For educational purposes only. Not affiliated with, endorsed by, or sponsored by
+      CompTIA&reg;. All trademarks belong to their respective owners.</p>
+  </footer>
+</div>
+<script type="module" src="assets/app.js"></script>
+</body>
+</html>
