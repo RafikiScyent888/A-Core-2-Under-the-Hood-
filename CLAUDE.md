@@ -624,11 +624,38 @@ steps". They also said yes to each 3D point and to the company shape.
   It is clean 3D, not photographic. Photo textures (Poly Haven, ambientCG)
   are blocked by this environment's network policy.
 
+### Settled on 30 Sept, the last rulings before building
+
+- **The microwave has to be movable.** The owner: "We need them to move it
+  away from AP and it needs to show a decent amount of movement. Like across
+  the room." It starts beside the access point, where it spoils 2.4 GHz for
+  the whole office. The student moves it across the room, and the damage
+  shrinks to a patch around its new spot. The change must be large and
+  obvious.
+- **HR and Finance share Office 1.** The owner: "As long as when the students
+  have no problem switching computers if needed." So every machine is also
+  one click away in a machine list, not only in the 3D office.
+- **The sims' answer keys are exam prep and stay as supplied.** The owner:
+  "What I have supplied you is part of the exam prep. We need to keep the
+  exam prep. Do what matches the exam prep." Wireless Reliability keeps its
+  keys: variant A is range and wall penetration at 2.4 GHz, and variant C is
+  dual-band with client steering. The audit notes in the table above are
+  observations, not changes. The rulings that DO change a key are Port
+  Forwarding (swapped), malware (CompTIA's steps) and App Deployment
+  (rebuilt).
+- **"Make Your Computer 3x Faster" is a malicious download**, not spam.
+- **The realism is good enough for now.** The owner: "Lets keep building.
+  Once it is finished and I interact with it. I will give you a final answer."
+- **The objectives were re-read on 30 September 2026**, at the start of the
+  build. The Core 2 wording is as quoted in section 2, with two small updates:
+  - Backup and recovery: "setting up workstation backups and recovery
+    processes"
+  - OS issues: "diagnosing and resolving problems with operating systems
+    and applications"
+
 ### OPEN, as of this entry
 
-- **Still to rule on from the audit:**
-  - Wireless Reliability's variant A and variant C keys
-  - the "3x Faster" email
+
 - **The code:** Core 2's own, or keep the plumbing copied from Core 1.
 - **Wireless Reliability:** keep it in Core 2, or move it to Networking.
 - **The doc's topics that have no sim** (OS installation, file systems,
