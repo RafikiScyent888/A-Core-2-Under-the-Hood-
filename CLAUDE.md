@@ -7,7 +7,12 @@ page title, the heading and anywhere the site is linked from.
 Read with `/root/.claude/CLAUDE.md`, which sets the rules and wins over this
 file. The coaching role is in `/root/.claude/exam-prep-coach.md`.
 
-**Status: the Windows Tools Console's four core stages are BUILT and
+**DIRECTION CHANGED on 30 September 2026. Section 8 overrides everything
+above it; read it first.** The build described in section 7 is live and the
+owner said to leave it up ("leave the website up period"), but it mixed Core 1
+into Core 2 and is not the design going forward.
+
+**Status (as first built): the Windows Tools Console's four core stages are BUILT and
 verified** (30 September 2026): six jobs, one base plus five, each played
 end to end through the real page. The lab and project stages, and the
 other seven labs, are not built yet. Section 7 is the build as it stands.
@@ -516,3 +521,78 @@ the sweep still catches real ones inside Task Manager's scrolled table.
   where guesses are unlimited.
 - **No photographs yet.** The desk is modelled, not photographed; photos
   of a real tower with the side panel off would improve it.
+
+## 8. The direction from 30 September 2026 — SETTLED
+
+The owner, after seeing the first build:
+
+> "Are you constructing this as a VM to mimic a live computer? Because that
+> is what I am looking to do. You are only using the Core 2 sims to build
+> this correct? Because it looks like you are mixing Core 1 with Core2. These
+> are separate!"
+
+> "What is the closest we can do to create a virtual machine like experience
+> for students to be able to get hands-on experience based off the Sims that
+> are for Core 2 and Core 2 only? … The routing is a different one. But we
+> can do it from the computer. They would either have to use an app or sign
+> in through the web to change the router."
+
+> "One company, web and app, five per sim" · "Name of company is Rafiki's IT
+> Services"
+
+- **A VM-style live computer.** A real Windows VM cannot run in a web page:
+  Microsoft's licence and the browser both rule it out. It is a simulated PC
+  that behaves like a running one:
+  - one machine that stays on, and whose state persists
+  - the faults are really present on the machine, and every tool reads the
+    machine
+  - consequences are real
+  - students can explore freely, with nothing laid out as numbered steps
+  - "revert to snapshot" takes it back to the last point they got right
+- **Core-2-Sims ONLY, and nothing from Core 1.** This rules out Core 1's
+  content, models, design and hardware stages (fitting a drive, SATA cables,
+  the TB-to-GB calculation). Whether the plumbing code copied from Core 1
+  stays is OPEN.
+- **One company: Rafiki's IT Services.**
+- **The router is its own device, reached from the PC** by signing in at
+  192.168.1.1 in the browser, or through a router app. Both are used.
+- **Five extra scenarios per sim**, so 11 sims + 55.
+- **Order of work:** finish Core 2, then Networking, then go back and
+  improve Core 1.
+
+The preview the owner saw of this direction:
+`scratchpad c2sims/vmprev/index.html`. It is a desktop with a ticket arriving,
+Event Viewer and a prompt, the mail client, the router page, the seven-PC
+office and the help desk chat. It was not pushed.
+
+### The answer-key audit of Core-2-Sims (30 Sept) — for the owner to rule on
+
+| Sim | Finding |
+|---|---|
+| App Deployment | **Wrong** (see section 6). The owner ruled: rebuild so the old answer is tried and fails. |
+| App Launch | The key is sound, but **all four right answers are option (a)**, the first one. |
+| Wireless Reliability, variant A | The clues are lunch hours and equipment in the breakroom, which is microwave interference. The key says the main cause is range and wall penetration, and the band to pick is 2.4 GHz, the band microwaves interfere with. The four right answers are also all option 1. |
+| Wireless Reliability, variant C | A long hallway calls for range, but the key picks "dual-band with client steering". Debatable. |
+| Port Forwarding | **Likely backwards.** The key puts the Windows PC in the screened subnet and the game console on the LAN. The customer asked for "remote access to a Windows PC" (a port-forward rule, 3389) and "all chat and optional functions in their game console" (what a screened subnet gives it). Exposing RDP to the internet from a screened subnet is also risky. Its explanation says "TLS is not used for Wi-Fi", but EAP-TLS is. |
+| Email Threat Classification | "Make Your Computer 3x Faster (Free Download)" is keyed spam. It pushes an unverified download, which is arguably the malicious kind. Owner's call. |
+| Help Desk chats | The keys are sound (IMAP over SSL is port 993). Each step has only three replies, and one is joke-level ("Blow on the SIM card"). |
+| Malware IR | The key is sound. It grades against PICERL (incident response). A+ Core 2 teaches CompTIA's malware removal best-practice steps. Which to follow is OPEN. |
+| Tier 1 Router, WiFi AP, Neighboring Routers | Sound. Router 3 on channel 11 clears the neighbours on 1 and 6. |
+
+### OPEN, as of this entry
+
+- **The company's shape.** RECOMMENDED: the student is a Tier 1 technician at
+  Rafiki's IT Services, on their own workstation with a ticket queue.
+  - The seven-PC office from Malware IR is Rafiki's own office.
+  - Mason is the student's lead.
+  - The help desk callers, the port-forwarding home, the three neighbouring
+    houses and the replacement-router branch are Rafiki's customers.
+- **Marking.** RECOMMENDED: a ticket closes only when the machine or router
+  is really fixed, and the student then writes the ticket note.
+- **The 3D model.** RECOMMENDED: the office from the WiFi sim's office map.
+- **The rulings** on each finding in the audit table above.
+- **The code:** Core 2's own, or keep the plumbing copied from Core 1.
+- **Wireless Reliability:** keep it in Core 2, or move it to Networking.
+- **The doc's topics that have no sim** (OS installation, file systems,
+  mobile, backup and recovery, safety): new tickets on the same PC, or sims
+  from the owner.
