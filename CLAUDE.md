@@ -864,3 +864,76 @@ said "Build the walk-over in 3D next."
 - **Not yet used by a ticket:** no current ticket starts with an unreachable
   PC. The Malware build (an infected PC to unplug from the network) is the
   natural first user.
+
+## 10. The Malware build — SETTLED 1 October 2026
+
+**The objectives were re-read on 1 October 2026,** from the owner's doc. The
+Core 2 wording is unchanged. This build covers:
+- **Security, Malware prevention:** "detecting, removing, and preventing
+  malware threats"
+- **Software troubleshooting, Security concerns:** "fixing unauthorized
+  access and malware issues"
+- **Operating systems, Windows tools:** "managing systems with Task
+  Manager, Command Prompt, and Disk Management"
+- **Operational procedures, Documentation:** "using best practices for
+  system changes and documentation"
+- **Operational procedures, Safety and communication:** "following safety
+  protocols and communicating effectively"
+
+**The sim** (`Malware Incident Response.html` and its answer key):
+- Brenda (WS2, Sales) downloaded "unapproved software to edit a PDF
+  contract".
+- `SCVHOST.exe` runs at about 90% CPU on WS2 and on the file server.
+- The clues:
+  - WS2: "UAC Prompt Allowed", "New Service Installed", and
+    `totally-legit-soft.net/download/setup.exe` in the browser history
+  - the server: "High Traffic", "Unknown executable written"
+- The key: inspect all 7 systems; quarantine WS2 and the server first,
+  then stop the malware; never quarantine a clean PC or stop a legitimate
+  process.
+
+**The owner's answers** ("Yes to all"):
+- **Cutscenes, built into the walk-overs in this build.** The owner asked
+  for them "like a cut screen from a video game", for the walk-overs, the
+  microwave job, "and everything else that needs to be 3D for the
+  students to learn". A cutscene has:
+  - letterbox bars
+  - an aerial establishing shot swooping into the building
+  - eased camera moves with a slight walking sway
+  - game-style captions
+  - fades to black
+  - a Skip button
+  - a plain cut for reduced motion
+- **Quarantine** is unplugging the network cable at the desk (or, for the
+  file server, at the rack). Disabling the network adapter remotely is
+  also accepted, and it drops the remote session at once.
+- **Out of order means real consequences, not an instant fail.** Each
+  counts as a wrong move, and Mason explains it:
+  - stop the malware before quarantine, and it spreads to another PC and
+    its service restarts it
+  - quarantine a clean PC, and that user complains
+- **Every PC on the network must be checked**, as in the sim.
+
+**CompTIA's malware-removal steps** (the owner's earlier ruling, instead of
+PICERL), as hands-on work:
+
+| Step | What the student does |
+|---|---|
+| 1. Investigate and verify symptoms | On each PC: Task Manager (the fake process runs from AppData and is unsigned), Event Viewer (a new service installed, UAC allowed), the browser's history |
+| 2. Quarantine | Unplug the cable at the desk, or disable the adapter |
+| 3. Disable System Restore | System Protection, at the desk |
+| 4. Remediate | Update the definitions offline from a USB stick, then run a Microsoft Defender Offline scan. Scanning first misses it; ending the process alone lets its service restart it |
+| 5. Schedule scans and run updates | Windows Security and Windows Update |
+| 6. Enable System Restore and create a restore point | System Protection |
+| 7. Educate the end user | The close question: what to tell the user, from six replies |
+
+**Six scenarios:**
+
+| | Level | Scenario |
+|---|---|---|
+| M1 | Crawl | The sim: the fake PDF editor on WS2, spread to the file server |
+| M2 | Walk | "Make Your Computer 3x Faster", the malicious download (the owner's ruling), on WS1 |
+| M3 | Run | A browser hijacker at reception (WS5) |
+| M4 | Run | A cryptominer disguised as a Windows process on WS3, from a bad VS Code extension |
+| M5 | Run | Fake antivirus scareware on WS4 |
+| M6 | Run | An allowed Excel macro on WS4 (in the sim it was blocked, a clean clue) |
