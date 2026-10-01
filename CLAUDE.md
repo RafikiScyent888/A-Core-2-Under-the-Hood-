@@ -933,6 +933,51 @@ the bench, to the server rack, and to reception.
 - So far only the walk-overs are cutscenes. The microwave job and the
   three-house street come with the router build.
 
+**Preview 7 (1 October 2026, the private preview page, not pushed): the
+whole Malware build.** It is waiting for the owner to try it before it
+goes live.
+- **The tickets:** M1 is a 23-step crawl, M2 a 10-item walk, and M3–M6
+  are run tickets. The six scenarios are in the table above.
+- **New files:** `malware.js` (the model) and `tickets-malware.js` (the
+  tickets).
+- **Windows gained these tools:**
+  - Edge's history
+  - Windows Security: scans, the Offline scan, protection updates and a
+    scheduled scan
+  - System Properties › System Protection
+  - Network Connections
+  - Windows Update
+  - File Explorer's drive buttons, a USB stick at the desk, and
+    mpam-fe.exe
+- **And these commands:** `netsh`, the Defender, restore-point and
+  network-adapter cmdlets, and `taskkill`, all judged exactly as their
+  buttons are.
+- **Consequences:**
+  - A malware process ended while the PC is online restarts, and spreads
+    to the ticket's next PC.
+  - A running file can't be deleted.
+  - Old definitions miss it; a quick scan finds it but can't remove it.
+  - A restore point made while infected counts as a wrong move.
+  - A clean PC that is unplugged brings a complaint from its user.
+- **Checks:**
+  - logic: 18 tickets, 23 plants
+  - page: 13 groups, including MALWARE (M1 by Mason's rings only), CINE
+    and MALRUN (M2 and M6 through the UI alone)
+  - contrast: the Malware screens and the cutscene caption
+- **Found and fixed:**
+  - Mason's step list named the infected PCs from step 1.
+  - A crawl step that was already true on a clean office made the crawl
+    jump to step 19.
+  - The ring was hidden behind another window.
+  - Connect did nothing on a session that had dropped.
+  - Skip did nothing after the walk was frozen.
+  - The right "educate the user" reply was about twice the length of the
+    wrong ones in all six tickets.
+  - Desktop icons overlapped the desk monitor's top bar.
+  - The contrast sweep could not see text in layers that ignore the mouse
+    (the cutscene caption), and it took an invisible fade layer for one
+    that covers the text.
+
 **CompTIA's malware-removal steps** (the owner's earlier ruling, instead of
 PICERL), as hands-on work:
 
