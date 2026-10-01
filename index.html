@@ -4,13 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>A+ Core2 Under the Hood labs</title>
-<meta name="description" content="A+ Core 2 as a live office: you are a Tier 1 technician at Rafiki's IT Services, working tickets on real-behaving Windows PCs. Built from the Core 2 sims. Part of the Cyber Warrior Program.">
+<meta name="description" content="Sit down at your work laptop at Rafiki's IT Services: work Help Desk tickets on the office's PCs with Windows' own tools. Built from the CompTIA A+ Core 2 sims. Part of the Cyber Warrior Program.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/laptop.css">
 <script type="importmap">{ "imports": { "three": "./assets/three/three.module.min.js", "three/addons/": "./assets/three/addons/" } }</script>
-<!-- Applied before the page paints, so nobody watches the page reflow
-     into the reading face or flash from dark to light. Dark is the
-     default; only the student's own stored choice changes it. -->
 <script>
   try {
     document.documentElement.setAttribute("data-reading", localStorage.getItem("c2vm.reading") === "dyslexia" ? "dyslexia" : "default");
@@ -19,44 +17,11 @@
 </script>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <h1>A+ Core2 Under the Hood labs</h1>
-    <p class="lede">You are a Tier 1 technician at <strong>Rafiki's IT Services</strong>. Tickets come in to the Help Desk on your
-      workstation. The office's PCs are running: sit at one, use Windows' own tools, and fix what is really wrong with it.
-      Built from the CompTIA A+ Core 2 (220-1202) sims.</p>
-    <div class="settings">
-      <div id="set-reading"></div>
-      <div id="set-theme"></div>
-      <div id="set-instructor"></div>
-    </div>
-  </header>
-
-  <div class="workspace">
-    <aside class="side" aria-label="The office and your ticket">
-      <section class="panel office-panel" aria-labelledby="office-h">
-        <h2 id="office-h">The office</h2>
-        <div id="office" class="office"></div>
-        <p id="office-note" class="setting-note">Loading the 3D office. The machine list below works already.</p>
-        <h3 class="sub-h" id="machines-h">Machines</h3>
-        <div id="machines" class="machines" role="group" aria-labelledby="machines-h"></div>
-      </section>
-      <div id="clipboard" class="clipboard" aria-live="polite"></div>
-      <p><button type="button" class="btn secondary" id="reset-all">Start again from the beginning</button></p>
-    </aside>
-    <main class="main">
-      <h2 id="screen-h" class="screen-h">On the screen</h2>
-      <div id="screen"></div>
-    </main>
-  </div>
-
-  <footer class="bot">
-    <p>Cyber Warrior Program — built by an instructor, for students, to make certification study more
-      interactive. For educational purposes only. Not affiliated with, endorsed by, or sponsored by
-      CompTIA&reg;. All trademarks belong to their respective owners.</p>
-    <p class="setting-note">3D: three.js (MIT licence). Daylight: a CC0 HDRI from Poly Haven.</p>
-  </footer>
-</div>
-<script type="module" src="assets/app.js"></script>
+<main id="laptop" class="laptop" aria-label="Your work laptop"></main>
+<footer class="under">
+  <p>Cyber Warrior Program — built by an instructor, for students, to make certification study more interactive. For educational purposes only. Not affiliated with, endorsed by, or sponsored by CompTIA&reg;. All trademarks belong to their respective owners.</p>
+  <p>A+ Core2 Under the Hood labs · built from the CompTIA A+ Core 2 (220-1202) sims · 3D: three.js (MIT licence) · daylight: a CC0 HDRI from Poly Haven</p>
+</footer>
+<script type="module" src="assets/laptop.js"></script>
 </body>
 </html>

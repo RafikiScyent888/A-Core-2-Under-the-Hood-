@@ -378,10 +378,16 @@ export function createShell(m, opts) {
     return { out: "", kind: "look" };
   }
 
+  function locateDir(t) { const l = locate(t.replace(/"/g, "")); if (l.err) return false; return !!(l.m.fs[String(l.path).replace(/\\$/, "").toLowerCase()] || l.m.fs[String(l.path).toLowerCase()]); }
   function dir(rest) {
     const args = rest.filter(function (x) { return x[0] !== "/"; });
     let target = args.join(" "), pat = null;
     if (/[*?]/.test(target)) { const cut = target.lastIndexOf("\\"); pat = target.slice(cut + 1); target = cut >= 0 ? target.slice(0, cut) : ""; }
+    else if (target && !locateDir(target)) {
+      /* dir C:\some\folder\file.dll lists that one file, as Windows does */
+      const cut = target.replace(/"/g, "").lastIndexOf("\\");
+      if (cut >= 0) { pat = target.replace(/"/g, "").slice(cut + 1); target = target.replace(/"/g, "").slice(0, cut); }
+    }
     const loc = locate(target || sh.cwd); if (loc.err) return { out: loc.err, kind: "look" };
     const r = loc.path;
     const n = loc.m.fs[String(r).replace(/\\$/, "").toLowerCase()] || loc.m.fs[String(r).toLowerCase()];
@@ -845,6 +851,11 @@ export function createShell(m, opts) {
       /* PowerShell's own listing format, as the App Deployment sim shows it */
       let target = t.slice(1).join(" "), pat = null;
       if (/[*?]/.test(target)) { const cut = target.lastIndexOf("\\"); pat = target.slice(cut + 1); target = cut >= 0 ? target.slice(0, cut) : ""; }
+    else if (target && !locateDir(target)) {
+      /* dir C:\some\folder\file.dll lists that one file, as Windows does */
+      const cut = target.replace(/"/g, "").lastIndexOf("\\");
+      if (cut >= 0) { pat = target.replace(/"/g, "").slice(cut + 1); target = target.replace(/"/g, "").slice(0, cut); }
+    }
       const loc = locate(target || sh.cwd); if (loc.err) return { out: "ls : Cannot find path because it does not exist.", kind: "look" };
       const n = loc.m.fs[String(loc.path).replace(/\\$/, "").toLowerCase()] || loc.m.fs[String(loc.path).toLowerCase()];
       if (!n) return { out: "ls : Cannot find path '" + loc.path + "' because it does not exist.", kind: "look" };

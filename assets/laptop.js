@@ -1,0 +1,936 @@
+/* =====================================================================
+   A+ Core2 Under the Hood labs — the work laptop.
+
+   The whole browser window is the student's laptop at Rafiki's IT
+   Services. They sign in; everything after that happens in programs on
+   it: the Help Desk (one ticket, one page), a remote session to the
+   user's PC, and chat with Mason, the team lead, who is where the hints
+   come from. The settings live in a tray on the taskbar.
+
+   Underneath it is the same machine model, commands and tickets as
+   before (machine.js, cmd.js, tickets.js, engine.js). The PCs reached by
+   remote session are drawn by desktop.js.
+   ===================================================================== */
+import { ROSTER, rosterOf } from "./fleet.js";
+import * as M from "./machine.js";
+import { createEngine, rungFor } from "./engine.js";
+import { createDesktop } from "./desktop.js";
+import { TICKETS } from "./tickets.js";
+import { ordered } from "./order.js";
+
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function btn(label, cls, fn, aria) { const b = el("button", cls || "b", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
+function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function put(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+const E = createEngine();
+const LKEY = "c2vm.laptop.v1";
+let L = (function () { try { return JSON.parse(get(LKEY)) || null; } catch (e) { return null; } })() || { chat: [], said: {}, log: {}, unread: 0, sel: null, notes: {}, met: false };
+L.coach = L.coach || {}; L.lines = L.lines || {};
+function saveL() { put(LKEY, JSON.stringify(L)); }
+let instructor = false;
+
+const root = document.getElementById("laptop");
+const desk = el("div", "desk"); const task = el("div", "task"); const toasts = el("div", "toasts"); toasts.setAttribute("aria-live", "polite");
+root.appendChild(desk); root.appendChild(toasts); root.appendChild(task);
+
+/* ---------------------------------------------------------- the clock */
+function now() { const d = new Date(); return { time: d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }), date: d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }), short: d.toLocaleDateString("en-US") }; }
+function stamp() { return new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }); }
+
+/* ------------------------------------------------------------ sign-in */
+const PASSWORD = "TechStart-2026";
+function lockScreen() {
+  const lk = el("div", "lock"); lk.setAttribute("role", "dialog"); lk.setAttribute("aria-label", "Sign in to Windows");
+  const box = el("div", "lock-box");
+  const n = now();
+  const c = el("p", "lock-clock", n.time); const d = el("p", "lock-date", n.date);
+  const press = btn("Press to sign in", "lock-press", function () { press.remove(); c.remove(); d.remove(); signIn(); });
+  box.appendChild(c); box.appendChild(d); box.appendChild(press);
+  function signIn() {
+    box.appendChild(el("div", "lock-face", "T"));
+    box.appendChild(el("p", "lock-name", "Tech")); box.appendChild(el("p", "lock-org", "RAFIKI\\tech · Rafiki's IT Services"));
+    const lab = el("label", null, "Password"); const inp = el("input"); inp.type = "password"; inp.id = "lock-pw"; lab.setAttribute("for", "lock-pw"); lab.className = "lock-org";
+    const err = el("p", "lock-err"); err.hidden = true; err.setAttribute("role", "alert");
+    const go = btn("Sign in", "lk-btn", tryIt);
+    function tryIt() { if (inp.value === PASSWORD) { lk.remove(); onSignedIn(); } else { err.hidden = false; err.textContent = "The password is incorrect. Try again."; inp.select(); } }
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); tryIt(); } });
+    const note = el("p", "lock-note"); note.appendChild(document.createTextNode("First day? Mason's welcome email gave you your password: ")); note.appendChild(el("strong", null, PASSWORD));
+    [lab, inp, err, go, note].forEach(function (x) { box.appendChild(x); });
+    setTimeout(function () { inp.focus(); }, 0);
+  }
+  lk.appendChild(box);
+  const foot = el("p", "lock-foot", "Cyber Warrior Program — built by an instructor, for students, to make certification study more interactive. For educational purposes only. Not affiliated with, endorsed by, or sponsored by CompTIA®. All trademarks belong to their respective owners.");
+  lk.appendChild(foot);
+  root.appendChild(lk);
+  setTimeout(function () { press.focus(); }, 0);
+}
+function onSignedIn() {
+  drawDesk(); drawTask();
+  if (!L.met) {
+    L.met = true;
+    mason("Morning, and welcome to Rafiki's! Your queue is in Help Desk. Farah's ticket about Testing is a good first one.", null, true);
+    mason("To work on someone's PC, open their ticket and press Connect. If a PC can't be reached remotely, you'll have to walk over to it.", null, true);
+    mason("When Windows asks for an admin on a user's PC, use RAFIKI\\itadmin, password Bench-Tech-2026. Don't stick it on your monitor.", null, true);
+    mason("I'll check in if you get stuck. Ask me any time.", null, true);
+    L.unread = 0; saveL();
+    coachTick(); openWin("helpdesk"); return;
+  }
+  openWin("helpdesk");
+}
+
+/* ------------------------------------------------- the window manager */
+const W = {}; let Z = 10, front = null;
+const APPS = {
+  helpdesk: { title: "Help Desk — Rafiki's IT Services", mini: "HD", cls: "g-hd", geo: [0.085, 0.03, 0.60, 0.92], draw: drawHelpdesk },
+  chat: { title: "Chat — Mason (Team Lead)", mini: "C", cls: "g-chat", geo: [0.695, 0.03, 0.295, 0.92], draw: drawChat },
+  mstsc: { title: "Remote Desktop Connection", mini: "RD", cls: "g-rdp", geo: [0.30, 0.20, 0.36, 0.46], draw: drawMstsc }
+};
+function appOf(id) { return id.indexOf("rdp:") === 0 ? { title: rosterOf(id.slice(4)).host + " — Remote support", mini: "RS", cls: "g-rdp", geo: [0.08, 0.03, 0.86, 0.92], draw: drawRdp } : APPS[id]; }
+function openWin(id) {
+  if (W[id]) { W[id].min = false; focusWin(id); return W[id]; }
+  const a = appOf(id); const w = { id: id, a: a, min: false, max: desk.clientWidth < 900 };
+  const box = el("section", "lw"); box.setAttribute("aria-label", a.title); box.dataset.win = id;
+  const bar = el("div", "lw-bar"); const h = el("h2", "lw-title", a.title); bar.appendChild(h);
+  bar.appendChild(btn("–", "lw-ctl", function () { w.min = true; place(w); drawTask(); }, "Minimize " + a.title));
+  bar.appendChild(btn("□", "lw-ctl", function () { w.max = !w.max; place(w); }, "Maximize " + a.title));
+  bar.appendChild(btn("✕", "lw-ctl x", function () { closeWin(id); }, "Close " + a.title));
+  const body = el("div", "lw-body");
+  box.appendChild(bar); box.appendChild(body); desk.appendChild(box);
+  w.el = box; w.body = body; w.bar = bar; w.titleEl = h;
+  const r = desk.getBoundingClientRect();
+  w.x = Math.round(a.geo[0] * r.width); w.y = Math.round(a.geo[1] * r.height); w.w = Math.round(a.geo[2] * r.width); w.h = Math.round(a.geo[3] * r.height);
+  box.addEventListener("pointerdown", function () { if (front !== id) focusWin(id); }, true);
+  drag(w);
+  W[id] = w; place(w); focusWin(id); a.draw(w);
+  drawTask();
+  return w;
+}
+function place(w) {
+  w.el.classList.toggle("max", !!w.max); w.el.classList.toggle("min", !!w.min);
+  Object.assign(w.el.style, { left: w.x + "px", top: w.y + "px", width: w.w + "px", height: w.h + "px" });
+}
+function focusWin(id) { const w = W[id]; if (!w) return; w.el.style.zIndex = ++Z; front = id; Object.values(W).forEach(function (x) { x.el.classList.toggle("front", x.id === id); }); drawTask(); }
+function closeWin(id) { const w = W[id]; if (!w) return; if (w.onClose) w.onClose(); w.el.remove(); delete W[id]; if (front === id) front = null; drawTask(); }
+function drag(w) {
+  let start = null;
+  w.bar.addEventListener("pointerdown", function (e) { if (e.target.closest("button") || w.max) return; start = [e.clientX, e.clientY, w.x, w.y]; w.bar.setPointerCapture(e.pointerId); });
+  w.bar.addEventListener("pointermove", function (e) {
+    if (!start) return; const r = desk.getBoundingClientRect();
+    w.x = Math.max(-w.w + 120, Math.min(r.width - 120, start[2] + e.clientX - start[0])); w.y = Math.max(0, Math.min(r.height - 38, start[3] + e.clientY - start[1])); place(w);
+  });
+  w.bar.addEventListener("pointerup", function () { start = null; });
+  w.bar.addEventListener("dblclick", function (e) { if (!e.target.closest("button")) { w.max = !w.max; place(w); } });
+}
+function redraw(id) { const w = W[id]; if (w) w.a.draw(w); }
+function refresh() { redraw("helpdesk"); redraw("chat"); drawTask(); coachTick(); }
+
+/* ------------------------------------------------ desktop and taskbar */
+function drawDesk() {
+  desk.innerHTML = "";
+  const mark = el("div", "wall-mark", "Rafiki's IT Services"); mark.appendChild(el("small", null, "IT Support · Tier 1")); desk.appendChild(mark);
+  const ic = el("div", "icons"); ic.setAttribute("aria-label", "Desktop");
+  [["helpdesk", "Help Desk", "HD", "g-hd"], ["chat", "Chat", "C", "g-chat"], ["mstsc", "Remote Desktop", "RD", "g-rdp"]].forEach(function (x) {
+    const b = btn("", "dicon", function () { openWin(x[0]); }, "Open " + x[1]);
+    b.appendChild(el("span", "glyph " + x[3], x[2])); b.appendChild(el("span", null, x[1])); ic.appendChild(b);
+  });
+  desk.appendChild(ic);
+}
+let pop = null;
+function drawTask() {
+  task.innerHTML = "";
+  const mid = el("div", "task-mid");
+  const st = btn("", "tb", function () { togglePop("start"); }, "Start"); st.appendChild(el("span", "mini g-hd", "⊞")); st.appendChild(el("span", null, "Start")); st.setAttribute("aria-expanded", String(pop === "start"));
+  mid.appendChild(st);
+  const pinned = ["helpdesk", "chat", "mstsc"];
+  const ids = pinned.concat(Object.keys(W).filter(function (k) { return pinned.indexOf(k) < 0; }));
+  ids.forEach(function (id) {
+    const a = appOf(id); const w = W[id];
+    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : rosterOf(id.slice(4)).host;
+    const b = btn("", "tb" + (w ? " open" : "") + (front === id && w && !w.min ? " front" : ""), function () {
+      if (!w) return openWin(id);
+      if (front === id && !w.min) { w.min = true; place(w); front = null; drawTask(); } else { w.min = false; place(w); focusWin(id); }
+    }, label + (w ? (w.min ? ", minimized" : ", open") : ""));
+    b.appendChild(el("span", "mini " + a.cls, a.mini)); b.appendChild(el("span", null, label));
+    if (id === "chat" && L.unread) { const g = el("span", "badge", String(L.unread)); g.setAttribute("aria-label", L.unread + " unread"); b.appendChild(g); }
+    mid.appendChild(b);
+  });
+  task.appendChild(mid);
+  const tray = el("div", "task-tray");
+  const set = btn("", "tb", function () { togglePop("tray"); }, "Settings: reading, light or dark, instructor mode"); set.appendChild(el("span", null, "⚙ Settings")); set.setAttribute("aria-expanded", String(pop === "tray"));
+  tray.appendChild(set);
+  const n = now(); const ck = el("div", "tray-clock"); ck.appendChild(el("div", null, n.time)); ck.appendChild(el("div", null, n.short)); tray.appendChild(ck);
+  task.appendChild(tray);
+}
+function togglePop(kind) {
+  const old = root.querySelector(".pop"); if (old) old.remove();
+  if (pop === kind) { pop = null; drawTask(); return; }
+  pop = kind; const p = el("div", "pop" + (kind === "start" ? " start" : "")); p.setAttribute("role", "dialog");
+  if (kind === "start") {
+    p.setAttribute("aria-label", "Start"); p.appendChild(el("h2", null, "Pinned"));
+    const ul = el("ul", "start-list");
+    [["helpdesk", "Help Desk", "HD", "g-hd"], ["chat", "Chat", "C", "g-chat"], ["mstsc", "Remote Desktop Connection", "RD", "g-rdp"]].forEach(function (x) {
+      const li = el("li"); const b = btn("", null, function () { togglePop("start"); openWin(x[0]); }, "Open " + x[1]);
+      b.appendChild(el("span", "mini " + x[3], x[2])); b.lastChild.style.cssText = "width:30px;height:30px;border-radius:7px;display:grid;place-items:center;color:#fff;font-weight:800";
+      b.appendChild(el("span", null, x[1])); li.appendChild(b); ul.appendChild(li);
+    });
+    p.appendChild(ul);
+    const f = el("div", "start-foot"); f.appendChild(el("span", null, "RAFIKI\\tech"));
+    f.appendChild(btn("Sign out", "b small", function () { togglePop("start"); Object.keys(W).forEach(closeWin); desk.innerHTML = ""; task.innerHTML = ""; lockScreen(); }));
+    p.appendChild(f);
+    /* Two presses, because this wipes every ticket and machine back to the
+       start (the page cannot use a browser confirm box). */
+    const again = btn("Start the lab over", "b small", function () {
+      if (again.dataset.armed) { try { localStorage.removeItem("c2vm.session.v1"); localStorage.removeItem(LKEY); } catch (e) {} location.reload(); return; }
+      again.dataset.armed = "1"; again.textContent = "Press again: every ticket and PC goes back to the start";
+    });
+    const f2 = el("div", "start-foot"); f2.appendChild(again); p.appendChild(f2);
+  } else {
+    p.setAttribute("aria-label", "Settings"); p.appendChild(el("h2", null, "Settings"));
+    row(p, "set-dys", "Dyslexia-friendly text", "Wider spacing, shorter lines, no italics. Stays on, on every Cyber Warrior site.", get("c2vm.reading") === "dyslexia", function (on) { put("c2vm.reading", on ? "dyslexia" : "default"); document.documentElement.setAttribute("data-reading", on ? "dyslexia" : "default"); });
+    row(p, "set-light", "Light mode", "Dark is the default. Both are checked for contrast. Stays on.", get("c2vm.theme") === "light", function (on) { put("c2vm.theme", on ? "light" : "dark"); document.documentElement.setAttribute("data-theme", on ? "light" : "dark"); });
+    const r = el("div", "row"); const ib = btn(instructor ? "Instructor mode: on" : "Instructor mode", "b small", function () { if (instructor) { instructor = false; togglePop("tray"); refresh(); } else askPIN(); });
+    ib.setAttribute("aria-pressed", String(instructor)); ib.id = "instructorBtn"; r.appendChild(el("span")); r.appendChild(ib);
+    r.appendChild(el("span", "note", "For instructors: shows each ticket's fix and cause. Off again when the page reloads."));
+    p.appendChild(r);
+  }
+  root.appendChild(p); drawTask();
+  const first = p.querySelector("button, input"); if (first) first.focus();
+}
+function row(p, id, label, note, on, set) {
+  const r = el("div", "row"); const box = el("input"); box.type = "checkbox"; box.id = id; box.checked = on;
+  const l = el("label", null, label); l.setAttribute("for", id); box.addEventListener("change", function () { set(box.checked); });
+  r.appendChild(box); r.appendChild(l); r.appendChild(el("span", "note", note)); p.appendChild(r);
+}
+function askPIN() {
+  const p = root.querySelector(".pop"); p.innerHTML = ""; p.appendChild(el("h2", null, "Instructor PIN"));
+  p.appendChild(el("p", "note", "This keeps the answers out of a student's way rather than out of their reach."));
+  const lab = el("label", null, "PIN"); const inp = el("input", "field"); inp.type = "password"; inp.id = "pin-in"; inp.inputMode = "numeric"; lab.setAttribute("for", "pin-in");
+  const err = el("p", "err"); err.hidden = true; err.setAttribute("role", "alert");
+  function tryIt() { if (inp.value.trim() === "3693") { instructor = true; pop = "tray"; togglePop("tray"); refresh(); } else { err.hidden = false; err.textContent = "That is not the PIN. Nothing has changed."; inp.select(); } }
+  inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); tryIt(); } });
+  const r = el("div", "start-foot"); r.appendChild(btn("Unlock", "b pri small", tryIt)); r.appendChild(btn("Cancel", "b small", function () { pop = "tray"; togglePop("tray"); }));
+  [lab, inp, err, r].forEach(function (x) { p.appendChild(x); }); inp.focus();
+}
+document.addEventListener("keydown", function (e) { if (e.key === "Escape" && pop) { pop = pop; togglePop(pop); } });
+desk.addEventListener("pointerdown", function () { if (pop) togglePop(pop); });
+
+/* ----------------------------------------------------- notifications */
+function toast(who, text, open) {
+  toasts.innerHTML = "";
+  const t = btn("", "toast", function () { t.remove(); if (open) open(); }); t.appendChild(el("strong", null, who)); t.appendChild(el("span", null, text.length > 140 ? text.slice(0, 137) + "…" : text));
+  toasts.appendChild(t); setTimeout(function () { t.remove(); }, 9000);
+}
+
+/* ---------------------------------------------------------- Mason */
+function mason(text, extra, quiet) {
+  L.chat.push(Object.assign({ from: "mason", at: stamp(), text: text }, extra || {}));
+  if (quiet) { saveL(); return; }
+  /* Seen if the chat window is open and nothing is lying on top of it;
+     otherwise Mason's message pops up as a notification too. */
+  const open = W.chat && !W.chat.min && Object.values(W).every(function (x) {
+    if (x.id === "chat" || x.min || +x.el.style.zIndex < +W.chat.el.style.zIndex) return true;
+    const a = x.el.getBoundingClientRect(), c = W.chat.el.getBoundingClientRect();
+    return a.right <= c.left || a.left >= c.right || a.bottom <= c.top || a.top >= c.bottom;
+  });
+  if (!open) { L.unread++; toast("Mason (Team Lead)", text, function () { openWin("chat"); }); }
+  saveL(); refresh();
+}
+function hintFor(g, stage, t) {
+  if (stage === "close") {
+    if (g.rung === 1) return { text: "Before you pick a cause: " + g.where };
+    if (g.rung === 2) return { text: "Think about the principle. " + g.principle };
+    return { text: "I've struck four off the cause list on the ticket, each with why. Two are still alive. Which one fits everything you saw?" };
+  }
+  if (g.rung === 1) return { text: "Quick pointer, from me: " + g.where };
+  if (g.rung === 2) return { text: g.where, principle: g.principle };
+  return { text: "Let's narrow it down. Here are six things you could do next. Four are out, each with why; two are still alive. You pick one, and you do it yourself.", principle: g.principle, moves: ordered(g.moves, t.id + "m").map(function (x) { return { label: x.label, struck: !!x.struck, why: x.why || "" }; }) };
+}
+/* After every move: if the student has reached a new rung, or is on rung
+   3 and has made another wrong move, Mason checks in. Rung 3 repeats for
+   as long as it is needed. Guesses 1 and 2 get nothing. */
+function masonCheck() {
+  const t = E.ticket(), st = E.T(); if (!t || !st || st.stage === "done") return;
+  const g = E.guidance(); if (!g || !g.rung) return;
+  const n = st.stage === "work" ? st.guesses : (st.closeGuesses || 0);
+  const said = L.said[t.id] = L.said[t.id] || {}; const last = said[st.stage] || { rung: 0, n: 0 };
+  if (g.rung > last.rung || (g.rung === 3 && n > last.n)) {
+    said[st.stage] = { rung: g.rung, n: n };
+    const h = hintFor(g, st.stage, t);
+    mason(h.text, { rung: g.rung, ticket: t.id, principle: h.principle || null, moves: h.moves || null });
+  }
+}
+function askMason(q) {
+  L.chat.push({ from: "me", at: stamp(), text: q }); saveL();
+  const t = E.ticket(), st = E.T();
+  setTimeout(function () {
+    if (/admin|credential|password/i.test(q)) return mason("On users' PCs: RAFIKI\\itadmin, password Bench-Tech-2026. Type it into the UAC box when Windows asks.");
+    if (/reach|connect|remote|pc/i.test(q) && !/stuck/i.test(q)) return mason("Open the ticket in Help Desk and press Connect. The user accepts and you get their screen. If the PC can't be reached, you'll have to walk over.");
+    if (!t || !st || st.stage === "done") return mason("Nothing open right now. Pick the next ticket from your queue.");
+    const g = E.guidance();
+    if (!g || !g.rung) return mason(nextStepAdvice(t, st));
+    const h = hintFor(g, st.stage, t); mason(h.text, { rung: g.rung, ticket: t.id, principle: h.principle || null, moves: h.moves || null });
+  }, 600);
+  refresh();
+}
+/* Asked for help before any wrong moves: Mason says where the student is
+   in the job and which tool comes next. That is how to work, not what the
+   answer is; the answer hints still wait for the ladder. */
+function nextStepAdvice(t, st) {
+  const r = rosterOf(t.machine), who = t.from.split(" ")[0];
+  const ev = evs(t.machine);
+  if (st.stage === "close") return "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
+  if (!W["rdp:" + t.machine] && !ev.length) return "Start by seeing it for yourself. On the ticket in Help Desk, press Connect to " + r.host + ". When " + who + "'s screen opens, run the program they're having trouble with and read exactly what it says.";
+  if (!ev.some(function (e) { return e.kind === "launch"; })) return "You're on " + who + "'s PC. Run the program they're having trouble with, from their desktop or Start (or type its name at a prompt), and read the message word for word. If Windows can't find it at all, that's evidence too.";
+  if (!ev.some(function (e) { return e.kind === "view-log"; })) return "You've seen the problem. Now check what Windows recorded: on " + who + "'s PC press Start, type event, and open Event Viewer. Read the Errors and Warnings in both the Application and System logs.";
+  if (!st.guesses) return "You've seen the problem and what Windows recorded. Read " + who + "'s ticket again for anything they already tried or noticed. Then try the fix you think fits, the safest one first. If it doesn't work, I'll start narrowing it down with you.";
+  return "Keep going: look at what changed after your last move, then try the next most likely fix. Three moves that don't help and I'll start narrowing it down with you.";
+}
+function drawChat(w) {
+  L.unread = 0; saveL();
+  const b = w.body; b.innerHTML = "";
+  const c = el("div", "chat");
+  const people = el("div", "chat-people"); people.setAttribute("aria-label", "Conversations");
+  const p = el("div", "person"); p.appendChild(el("span", "av", "M")); p.appendChild(el("strong", null, "Mason")); p.appendChild(el("small", null, "Team Lead · available"));
+  people.appendChild(p); c.appendChild(people);
+  const main = el("div", "chat-main");
+  const log = el("div", "chat-log"); log.setAttribute("role", "log"); log.setAttribute("aria-label", "Chat with Mason");
+  L.chat.forEach(function (m) {
+    const bub = el("div", "bub" + (m.from === "me" ? " me" : ""));
+    bub.appendChild(el("div", "bh", (m.from === "me" ? "You" : "Mason") + " · " + m.at));
+    bub.appendChild(el("p", null, m.text));
+    if (m.principle) bub.appendChild(el("p", "principle", m.principle));
+    if (m.moves) {
+      const ul = el("ul", "narrow2");
+      m.moves.forEach(function (x) { const li = el("li", x.struck ? "struck" : "alive"); li.appendChild(el("span", "om", x.struck ? "✕ Ruled out" : "● Still alive")); li.appendChild(el("span", "nl", x.label)); if (x.struck) li.appendChild(el("span", null, x.why)); ul.appendChild(li); });
+      bub.appendChild(ul);
+    }
+    log.appendChild(bub);
+  });
+  main.appendChild(log);
+  const quick = el("div", "chat-quick");
+  ["I'm stuck", "Where are the admin credentials?", "How do I reach a user's PC?"].forEach(function (q) { quick.appendChild(btn(q, "b small", function () { askMason(q); })); });
+  main.appendChild(quick);
+  const ty = el("div", "chat-type"); const lab = el("label", null, "Message Mason"); lab.setAttribute("for", "chat-in"); lab.className = "sr";
+  const inp = el("input", "field"); inp.id = "chat-in"; inp.placeholder = "Message Mason"; inp.setAttribute("aria-label", "Message Mason");
+  inp.addEventListener("keydown", function (e) { if (e.key === "Enter" && inp.value.trim()) { e.preventDefault(); const v = inp.value.trim(); inp.value = ""; askMason(v); } });
+  ty.appendChild(inp); ty.appendChild(btn("Send", "b pri", function () { if (inp.value.trim()) { const v = inp.value.trim(); inp.value = ""; askMason(v); } }));
+  main.appendChild(ty); c.appendChild(main); b.appendChild(c);
+  setTimeout(function () { log.scrollTop = log.scrollHeight; }, 0);
+}
+
+/* ----------------------------------------------------- the Help Desk */
+const INC = {}; TICKETS.forEach(function (t, i) { INC[t.id] = "INC" + (20410 + i); });
+function logT(id, text) { (L.log[id] = L.log[id] || []).push({ at: stamp(), text: text }); saveL(); }
+function statusOf(t, st) {
+  if (!st) return ["New", ""];
+  if (st.status === "closed") return [t.outcome === "escalate" ? "Escalated" : "Resolved", "st-closed"];
+  return ["In progress", "st-work"];
+}
+function drawHelpdesk(w) {
+  const b = w.body; const keepT = b.querySelector(".hd2-t") ? b.querySelector(".hd2-t").scrollTop : 0; const keepQ = b.querySelector(".hd2-q") ? b.querySelector(".hd2-q").scrollTop : 0;
+  b.innerHTML = "";
+  const cur = E.ticket(); if (!L.sel) L.sel = cur ? cur.id : TICKETS[0].id;
+  const g = el("div", "hd2");
+  const q = el("nav", "hd2-q"); q.setAttribute("aria-label", "My queue");
+  const qh = el("div", "hd2-qh"); qh.appendChild(el("h2", null, "My queue")); const open = E.tickets().filter(function (x) { return !x.st || x.st.status !== "closed"; }).length; qh.appendChild(el("span", "chip", open + " open")); q.appendChild(qh);
+  E.tickets().forEach(function (x) {
+    const s = statusOf(x.t, x.st);
+    const it = btn("", "qi" + (L.sel === x.t.id ? " sel" : ""), function () { L.sel = x.t.id; saveL(); redraw("helpdesk"); }, INC[x.t.id] + ": " + x.t.title + ", " + s[0]);
+    it.setAttribute("aria-current", String(L.sel === x.t.id));
+    const top = el("span", "qi-top"); top.appendChild(el("span", null, INC[x.t.id])); top.appendChild(el("span", "chip " + s[1], s[0])); top.appendChild(el("span", "chip", "Tier " + x.t.tier)); top.appendChild(el("span", "chip" + (LEVEL[x.t.id] ? " st-work" : ""), LEVEL[x.t.id] === "crawl" ? "Crawl: guided" : LEVEL[x.t.id] === "walk" ? "Walk: checklist" : "Run: on your own"));
+    it.appendChild(top); it.appendChild(el("span", "qi-sum", x.t.title)); it.appendChild(el("span", "qi-from", x.t.from));
+    q.appendChild(it);
+  });
+  g.appendChild(q);
+  g.appendChild(drawTicket(TICKETS.filter(function (t) { return t.id === L.sel; })[0]));
+  b.appendChild(g);
+  b.querySelector(".hd2-t").scrollTop = keepT; b.querySelector(".hd2-q").scrollTop = keepQ;
+}
+function drawTicket(t) {
+  const p = el("article", "hd2-t"); p.setAttribute("aria-label", "Ticket " + INC[t.id]);
+  const st = E.state().tickets[t.id] || null; const isCur = E.ticket() && E.ticket().id === t.id; const s = statusOf(t, st);
+  const r = rosterOf(t.machine); const name = t.from.split(",")[0], first = name.split(" ")[0];
+  p.appendChild(el("p", "t-id", INC[t.id] + " · " + (t.base ? "the " + t.sim + " sim" : "based on the " + t.sim + " sim")));
+  p.appendChild(el("h2", null, t.title));
+  const dl = el("dl", "t-grid");
+  [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", r.host + " · " + r.ip], ["Location", r.where], ["Category", "Software › Application"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); });
+  p.appendChild(dl);
+
+  const m = el("section", "t-sec"); m.appendChild(el("h3", null, "Request"));
+  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, name + " (" + r.host + ")")); mh.appendChild(el("span", null, "via email")); msg.appendChild(mh);
+  t.brief.forEach(function (x) { msg.appendChild(el("p", null, x)); }); m.appendChild(msg); p.appendChild(m);
+
+  const acts = el("div", "t-acts");
+  if (!st || st.status === "closed") {
+    acts.appendChild(coachTag("assign", btn(st ? "Work it again" : "Assign to me and start", "b pri", function () {
+      if (st) E.state().tickets[t.id] = null;
+      Object.keys(W).filter(function (k) { return k.indexOf("rdp:") === 0; }).forEach(closeWin);
+      E.openTicket(t.id); L.said[t.id] = {}; L.log[t.id] = []; L.coach[t.id] = {}; L.lines[t.id] = []; logT(t.id, "Assigned to you"); refresh();
+    })));
+  } else if (!isCur) {
+    acts.appendChild(btn("Switch to this ticket", "b pri", function () { Object.keys(W).filter(function (k) { return k.indexOf("rdp:") === 0; }).forEach(closeWin); E.openTicket(t.id); logT(t.id, "Picked back up"); refresh(); }));
+  } else if (st.stage === "work") {
+    acts.appendChild(coachTag("connect", btn("Connect to " + r.host, "b pri", function () { connect(t.machine); }, "Connect to " + r.host + " by remote support")));
+    acts.appendChild(coachTag("walk", btn("Walk to " + first + "'s desk", "b", function () { walkOver(t.machine); })));
+    acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved — " + first + " confirmed it works" : "Tried to resolve: " + (x.say || "not fixed yet")); after(); })));
+    acts.appendChild(btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); }));
+  }
+  p.appendChild(acts);
+  if (isCur && st && st.stage === "work") {
+    const c = el("p", "t-id", LEVEL[t.id] === "crawl" ? "Mason is walking you through this one. Follow his steps on the right." : st.guesses ? "Moves that did not help so far: " + st.guesses + ". Looking around never counts." : "Looking around, reading logs, running the program to test it and typos never count against you.");
+    p.appendChild(c);
+    if (st.lastSay) { const sy = el("p", "say", st.lastSay); sy.setAttribute("role", "status"); p.appendChild(sy); }
+  }
+  if (isCur && st && (st.stage === "close")) p.appendChild(drawResolution(t, st));
+  if (st && st.stage === "done") { const d = el("div", "done"); d.setAttribute("role", "status"); d.appendChild(el("strong", null, "✓ " + s[0] + ". " + INC[t.id] + " is closed.")); d.appendChild(el("p", null, "Resolution notes: " + st.note)); p.appendChild(d); }
+
+  const wn = el("section", "t-sec"); wn.appendChild(el("h3", null, "Work notes (only you and the team see these)"));
+  const ta = el("textarea", "field"); ta.id = "wn-" + t.id; ta.setAttribute("aria-label", "Work notes"); ta.value = L.notes[t.id] || ""; ta.placeholder = "What you found, what you tried…";
+  ta.addEventListener("input", function () { L.notes[t.id] = ta.value; saveL(); }); wn.appendChild(ta); p.appendChild(wn);
+
+  const lg = el("section", "t-sec"); lg.appendChild(el("h3", null, "Activity (kept by Help Desk)"));
+  const ul = el("ul", "log"); (L.log[t.id] || []).slice(-40).forEach(function (x) { const li = el("li"); li.appendChild(el("time", null, x.at)); li.appendChild(el("span", null, x.text)); ul.appendChild(li); });
+  if (!(L.log[t.id] || []).length) ul.appendChild(el("li", null, "Nothing yet."));
+  lg.appendChild(ul); p.appendChild(lg);
+
+  if (instructor) {
+    const f = E.fleet(); const mv = t.moves(f).filter(function (x) { return x.correct; })[0];
+    const a = el("div", "ins"); a.appendChild(el("strong", null, "Instructor: ")); a.appendChild(document.createTextNode("Fix: " + (mv ? mv.label : "") + ". Outcome: " + t.outcome + ". Cause: " + t.close.options.filter(function (x) { return x.correct; })[0].label + ".")); p.appendChild(a);
+  }
+  return p;
+}
+function drawResolution(t, st) {
+  const box = el("section", "t-sec res");
+  box.appendChild(el("h3", null, t.outcome === "escalate" ? "Escalation — record it for Tier 2" : "Resolution — " + t.from.split(" ")[0] + " confirms it works"));
+  box.appendChild(el("p", null, t.close.prompt));
+  const opts = el("div", "opts"); opts.setAttribute("role", "group"); opts.setAttribute("aria-label", t.close.prompt);
+  const g = E.guidance(); const strike = (g && g.strike) || {};
+  ordered(t.close.options, t.id + "close").forEach(function (o) {
+    const out = !!st.picked[o.label] && !o.correct, struck = !out && strike[o.label];
+    const b = el("button", "opt2" + (out || struck ? " out" : "") + (st.closeOK && o.correct ? " right" : "")); b.type = "button";
+    if (out || struck) { b.appendChild(el("span", "om", out ? "✕ Ruled out" : "✕ Ruled out by Mason")); b.appendChild(el("span", "ol", o.label)); b.appendChild(el("span", "ow", o.why)); b.setAttribute("aria-disabled", "true"); }
+    else if (st.closeOK && o.correct) { b.appendChild(el("span", "om", "✓ Right")); b.appendChild(el("span", "ol", o.label)); }
+    else b.appendChild(el("span", "ol", o.label));
+    b.disabled = st.closeOK || out || !!struck;
+    b.addEventListener("click", function () { E.pick(o.label); logT(t.id, (o.correct ? "Cause recorded: " : "Cause ruled out: ") + o.label); after(); });
+    opts.appendChild(b);
+  });
+  box.appendChild(opts);
+  if (st.closeOK) {
+    const lab = el("label", null, "Resolution notes — " + t.note.tip); const ta = el("textarea", "field"); ta.id = "res-note"; lab.setAttribute("for", "res-note"); ta.value = st.note || L.notes[t.id] || "";
+    box.appendChild(lab); box.appendChild(ta);
+    if (st.noteMissing && st.noteMissing.length) { const e = el("p", "err", "Not closed yet. The notes need " + st.noteMissing.join("; and ") + "."); e.setAttribute("role", "alert"); box.appendChild(e); }
+    box.appendChild(btn("Close the ticket", "b pri", function () { const r = E.writeNote(ta.value); if (r.ok) logT(t.id, "Closed"); after(); }));
+  }
+  return box;
+}
+function after() { if (!crawling()) masonCheck(); refresh(); }
+
+/* --------------------------------------------- the remote session */
+function connect(id) {
+  const t = E.ticket();
+  /* Already connected, or connecting: just bring the session forward. */
+  if (W["rdp:" + id] && W["rdp:" + id].phase !== "fail") { W["rdp:" + id].min = false; place(W["rdp:" + id]); focusWin("rdp:" + id); return; }
+  if (t) logT(t.id, "Remote support request sent to " + rosterOf(id).host);
+  const w = openWin("rdp:" + id); w.phase = "wait"; redraw("rdp:" + id);
+  setTimeout(function () {
+    if (!W["rdp:" + id]) return;
+    const m = E.machine(id);
+    w.phase = m.power !== "on" || m.crashed || (m.net && m.net.cable === false) ? "fail" : "on";
+    if (t) logT(t.id, w.phase === "on" ? rosterOf(id).fullName + " accepted. Connected to " + rosterOf(id).host : rosterOf(id).host + " could not be reached");
+    redraw("rdp:" + id); refresh();
+  }, 1400);
+}
+function drawRdp(w) {
+  const id = w.id.slice(4); const r = rosterOf(id); const b = w.body;
+  w.phase = w.phase || "wait";
+  if (w.phase === "on" && w.desk && b.contains(w.desk.element)) { w.desk.draw(); return; }
+  w.desk = null;
+  b.innerHTML = ""; const box = el("div", "rdp");
+  const bar = el("div", "rdp-bar");
+  bar.appendChild(el("span", "who", w.phase === "on" ? "Connected to " + r.host + " · " + r.fullName + "'s session · you have control" : "Rafiki Remote Support · " + r.host));
+  if (w.phase === "on") bar.appendChild(btn("Revert to snapshot", "b small", function () {
+    E.revert(); Object.keys(W).forEach(function (k) { if (W[k].desk) W[k].desk.reset(); }); const t = E.ticket(); if (t) logT(t.id, "Reverted the PCs to the last snapshot"); refresh();
+  }, "Revert to snapshot: puts the PC back to the last point you got right. Your hints carry on."));
+  bar.appendChild(btn("Disconnect", "b small", function () { const t = E.ticket(); if (t) logT(t.id, "Disconnected from " + r.host); closeWin(w.id); }));
+  box.appendChild(bar);
+  const host = el("div", "rdp-host"); box.appendChild(host); b.appendChild(box);
+  if (w.phase === "wait") { const x = el("div", "rdp-wait"); x.setAttribute("role", "status"); x.appendChild(el("div", "spin")); x.appendChild(el("p", null, "Requesting control of " + r.host + "…")); x.appendChild(el("p", null, "Waiting for " + r.fullName + " to accept.")); host.appendChild(x); return; }
+  if (w.phase === "dropped") { const x = el("div", "rdp-wait"); x.setAttribute("role", "alert"); x.appendChild(el("p", null, w.dropWhy)); if (w.dropOp !== "restart") { x.appendChild(btn("Walk to " + r.fullName.split(" ")[0] + "'s desk", "b pri", function () { closeWin(w.id); walkOver(id); })); host.appendChild(x); return; } x.appendChild(btn("Reconnect to " + r.host, "b pri", function () { w.phase = "wait"; w.desk = null; redraw(w.id); const t = E.ticket(); if (t) logT(t.id, "Reconnecting to " + r.host); setTimeout(function () { if (!W[w.id]) return; const m = E.machine(id); w.phase = m.power !== "on" || m.crashed || (m.net && m.net.cable === false) ? "fail" : "on"; if (t) logT(t.id, w.phase === "on" ? "Reconnected to " + r.host : r.host + " could not be reached"); redraw(w.id); refresh(); }, 1400); })); host.appendChild(x); return; }
+  if (w.phase === "fail") { const x = el("div", "rdp-wait"); x.setAttribute("role", "alert"); x.appendChild(el("p", null, r.host + " can't be reached. It may be turned off, not connected to the network, or not working.")); x.appendChild(el("p", null, "If you can't connect, you'll have to go to the desk.")); x.appendChild(btn("Walk to " + (r.id === "FS01" || r.id === "MAIL01" ? "the closet" : r.fullName.split(" ")[0] + "'s desk"), "b pri", function () { closeWin(w.id); walkOver(id); })); host.appendChild(x); return; }
+  w.desk = createDesktop(host, {
+    machine: function () { return E.machine(id); }, fleetLookup: E.lookup, isTech: false, before: E.before, clock: function () { const n = now(); return n.time + "  " + n.short; },
+    onAct: function (a) { if (a.type === "power" && (a.op === "restart" || a.op === "off")) setTimeout(function () { dropped(w, a.op); }, 0); if (a.type === "tm-end") setTimeout(function () { if (E.machine(id).crashed) dropped(w, "crash"); }, 0); if (a.type === "cmd" && E.ticket()) (L.lines[E.ticket().id] = L.lines[E.ticket().id] || []).push(String(a.line || "").toLowerCase()); E.onAct(a); actLog(a, r.host); if (!crawling()) masonCheck(); refresh(); }, helpdesk: function () {}
+  });
+}
+/* A restart or shutdown ends the remote session, as it does for real:
+   the student reconnects once the PC is back up. A PC that was shut
+   down can't be reconnected to from here. */
+function dropped(w, op) {
+  const id = w.id.slice(4), r = rosterOf(id), t = E.ticket();
+  w.phase = "dropped"; w.desk = null; w.dropOp = op;
+  w.dropWhy = op === "crash" ? "Connection lost: " + r.host + " stopped responding. A remote session can't show you why. Go and look at the screen." : op === "restart" ? "The remote session ended because " + r.host + " restarted. It's back up now: reconnect to carry on." : "The remote session ended because " + r.host + " was shut down. Nobody can reach it remotely until it's switched back on.";
+  if (t) logT(t.id, "Remote session to " + r.host + " ended: " + (op === "crash" ? "the PC stopped responding" : "the PC " + (op === "restart" ? "restarted" : "shut down")));
+  redraw(w.id); refresh();
+}
+/* What Help Desk's activity list records: what a real remote-support
+   tool would — programs opened, commands run, repairs, restarts. */
+function actLog(a, host) {
+  const t = E.ticket(); if (!t) return;
+  const say = {
+    open: function () { return "Opened " + ({ cmd: "Command Prompt", ps: "PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer" }[a.app] || a.app) + (a.elevated ? " as administrator" : ""); },
+    launch: function () { return "Ran " + a.app + ": " + (a.res && a.res.ok ? "it opened" : (a.res && a.res.title ? a.res.title + " error" : "it failed")); },
+    cmd: function () { return "> " + a.line; },
+    repair: function () { return "Repaired " + a.app; }, reinstall: function () { return "Reinstalled " + a.app + " from Software Center"; }, install: function () { return "Installed " + a.app; },
+    "catalogue-admin": function () { return "Installed or repaired " + a.key + " as administrator"; },
+    power: function () { return a.op === "restart" ? "Restarted " + host : a.op === "off" ? "Shut down " + host : "Powered on " + host; }
+  }[a.type];
+  if (say) logT(t.id, host + ": " + say());
+}
+
+/* Remote Desktop Connection: type the computer's name, as technicians do. */
+function drawMstsc(w) {
+  const b = w.body; b.innerHTML = ""; const box = el("div"); box.style.padding = "1rem 1.1rem";
+  box.appendChild(el("p", null, "Type the name of the computer to connect to."));
+  const lab = el("label", null, "Computer:"); const inp = el("input", "field"); inp.id = "mstsc-in"; lab.setAttribute("for", "mstsc-in"); inp.placeholder = "e.g. WS4-FIN";
+  const err = el("p", "err"); err.hidden = true; err.setAttribute("role", "alert");
+  function go() {
+    const v = inp.value.trim(); const r = ROSTER.filter(function (x) { return x.id !== "TECH" && (x.host.toLowerCase() === v.toLowerCase() || x.ip === v); })[0];
+    if (!r) { err.hidden = false; err.textContent = "Remote Desktop can't find the computer \"" + v + "\". Check the name and try again."; return; }
+    closeWin("mstsc"); connect(r.id);
+  }
+  inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); go(); } });
+  const row = el("div", "t-acts"); row.appendChild(btn("Connect", "b pri", go));
+  [lab, inp, err, row].forEach(function (x) { box.appendChild(x); }); b.appendChild(box); setTimeout(function () { inp.focus(); }, 0);
+}
+
+/* =====================================================================
+   CRAWL, WALK, RUN — the owner's method (1 October 2026).
+
+   CRAWL: the first ticket of a sim. Mason walks the student through it
+   one step at a time, from a panel docked beside the windows: what to
+   do, why, and exactly where to click. Each step waits until the
+   student has really done it on the machine. Nothing is done for them.
+   WALK and RUN come after (walk: the checklist; run: on your own).
+   ===================================================================== */
+const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk" };
+function coachTag(name, b) { b.dataset.coach = name; return b; }
+function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
+function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
+function lastAt(id, test) { const e = evs(id).filter(test); return e.length ? e[e.length - 1].at : -1; }
+
+const WALKS = {
+  L1: { machine: "WS4", steps: [
+    { tag: "See it for yourself", win: "helpdesk",
+      say: "Read Farah's request on the ticket. She says Testing shows an error box as soon as she opens it, and that Brenda and John can still use it. Then press Assign to me and start.",
+      why: "The user's own words are your first evidence. \"Others can use it\" already tells you the problem is on her PC, not the server.",
+      target: function () { return document.querySelector('[data-coach="assign"]'); },
+      done: function () { const t = E.ticket(); return !!(t && t.id === "L1" && E.T()); } },
+    { tag: "See it for yourself", win: "helpdesk",
+      say: "Connect to her PC. Press Connect to WS4-FIN on the ticket. Farah accepts, and her screen opens in a window on your laptop.",
+      why: "Remote support lets you work on her PC from your desk, with her watching.",
+      target: function () { return W["rdp:WS4"] ? null : document.querySelector('[data-coach="connect"]'); },
+      waiting: function () { return W["rdp:WS4"] && W["rdp:WS4"].phase === "wait" ? "Connecting… waiting for Farah to accept." : null; },
+      done: function () { return !!(W["rdp:WS4"] && W["rdp:WS4"].phase === "on"); } },
+    { tag: "See it for yourself", win: "rdp:WS4",
+      say: "Reproduce the problem. On Farah's desktop, click the Testing icon and read the message that comes up.",
+      why: "Never fix what you haven't seen. The message usually names the problem.",
+      target: function () { const r = rd("WS4"); return r && r.querySelector('[aria-label="Open the Testing shortcut on the desktop"]'); },
+      done: function () { return lastAt("WS4", function (e) { return e.kind === "launch" && e.app === "Testing"; }) >= 0; } },
+    { tag: "See it for yourself", win: "rdp:WS4",
+      say: "Read it: \"MSVCP100.dll is missing from your computer. Try reinstalling the program.\" Press OK.",
+      why: "A DLL is a file of code a program loads as it starts. MSVCP100.dll comes with the program's Visual C++ runtime. Windows' own message suggests the fix.",
+      target: function () { const r = rd("WS4"); return r && r.querySelector(".w-dialog button"); },
+      weak: true, done: function () { const r = rd("WS4"); return !!r && !r.querySelector(".w-dialog"); } },
+    { tag: "Find the evidence", win: "rdp:WS4",
+      say: "Check what Windows recorded. On Farah's PC, press Start, type event, and open Event Viewer.",
+      why: "Event Viewer is Windows' own record of what went wrong, and when. A ticket note that cites it is worth far more than \"it was broken\".",
+      target: function () { const r = rd("WS4"); if (!r) return null; return r.querySelector('[aria-label="Open Event Viewer"]') || r.querySelector(".tb-start"); },
+      done: function () { return lastAt("WS4", function (e) { return e.kind === "view-log"; }) >= 0; } },
+    { tag: "Find the evidence", win: "rdp:WS4",
+      say: "In the Application log, click the row marked Error and read it underneath.",
+      why: "It names the program (Testing.exe) and the faulting module (MSVCP100.dll): the same file as the message. Two pieces of evidence that agree.",
+      target: function () { const r = rd("WS4"); return r && r.querySelector(".ev-row.lvl-err"); },
+      done: function () { const r = rd("WS4"); return !!(r && r.querySelector(".ev-row.sel.lvl-err")); } },
+    { tag: "Work out the cause, and the safe fix", win: "rdp:WS4",
+      say: "The cause: a file Testing needs is missing. The safe Tier 1 fix is to reinstall Testing, which puts its files back. Press Start, type software, and open Software Center.",
+      why: "At Tier 1 you never copy DLLs into Windows or register them. Those are system changes, and copying the wrong one makes things worse. Reinstalling the program is safe and approved.",
+      target: function () { const r = rd("WS4"); if (!r) return null; return r.querySelector('[aria-label="Open Software Center"]') || r.querySelector(".tb-start"); },
+      done: function () { const r = rd("WS4"); return !!(r && r.querySelector('section.win[aria-label="Software Center"]')); } },
+    { tag: "Fix it", win: "rdp:WS4",
+      say: "Find Testing 4.2 in the list and press Reinstall.",
+      why: "Software Center is Rafiki's list of approved programs. Anyone can reinstall from it, so no admin password is needed.",
+      target: function () { const r = rd("WS4"); return r && r.querySelector('[aria-label="Reinstall Testing 4.2"]'); },
+      done: function () { return lastAt("WS4", function (e) { return e.kind === "repair-app" && e.app === "Testing"; }) >= 0; } },
+    { tag: "Test it", win: "rdp:WS4",
+      say: "Test it. Press OK, then Desktop on Farah's taskbar, and open Testing again.",
+      why: "A fix isn't finished until you've seen it work.",
+      target: function () { const r = rd("WS4"); if (!r) return null; return r.querySelector(".w-dialog button") || r.querySelector('[aria-label="Open the Testing shortcut on the desktop"]') || r.querySelector('[aria-label="Show the desktop"]'); },
+      done: function () { const fix = lastAt("WS4", function (e) { return e.kind === "repair-app"; }); return fix >= 0 && lastAt("WS4", function (e) { return e.kind === "launch" && e.app === "Testing" && e.result === "ok"; }) > fix; } },
+    { tag: "Close it out", win: "helpdesk",
+      say: "Testing opens. Go back to Help Desk (it's on your taskbar) and press Resolve.",
+      why: "Resolving tells Farah it's fixed. She checks it, and the ticket moves on to the write-up.",
+      target: function () { return document.querySelector('[data-coach="resolve"]'); },
+      done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
+    { tag: "Document it", win: "helpdesk",
+      say: "Record the cause. Pick the one that fits everything you saw: the message, the Event Viewer entry, and what fixed it.",
+      why: "The cause on a ticket is how the next technician, or a report, finds out what really happens on this network.",
+      target: function () { return document.querySelector("[data-win=helpdesk] .opts"); },
+      done: function () { const st = E.T(); return !!(st && (st.closeOK || st.stage === "done")); } },
+    { tag: "Document it", win: "helpdesk",
+      say: "Write the resolution notes: what the error said, what you did, and that you tested it. Then press Close the ticket.",
+      why: "For example: \"Testing said MSVCP100.dll was missing. Reinstalled Testing from Software Center. Tested: it opens.\" Use your own words.",
+      target: function () { return document.querySelector("#res-note"); },
+      done: function () { const st = E.state().tickets.L1; return !!(st && st.stage === "done"); } }
+  ], end: "That's the crawl: you saw it, found the evidence, worked out the cause, fixed it the safe way, tested it, and wrote it up. Next is Brenda's PayWise ticket, where you drive and I give you the checklist. After that you're on your own, and I'll check in if you get stuck." }  ,
+  /* ------------------------------------------------ L2: the walk */
+  L2: { mode: "walk", machine: "WS2", steps: [
+    { goal: "Take the ticket", win: "helpdesk", how: "In Help Desk, open Brenda's ticket and press Assign to me and start.",
+      done: function () { const t = E.ticket(); return !!(t && t.id === "L2" && E.T()); } },
+    { goal: "Get on Brenda's PC", win: "helpdesk", how: "Use the button on her ticket that starts a remote support session.",
+      done: function () { return !!(W["rdp:WS2"] && W["rdp:WS2"].phase === "on"); } },
+    { goal: "See the error for yourself", win: "rdp:WS2", how: "Run the program she says is broken, and read the message word for word.",
+      done: function () { return lastAt("WS2", function (e) { return e.kind === "launch" && e.app === "PayWise"; }) >= 0; } },
+    { goal: "Find what Windows recorded", win: "rdp:WS2", how: "The same tool you used on Farah's PC. On Brenda's PC, search for it from Start.",
+      done: function () { return lastAt("WS2", function (e) { return e.kind === "view-log"; }) >= 0; } },
+    { goal: "Fix it the Tier 1 way", win: "rdp:WS2", how: "Think back to Farah's ticket: what is Tier 1 allowed to do when one program won't start? Tier 1 never copies system files.",
+      done: function () { return lastAt("WS2", function (e) { return e.kind === "repair-app" && e.app === "PayWise"; }) >= 0; } },
+    { goal: "Test it", win: "rdp:WS2", how: "Run PayWise again on her PC. A fix isn't finished until you've seen it work.",
+      done: function () { const fix = lastAt("WS2", function (e) { return e.kind === "repair-app"; }); return fix >= 0 && lastAt("WS2", function (e) { return e.kind === "launch" && e.app === "PayWise" && e.result === "ok"; }) > fix; } },
+    { goal: "Resolve the ticket", win: "helpdesk", how: "Back in Help Desk, on Brenda's ticket.",
+      done: function () { const st = E.state().tickets.L2; return !!(st && st.stage !== "work"); } },
+    { goal: "Record the cause", win: "helpdesk", how: "Pick the cause that fits the message, what Windows recorded, and what fixed it.",
+      done: function () { const st = E.state().tickets.L2; return !!(st && (st.closeOK || st.stage === "done")); } },
+    { goal: "Write the resolution notes", win: "helpdesk", how: "Name the file the error named, say what you did, and that you tested it. Your own words.",
+      done: function () { const st = E.state().tickets.L2; return !!(st && st.stage === "done"); } }
+  ], end: "You walked it: you drove, and the checklist only told you what came next. From here on you run them yourself. I'll check in if you get stuck, and \"I'm stuck\" in chat always gets you a pointer." },
+
+  /* ------------------------------------------------ D1: the crawl */
+  D1: { machine: "WS1", steps: [
+    { tag: "See it for yourself", win: "helpdesk",
+      say: "Read John's request. Since last night's software deployment, Testing won't work on his PC, though it works for others. He also mentions a blue screen last week. Press Assign to me and start.",
+      why: "There are two clues here. Part of this job is working out which one matters.",
+      target: function () { return document.querySelector('[data-coach="assign"]'); },
+      done: function () { const t = E.ticket(); return !!(t && t.id === "D1" && E.T()); } },
+    { tag: "See it for yourself", win: "helpdesk",
+      say: "Connect to John's PC. Press Connect to WS1-HR on the ticket.",
+      why: "John accepts, and his screen opens on your laptop.",
+      target: function () { return W["rdp:WS1"] ? null : document.querySelector('[data-coach="connect"]'); },
+      waiting: function () { return W["rdp:WS1"] && W["rdp:WS1"].phase === "wait" ? "Connecting… waiting for John to accept." : null; },
+      done: function () { return !!(W["rdp:WS1"] && W["rdp:WS1"].phase === "on"); } },
+    { tag: "See it for yourself", win: "rdp:WS1",
+      say: "Reproduce it. Click Testing on John's desktop and read the message.",
+      why: "It's the same message Farah had, but this time a deployment is involved, and the sim's answer to that is not what it seems.",
+      target: function () { const r = rd("WS1"); return r && r.querySelector('[aria-label="Open the Testing shortcut on the desktop"]'); },
+      done: function () { return lastAt("WS1", function (e) { return e.kind === "launch" && e.app === "Testing"; }) >= 0; } },
+    { tag: "See it for yourself", win: "rdp:WS1",
+      say: "\"MSVCP100.dll is missing from your computer.\" Press OK.",
+      why: "MSVCP100.dll belongs to the Visual C++ 2010 runtime, a set of files many programs share.",
+      target: function () { const r = rd("WS1"); return r && r.querySelector(".w-dialog button"); },
+      weak: true, done: function () { const r = rd("WS1"); return !!r && !r.querySelector(".w-dialog"); } },
+    { tag: "Find the evidence", win: "rdp:WS1",
+      say: "Open Event Viewer on John's PC: press Start, type event, and open it.",
+      why: "The sim's first question is which Event Viewer entry records the problem, so you'll be answering it from the real log.",
+      target: function () { const r = rd("WS1"); if (!r) return null; return r.querySelector('[aria-label="Open Event Viewer"]') || r.querySelector(".tb-start"); },
+      done: function () { return lastAt("WS1", function (e) { return e.kind === "view-log"; }) >= 0; } },
+    { tag: "Find the evidence", win: "rdp:WS1",
+      say: "The Application log holds last night's entries. Click the Error at 10:35, index 2190, and read it.",
+      why: "Index 2187, just before it, is the deployment installing successfully. 2190 is Testing failing on MSVCP100.dll. The newest Error is the one you just caused by reproducing the problem.",
+      target: function () { const r = rd("WS1"); return r && [].slice.call(r.querySelectorAll(".ev-row")).filter(function (x) { return x.lastChild && x.lastChild.textContent === "2190"; })[0]; },
+      done: function () { const r = rd("WS1"); return !!(r && [].slice.call(r.querySelectorAll(".ev-row.sel")).some(function (x) { return x.lastChild && x.lastChild.textContent === "2190"; })); } },
+    { tag: "Rule out the other clue", win: "rdp:WS1",
+      say: "John mentioned a blue screen. Press System in Event Viewer and read the BugCheck entry.",
+      why: "It's dated 24 February, a week before the deployment, and it blames a driver (strt1.sys). The timing rules it out. A clue that doesn't fit the timeline isn't the cause.",
+      target: function () { const r = rd("WS1"); return r && [].slice.call(r.querySelectorAll(".ev-nav button")).filter(function (x) { return x.textContent === "System"; })[0]; },
+      done: function () { return lastAt("WS1", function (e) { return e.kind === "view-log" && e.log === "System"; }) >= 0; } },
+    { tag: "Find where the file is", win: "rdp:WS1",
+      say: "Now find out where msvcp100.dll actually is. Press Start, type cmd, and choose Run as administrator.",
+      why: "John is a standard user, so Windows will ask for an admin. Copying into Program Files needs an administrator, and so do runtime installers.",
+      target: function () { const r = rd("WS1"); if (!r) return null; return r.querySelector('[aria-label="Run Command Prompt as administrator"]') || r.querySelector(".tb-start"); },
+      done: function () { const r = rd("WS1"); return !!(r && (r.querySelector(".w-dialog.uac-creds") || r.querySelector('section.win[aria-label^="Administrator"]'))); } },
+    { tag: "Find where the file is", win: "rdp:WS1",
+      say: "Windows asks for an admin. Type RAFIKI\\itadmin as the user name and Bench-Tech-2026 as the password, then press Yes.",
+      why: "This is the User Account Control prompt. A standard user can't approve system changes; an admin's name and password can.",
+      target: function () { const r = rd("WS1"); return r && r.querySelector(".w-dialog.uac-creds input"); },
+      done: function () { const r = rd("WS1"); return !!(r && r.querySelector('section.win[aria-label^="Administrator"]')); } },
+    { tag: "Find where the file is", win: "rdp:WS1", cmd: "dir C:\\Windows\\SysWOW64\\msvcp100.dll",
+      say: "Look for the 32-bit copy. Type this and press Enter:",
+      why: "Testing is a 32-bit program: it lives in Program Files (x86). On 64-bit Windows, 32-bit programs load their DLLs from SysWOW64. \"File Not Found\" means the 32-bit copy is gone.",
+      target: function () { const r = rd("WS1"); return r && r.querySelector(".con-in"); },
+      done: function () { return typed(/^dir\s+"?c:\\windows\\syswow64\\msvcp100\.dll"?$/); } },
+    { tag: "Find where the file is", win: "rdp:WS1", cmd: "dir C:\\Windows\\System32\\msvcp100.dll",
+      say: "Now look in System32:",
+      why: "It's there, but this is the 64-bit copy. The names are the opposite of what you'd guess: System32 holds 64-bit files, and SysWOW64 holds 32-bit ones.",
+      target: function () { const r = rd("WS1"); return r && r.querySelector(".con-in"); },
+      done: function () { return typed(/^dir\s+"?c:\\windows\\system32\\msvcp100\.dll"?$/); } },
+    { tag: "Try the sim's answer", win: "rdp:WS1", cmd: "robocopy \\\\WS4-FIN\\C$\\Windows\\System32 \"C:\\Program Files (x86)\\Testing\" msvcp100.dll",
+      say: "The Application Deployment sim's answer is to copy msvcp100.dll from another PC's System32 into Testing's folder. Try it, to see what happens. Type:",
+      why: "This is a deliberate wrong turn, so you see why it fails. It copies the file from Farah's PC (WS4-FIN) over the network.",
+      target: function () { const r = rd("WS1"); return r && r.querySelector(".con-in"); },
+      done: function () { return lastAt("WS1", function (e) { return e.kind === "copy" && /testing/i.test(e.to || ""); }) >= 0; } },
+    { tag: "Try the sim's answer", win: "rdp:WS1", cmd: "Testing",
+      say: "Run Testing from the prompt:",
+      why: "Watch the error change.",
+      target: function () { const r = rd("WS1"); return r && r.querySelector(".con-in"); },
+      done: function () { return lastAt("WS1", function (e) { return e.kind === "launch" && e.app === "Testing" && e.result === "bitness"; }) >= 0; } },
+    { tag: "Try the sim's answer", win: "rdp:WS1", cmd: "regsvr32 msvcp100.dll",
+      say: "0xc000007b means wrong bitness: a 32-bit program found a 64-bit DLL. Press OK. Then try the sim's second step:",
+      why: "Windows looks in the program's own folder first, so the wrong copy is found before anything else. Now watch regsvr32.",
+      target: function () { const r = rd("WS1"); return r && (r.querySelector(".w-dialog button") || r.querySelector(".con-in")); },
+      done: function () { return typed(/^regsvr32\s+msvcp100\.dll$/); } },
+    { tag: "Undo the wrong turn", win: "rdp:WS1", cmd: "del \"C:\\Program Files (x86)\\Testing\\msvcp100.dll\"",
+      say: "regsvr32 fails as well: a runtime DLL isn't a COM component, so there's nothing to register. Now remove the wrong copy you put in Testing's folder:",
+      why: "Leave a stray DLL in a program's folder and the next technician inherits a mystery. Clean up your own wrong turns.",
+      target: function () { const r = rd("WS1"); return r && r.querySelector(".con-in"); },
+      done: function () { const copied = lastAt("WS1", function (e) { return e.kind === "copy"; }); return copied >= 0 && !M.findFile(E.machine("WS1"), "C:\\Program Files (x86)\\Testing", "msvcp100.dll"); } },
+    { tag: "Fix it", win: "rdp:WS1", cmd: "\\\\FS01\\Software\\vcredist_x86_2010.exe",
+      say: "The real cause: last night's deployment removed the 32-bit Visual C++ 2010 runtime. Its installer is on the file server's Software share. Run it:",
+      why: "Putting the runtime back restores the 32-bit msvcp100.dll in SysWOW64, the right copy in the right place. Installers need an admin, which is why you're in an administrator prompt.",
+      target: function () { const r = rd("WS1"); return r && r.querySelector(".con-in"); },
+      done: function () { return lastAt("WS1", function (e) { return e.kind === "install-runtime" && e.key === "vc2010x86"; }) >= 0; } },
+    { tag: "Test it", win: "rdp:WS1", cmd: "Testing",
+      say: "Test it:",
+      why: "Testing should open now.",
+      target: function () { const r = rd("WS1"); return r && r.querySelector(".con-in"); },
+      done: function () { const fix = lastAt("WS1", function (e) { return e.kind === "install-runtime"; }); return fix >= 0 && lastAt("WS1", function (e) { return e.kind === "launch" && e.app === "Testing" && e.result === "ok"; }) > fix; } },
+    { tag: "Close it out", win: "helpdesk",
+      say: "Testing opens. Go back to Help Desk on your taskbar and press Resolve.",
+      why: "John checks it, and the ticket moves on to the write-up.",
+      target: function () { return document.querySelector('[data-coach="resolve"]'); },
+      done: function () { const st = E.state().tickets.D1; return !!(st && st.stage !== "work"); } },
+    { tag: "Document it", win: "helpdesk",
+      say: "Answer the sim's own question: which Event Viewer entry records the problem?",
+      why: "You read it yourself in step 6.",
+      target: function () { return document.querySelector("[data-win=helpdesk] .opts"); },
+      done: function () { const st = E.state().tickets.D1; return !!(st && (st.closeOK || st.stage === "done")); } },
+    { tag: "Document it", win: "helpdesk",
+      say: "Write the resolution notes: the Event Viewer entry, the missing file, what you tried that failed, and the fix that worked. Then press Close the ticket.",
+      why: "For example: \"Event 2190: Testing failed on MSVCP100.dll. The System32 copy is 64-bit and gave 0xc000007b, so I removed it. Installed the x86 Visual C++ 2010 runtime from FS01. Tested: it opens.\"",
+      target: function () { return document.querySelector("#res-note"); },
+      done: function () { const st = E.state().tickets.D1; return !!(st && st.stage === "done"); } }
+  ], end: "That's the deployment crawl. You read the real log, ruled out the blue screen on timing, saw the sim's old answer fail with 0xc000007b, cleaned up after it, and put back the right runtime. The other deployment tickets are yours to run, and I'll check in if you get stuck." }  ,
+  /* ------------------------------------------------ D2: the walk */
+  D2: { mode: "walk", machine: "WS4", steps: [
+    { goal: "Take the ticket", how: "In Help Desk, open Farah's PayWise ticket and press Assign to me and start.",
+      done: function () { const t = E.ticket(); return !!(t && t.id === "D2" && E.T()); } },
+    { goal: "Get on Farah's PC", how: "Use the button on her ticket that starts a remote support session.",
+      done: function () { return !!(W["rdp:WS4"] && W["rdp:WS4"].phase === "on"); } },
+    { goal: "See the error for yourself", how: "Run PayWise on her PC and read the message word for word. Which file does it name?",
+      done: function () { return lastAt("WS4", function (e) { return e.kind === "launch" && e.app === "PayWise"; }) >= 0; } },
+    { goal: "Find what Windows recorded", how: "The same tool as on John's PC. On Farah's PC, search for it from Start.",
+      done: function () { return lastAt("WS4", function (e) { return e.kind === "view-log"; }) >= 0; } },
+    { goal: "Open a prompt that can make system changes", how: "Farah already reinstalled PayWise and it didn't help, so this is beyond a program repair. Installing a runtime needs an administrator. Mason has the admin details.",
+      done: function () { const r = rd("WS4"); return !!(r && r.querySelector('section.win[aria-label^="Administrator"]')) || lastAt("WS4", function (e) { return e.kind === "install-runtime"; }) >= 0; } },
+    { goal: "Work out which copy of the file is missing", how: "PayWise lives in Program Files (x86). Which folder do programs from there load their DLLs from? Look in that folder for the file the error named, and in the other one too.",
+      done: function () { return typed(/^(dir|ls|get-childitem)\s.*(syswow64|system32)/) || (L.lines.D2 || []).some(function (x) { return /powershell\s.*(syswow64|system32)/.test(x); }); } },
+    { goal: "Put the right runtime back", how: "The installers are on the file server's Software share. Pick the one that matches PayWise's bitness: the other one installs fine and changes nothing.",
+      done: function () { return lastAt("WS4", function (e) { return e.kind === "install-runtime" && e.key === "vc2015x86"; }) >= 0; } },
+    { goal: "Test it", how: "Run PayWise again on her PC.",
+      done: function () { const fix = lastAt("WS4", function (e) { return e.kind === "install-runtime" && e.key === "vc2015x86"; }); return fix >= 0 && lastAt("WS4", function (e) { return e.kind === "launch" && e.app === "PayWise" && e.result === "ok"; }) > fix; } },
+    { goal: "Resolve the ticket", how: "Back in Help Desk, on Farah's ticket.",
+      done: function () { const st = E.state().tickets.D2; return !!(st && st.stage !== "work"); } },
+    { goal: "Record the cause", how: "Pick the cause that fits the message, the folder the file was missing from, and what fixed it.",
+      done: function () { const st = E.state().tickets.D2; return !!(st && (st.closeOK || st.stage === "done")); } },
+    { goal: "Write the resolution notes", how: "Name the missing file, which bitness, and how you put it back. Say you tested it.",
+      done: function () { const st = E.state().tickets.D2; return !!(st && st.stage === "done"); } }
+  ], end: "You walked a deployment ticket: the program's own reinstall couldn't help, so you found which copy was missing and put back the right runtime as an admin. The rest of the deployment tickets are yours to run." }
+
+};
+function crawling() { const t = E.ticket(); return !!(t && LEVEL[t.id] === "crawl" && WALKS[t.id] && !(E.T() && E.T().stage === "done")); }
+/* Has the student typed this command on the ticket's PC? */
+function typed(re) { const t = E.ticket(); return !!(t && (L.lines[t.id] || []).some(function (x) { return re.test(x.replace(/\s+/g, " ").trim()); })); }
+function walkFor() {
+  const t = E.ticket(); if (t && LEVEL[t.id] && WALKS[t.id]) return t.id;
+  if (L.sel && LEVEL[L.sel] && WALKS[L.sel] && !(E.state().tickets[L.sel] && E.state().tickets[L.sel].status === "closed") && (!t || t.id === L.sel)) return L.sel;
+  return null;
+}
+let coachBox = null, lastStep = -1, marking = false, coachQueued = false;
+/* Deferred to the next frame, so a step is judged on the screen as drawn,
+   not half-way through a redraw. */
+function coachTick() { if (coachQueued) return; coachQueued = true; requestAnimationFrame(function () { coachQueued = false; coachNow(); }); }
+function coachNow() {
+  if (!desk.isConnected || !task.firstChild) return;
+  const id = walkFor();
+  const c = id ? (L.coach[id] = L.coach[id] || {}) : null;
+  if (!id && !(coachBox && coachBox.dataset.finished)) { if (coachBox) { coachBox.remove(); coachBox = null; desk.style.right = ""; } return; }
+  const walk = WALKS[id || coachBox.dataset.walk];
+  /* crawl: strictly in order. walk: anything done counts, in any order. */
+  if (id) walk.steps.forEach(function (s, i) { if (!c[i] && (walk.mode === "walk" || i <= firstOpen(walk, c)) && s.done()) c[i] = true; });
+  /* A student who skips ahead isn't left stuck: once a later step is
+     really done, the steps before it count as done too. Steps whose test
+     proves nothing on its own ("the box is closed") don't carry back. */
+  if (id && walk.mode !== "walk") { let top = -1; walk.steps.forEach(function (s, i) { if (!s.weak && (c[i] || s.done())) top = i; }); for (let i = 0; i <= top; i++) c[i] = true; }
+  const n = id ? firstOpen(walk, c) : walk.steps.length;
+  if (!coachBox) { coachBox = el("aside", "coach"); coachBox.setAttribute("aria-label", "Mason is walking you through this ticket"); root.appendChild(coachBox); desk.style.right = "var(--coach-w)"; }
+  coachBox.dataset.walk = id || coachBox.dataset.walk;
+  const waitNow = id && n < walk.steps.length && walk.steps[n].waiting ? String(walk.steps[n].waiting()) : "";
+  const key = (id || coachBox.dataset.walk) + ":" + n + ":" + walk.steps.filter(function (x, i) { return c && c[i]; }).length;
+  if (key !== coachBox.dataset.key || waitNow !== coachBox.dataset.wait) {
+    const moved = key.split(":").slice(0, 2).join(":") !== String(coachBox.dataset.key || "").split(":").slice(0, 2).join(":"); coachBox.dataset.key = key; coachBox.dataset.wait = waitNow; lastStep = n; drawCoach(walk, n); saveL(); if (moved && walk.mode !== "walk" && n < walk.steps.length) { const w = walk.steps[n].win; if (W[w] && front !== w) { W[w].min = false; place(W[w]); focusWin(w); } } }
+  mark(walk, n);
+}
+function firstOpen(walk, c) { for (let i = 0; i < walk.steps.length; i++) if (!c[i]) return i; return walk.steps.length; }
+function drawCoach(walk, n) {
+  coachBox.innerHTML = "";
+  if (walk.mode === "walk") return drawWalk(walk, n);
+  const h = el("div", "coach-h"); h.appendChild(el("span", "av", "M"));
+  const hh = el("div"); hh.appendChild(el("strong", null, "Mason is walking you through it")); hh.appendChild(el("small", null, "Crawl · then walk · then run")); h.appendChild(hh);
+  coachBox.appendChild(h);
+  if (n >= walk.steps.length) {
+    coachBox.dataset.finished = "1";
+    const d = el("div", "coach-now"); d.setAttribute("role", "status"); d.appendChild(el("p", "coach-step", "Done ✓")); d.appendChild(el("p", "coach-say", walk.end));
+    d.appendChild(btn("Close the walkthrough", "b pri", function () { coachBox.remove(); coachBox = null; desk.style.right = ""; }));
+    coachBox.appendChild(d); return;
+  }
+  delete coachBox.dataset.finished;
+  const s = walk.steps[n];
+  const now = el("div", "coach-now"); now.setAttribute("role", "status"); now.setAttribute("aria-live", "polite");
+  now.appendChild(el("p", "coach-step", "Step " + (n + 1) + " of " + walk.steps.length + " · " + s.tag));
+  now.appendChild(el("p", "coach-say", s.say));
+  if (s.cmd) { const k = el("code", "coach-cmd", s.cmd); k.setAttribute("aria-label", "Type: " + s.cmd); now.appendChild(k); }
+  now.appendChild(el("p", "coach-why", s.why));
+  if (s.waiting && s.waiting()) now.appendChild(el("p", "coach-wait", s.waiting()));
+  now.appendChild(btn("Show me where", "b small", function () {
+    const w = s.win; if (W[w]) { W[w].min = false; place(W[w]); focusWin(w); }
+    const t = s.target(); if (t) { t.scrollIntoView({ block: "center", behavior: "smooth" }); t.classList.remove("coach-flash"); void t.offsetWidth; t.classList.add("coach-flash"); }
+  }));
+  coachBox.appendChild(now);
+  const ol = el("ol", "coach-list");
+  walk.steps.forEach(function (x, i) { const li = el("li", i < n ? "did" : i === n ? "on" : ""); li.appendChild(el("span", "mk", i < n ? "✓" : String(i + 1))); li.appendChild(el("span", null, x.say.split(". ")[0].replace(/[.:]$/, ""))); ol.appendChild(li); });
+  coachBox.appendChild(ol);
+}
+/* WALK: the student drives. The checklist says what comes next and ticks
+   itself off; "How?" opens a pointer for one item. Nothing is ringed. */
+function drawWalk(walk, n) {
+  const c = L.coach[coachBox.dataset.walk] || {};
+  const h = el("div", "coach-h"); h.appendChild(el("span", "av", "M"));
+  const hh = el("div"); hh.appendChild(el("strong", null, "Walk: you drive")); hh.appendChild(el("small", null, "Mason's checklist ticks itself off as you work")); h.appendChild(hh);
+  coachBox.appendChild(h);
+  if (n >= walk.steps.length) {
+    coachBox.dataset.finished = "1";
+    const d = el("div", "coach-now"); d.setAttribute("role", "status"); d.appendChild(el("p", "coach-step", "Done ✓")); d.appendChild(el("p", "coach-say", walk.end));
+    d.appendChild(btn("Close the checklist", "b pri", function () { coachBox.remove(); coachBox = null; desk.style.right = ""; }));
+    coachBox.appendChild(d); return;
+  }
+  delete coachBox.dataset.finished;
+  const now = el("div", "coach-now"); now.setAttribute("role", "status"); now.setAttribute("aria-live", "polite");
+  now.appendChild(el("p", "coach-step", "Next · " + (walk.steps.filter(function (x, i) { return c[i]; }).length) + " of " + walk.steps.length + " done"));
+  now.appendChild(el("p", "coach-say", walk.steps[n].goal));
+  now.appendChild(el("p", "coach-why", "Work it out on the PC. Stuck? Open How? on any item, or ask Mason in chat."));
+  coachBox.appendChild(now);
+  const ol = el("ol", "coach-list walk");
+  walk.steps.forEach(function (x, i) {
+    const li = el("li", c[i] ? "did" : i === n ? "on" : "");
+    li.appendChild(el("span", "mk", c[i] ? "✓" : String(i + 1)));
+    const body = el("div");
+    const g = el("span", "wg", x.goal + (c[i] ? " · done" : ""));
+    body.appendChild(g);
+    if (!c[i]) { const d = el("details", "how"); const sm = el("summary", null, "How?"); d.appendChild(sm); d.appendChild(el("p", null, x.how)); body.appendChild(d); }
+    li.appendChild(body); ol.appendChild(li);
+  });
+  coachBox.appendChild(ol);
+}
+/* The yellow ring on the one thing to press next. Screens redraw all the
+   time, so the ring is put back after every redraw. */
+function mark(walk, n) {
+  if (marking) return; marking = true;
+  root.querySelectorAll(".coach-target").forEach(function (x) { if (!walk || walk.mode === "walk" || n >= walk.steps.length || x !== walk.steps[n].target()) x.classList.remove("coach-target"); });
+  if (walk && walk.mode !== "walk" && n < walk.steps.length) { const t = walk.steps[n].target(); if (t) t.classList.add("coach-target"); }
+  marking = false;
+}
+new MutationObserver(function () { if (!marking) coachTick(); }).observe(root, { childList: true, subtree: true });
+
+/* =====================================================================
+   THE WALK-OVER (owner, 1 October 2026: "if they have to physically go
+   look at the machine … have the student walk to the office and 3D").
+
+   From the IT bench in the network closet, the camera walks the route a
+   person would: out of the closet door, along the corridor, through the
+   office door, to the user's chair, and turns to their monitor. There the
+   student sees the PC's real screen and can do what only someone at the
+   desk can: press the power button, check the network cable. "Walk back"
+   retraces the route to the laptop.
+   ===================================================================== */
+const BENCH = [14.6, 23.2], CLOSET_DOOR = [14.5, 16.6], HALL = [14.5, 14.5];
+const ROUTES = {
+  WS1: { path: [BENCH, CLOSET_DOOR, HALL, [10, 14.5], [10, 11.6], [9.4, 9], [9, 8.2]], look: [9, 3.0, 1.6] },
+  WS4: { path: [BENCH, CLOSET_DOOR, HALL, [10, 14.5], [10, 11.6], [8.6, 9.6], [7.6, 8.2]], look: [1.6, 3.0, 8.2] },
+  WS2: { path: [BENCH, CLOSET_DOOR, HALL, [16, 14.5], [16, 11.6], [20, 9], [23, 8.2]], look: [23, 3.0, 1.6] },
+  WS3: { path: [BENCH, CLOSET_DOOR, HALL, [29.5, 14.5], [29.5, 11.6], [33, 9], [36, 8.2]], look: [36, 3.0, 1.6] },
+  WS5: { path: [BENCH, CLOSET_DOOR, HALL, [4.0, 14.8], [3.9, 19.5], [3.9, 26.8], [6.0, 26.9]], look: [2, 3.0, 23.5] },
+  FS01: { path: [BENCH, [13.8, 26.4], [11.8, 28.6]], look: [15.4, 3.6, 29.2] },
+  MAIL01: { path: [BENCH, [13.8, 26.4], [11.8, 28.2]], look: [15.4, 5.2, 28.6] }
+};
+let walkUI = null;
+function walkOver(id) {
+  if (walkUI) return;
+  const r = rosterOf(id), first = r.fullName.split(" ")[0], whose = r.id === "FS01" || r.id === "MAIL01" ? "the " + r.fullName.toLowerCase() : first + "'s desk";
+  const t = E.ticket(); if (t) logT(t.id, "Walked to " + r.host + " (" + r.where + ")");
+  const ov = el("div", "walkover"); ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Walking to " + whose);
+  const stage = el("div", "wo-3d"); ov.appendChild(stage);
+  const bar = el("div", "wo-bar"); const say = el("p", "wo-say", "Getting up from your desk…"); say.setAttribute("role", "status");
+  bar.appendChild(say); ov.appendChild(bar);
+  root.appendChild(ov); walkUI = { ov: ov, id: id, office: function () { return office; } };
+  let office = null, walking = null;
+  const route = ROUTES[id];
+  function arrive() {
+    if (office && window.innerWidth > 760) office.shift(0.3);
+    say.textContent = "You're at " + whose + ": " + r.host + ", " + r.where + ".";
+    const skip = bar.querySelector(".wo-skip"); if (skip) skip.remove();
+    const panel = el("section", "wo-desk"); panel.setAttribute("aria-label", "At " + r.host);
+    panel.appendChild(el("h2", null, "At " + r.host + " · " + r.fullName));
+    const mon = el("div", "wo-monitor"); mon.setAttribute("aria-label", r.host + "'s monitor"); panel.appendChild(mon);
+    const local = createDesktop(mon, { machine: function () { return E.machine(id); }, fleetLookup: E.lookup, isTech: false, before: E.before,
+      clock: function () { const n = now(); return n.time + "  " + n.short; },
+      onAct: function (a) { if (a.type === "cmd" && E.ticket()) (L.lines[E.ticket().id] = L.lines[E.ticket().id] || []).push(String(a.line || "").toLowerCase()); E.onAct(a); actLog(a, r.host + " (at the desk)"); if (!crawling()) masonCheck(); refresh(); drawHands(); },
+      helpdesk: function () {} });
+    const hands = el("div", "wo-hands"); panel.appendChild(hands);
+    function drawHands() {
+      const m = E.machine(id); hands.innerHTML = "";
+      hands.appendChild(el("h3", null, "With your own hands"));
+      const state = el("p", "wo-state"); state.setAttribute("role", "status");
+      const light = m.power !== "on" ? "The tower's power light is off." : m.crashed ? "The tower's power light is on, and the fans are running." : "The tower's power light is on.";
+      const cable = m.net && m.net.cable === false ? "The network cable is lying on the floor, unplugged from the back of the tower." : null;
+      state.textContent = light + (hands.dataset.cable ? " " + (cable || "The network cable is plugged in firmly, and the light on the port is blinking.") : "");
+      hands.appendChild(state);
+      const row = el("div", "wo-acts");
+      row.appendChild(btn(m.power === "on" ? "Press the power button" : "Press the power button to switch it on", "b", function () {
+        if (m.power !== "on") { M.boot(m); E.onAct({ type: "power", op: "on", host: m.host, machine: id }); actLog({ type: "power", op: "on" }, r.host + " (at the desk)"); local.draw(); refresh(); drawHands(); return; }
+        state.textContent = "It's already on. A quick press would ask Windows to shut down; holding it in forces the power off and can lose " + first + "'s work. Leave it unless Windows is completely frozen.";
+      }));
+      row.appendChild(btn("Check the network cable", "b", function () { hands.dataset.cable = "1"; drawHands(); }));
+      if (hands.dataset.cable && m.net && m.net.cable === false) row.appendChild(btn("Plug the cable back in", "b pri", function () { m.net.cable = true; E.onAct({ type: "cable", op: "in", host: m.host, machine: id }); const t2 = E.ticket(); if (t2) logT(t2.id, r.host + ": plugged the network cable back in"); refresh(); drawHands(); }));
+      hands.appendChild(row);
+    }
+    drawHands();
+    const back = btn("Walk back to your desk", "b pri wo-back", function () { panel.remove(); goBack(); });
+    panel.appendChild(back);
+    ov.appendChild(panel);
+    setTimeout(function () { back.focus({ preventScroll: true }); }, 0);
+  }
+  function goBack() {
+    say.textContent = "Walking back to your desk…";
+    const done = function () { ov.remove(); walkUI = null; if (office) office.dispose(); const t2 = E.ticket(); if (t2) logT(t2.id, "Back at your desk"); refresh(); };
+    if (office) office.shift(0);
+    if (office && route) walking = office.walk(route.path.slice().reverse(), [12.4, 3.4, 23.2], done); else done();
+  }
+  (async function () {
+    try {
+      const mod = await import("./office3d.js");
+      if (!mod.webglOK()) throw new Error("no webgl");
+      office = await mod.mountOffice(stage, { walk: true, machines: ROSTER, height: stage.clientHeight || window.innerHeight, ao: false });
+      office.standAt(BENCH, [12.4, 3.4, 23.2]);
+      say.textContent = "Walking to " + whose + "…";
+      const skip = btn("Skip the walk", "b small wo-skip", function () { if (walking) walking.skip(); }); bar.appendChild(skip);
+      walking = office.walk(route.path, route.look, arrive);
+    } catch (e) {
+      stage.appendChild(el("p", "wo-no3d", "The 3D office isn't available on this computer, so picture it: out of the closet, down the corridor, to " + whose + "."));
+      arrive();
+    }
+  })();
+}
+
+/* ------------------------------------------------------------ start */
+lockScreen();
+window.__LAP = { engine: E, W: W, openWin: openWin, connect: connect, walkOver: walkOver, wo: function () { return walkUI; }, L: function () { return L; }, rung: rungFor };

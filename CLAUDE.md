@@ -9,21 +9,19 @@ file. The coaching role is in `/root/.claude/exam-prep-coach.md`.
 
 **DIRECTION CHANGED AGAIN on 1 October 2026. Section 9 overrides
 everything above it, including section 8's layout; read it first.**
-VM build 1 (section 7) is live and stays up until its replacement is
-ready; the owner judged it "not functional for what I need it for my
-students".
 
-**Earlier: DIRECTION CHANGED on 30 September 2026. Section 8 overrides
-sections 1–7.** Sections 1 and 4–6 record the first design,
-which mixed Core 1 into Core 2 and was replaced. Section 7 is what is built
-now: VM build 1, the live-office design of section 8.
+**Status: THE LAPTOP IS LIVE (1 October 2026).** The owner said "Build it
+out so I can see it live". Section 7 describes what is built: the whole
+screen is the student's work laptop at Rafiki's IT Services, with
+- the Help Desk
+- remote sessions to the office's PCs
+- Mason in chat
+- crawl, walk and run tickets
+- the walk-over in 3D
 
-**Status: VM build 1 is BUILT and verified** (30 September 2026). It covers:
-- the office, the machines, the Help Desk and the 3D office
-- the two App sims as twelve tickets (six each)
-
-The mail client, malware, router and chat builds are not built yet.
-Last updated 30 September 2026.
+The twelve App tickets are playable. VM build 1 is gone from the site.
+The mail, malware, router and chat builds are not built yet.
+Last updated 1 October 2026.
 
 | | |
 |---|---|
@@ -402,38 +400,46 @@ Every check is shown to fail before its pass is trusted.
   - whether Core-2-Sims gets its contrast and footer fixed
   - photos for the later labs
 
-## 7. What is built — VM build 1, 30 September 2026
+## 7. What is built — the laptop, live from 1 October 2026
 
-The first build (six jobs on a 3D desk, with Core 1's plumbing) was taken
-down and replaced by this one. Every file copied from Core 1 was removed:
-the renderer, the hints, options, rng, reading, theme and instructor
-modules, and the desk model.
+It replaced VM build 1, which replaced the first build. Section 9 has how
+each part came about.
 
 ### Runtime (what GitHub Pages serves)
 
 `index.html` and `assets/`. Static HTML, CSS and vanilla ES modules. There
-is no build step, and nothing is fetched at runtime.
+is no build step, and nothing is fetched from another site.
 
 | File | What it is |
 |---|---|
-| `machine.js` | One simulated PC as plain JSON. It holds processes, files, runtimes, PATH, logs, apps, power and Group Policy. **The DLL loader:** the app folder, then SysWOW64 (32-bit) or System32 (64-bit), then PATH; wrong bitness gives 0xc000007b; missing gives Windows' popup and Event 1000. Also repair and reinstall, runtime install, boot. No DOM, so the checks run it under Node |
-| `cmd.js` | The typed Command Prompt and PowerShell. It reaches other PCs by `\\HOST\C$\...`, and FS01's share by `\\FS01\Software`. It covers `copy`, `robocopy`, `regsvr32` (its real error), `setx` (`/m` needs elevation), `echo %PATH%`, `gpupdate /force` with its restart prompt, `gpresult /r`, running installers, and Windows' own wording for every refusal |
+| `index.html` | The page: the laptop fills the window; the full footer sits under it |
+| `laptop.js` | The laptop. It holds:<br>• sign-in (password `TechStart-2026`, shown on screen)<br>• the desktop, windows you can move, the taskbar, Start, and the Settings tray (dyslexia, light mode, instructor PIN 3693)<br>• Help Desk: the queue, and one page per ticket<br>• remote support sessions, which drop on restart, shutdown or a crash<br>• Mason's chat and the hint ladder<br>• crawl, walk and run (`LEVEL`, `WALKS`)<br>• the walk-over (`ROUTES`, `walkOver`)<br>A test seam: `window.__LAP` |
+| `laptop.css` | The laptop's own look. It follows light/dark as Windows does |
+| `desktop.js` | One PC's Windows 11 screen, drawn inside a remote session or on the monitor at the desk |
+| `style.css` | The styles `desktop.js` uses |
+| `machine.js` | One simulated PC as plain JSON. The DLL loader, repair and reinstall, runtimes, boot. No DOM |
+| `cmd.js` | The typed Command Prompt and PowerShell: `dir`, `copy`, `robocopy`, `del`, `regsvr32` (its real error), `setx`, `echo %PATH%`, `gpupdate /force`, `gpresult /r`, installers from `\\FS01\Software`, `\\HOST\C$` paths, and Windows' own wording for every refusal |
 | `mech.js` | The "What just happened" line under each command |
-| `fleet.js` | The eight machines, the office's five programs and Software Center's catalogue |
-| `tickets.js` | The twelve tickets: setup, goal, judge, hints, rung-3 moves, close question and note check |
-| `engine.js` | The session. Snapshots, guesses, the hint ladder (`rungFor`) and the rung-3 survivor rule. Saved to `localStorage` (`c2vm.session.v1`) after every action |
-| `desktop.js` | One PC's Windows 11 screen, as real HTML: taskbar, Start (with Run as administrator), Run box, desktop shortcuts, UAC, the tools listed above, the blue screen |
-| `app.js` | The page: machine list, clipboard (ticket, hints, revert, instructor answer), the Help Desk UI, the 3D office |
+| `fleet.js` | The eight machines, the five programs, Software Center's catalogue |
+| `tickets.js` | The twelve tickets |
+| `engine.js` | The session: snapshots, guesses, the ladder, saved to `localStorage` (`c2vm.session.v1`; the laptop's own state is `c2vm.laptop.v1`) |
 | `order.js` | The order six options are shown in |
-| `office3d.js` | The walkable 3D office from the WiFi sim's floor plan, on three.js. Clicking a desk sits you at that PC |
-| `prefs.js` | Dyslexia text (persists), light background (persists), instructor PIN 3693 (does not) |
+| `office3d.js` | The 3D office on three.js. It has your IT bench in the closet, and `walk`, `standAt` and `shift` for the walk-over |
 | `three/`, `daylight-hdri.txt` | three.js 0.160 (MIT) and a CC0 Poly Haven HDRI |
+
+**Crawl, walk, run:**
+
+| Level | Tickets | What the student gets |
+|---|---|---|
+| Crawl | L1 (12 steps), D1 (20 steps) | Mason's panel rings the one thing to press, with what and why |
+| Walk | L2 (9 items), D2 (11 items) | A checklist that ticks itself off; "How?" pointers |
+| Run | L3–L6, D3–D6 | Exam conditions: Mason's ladder only |
 
 **The machines** (the Malware sim's seven, plus yours):
 
 | Host | Who | Where |
 |---|---|---|
-| TECH-01 | you | your workstation |
+| your laptop | you | the IT bench in the network closet |
 | WS1-HR | John Doe | Office 1 |
 | WS4-FIN | Farah Nkemelu | Office 1 |
 | WS2-SALES | Brenda Smith | Office 2 |
@@ -442,9 +448,8 @@ is no build step, and nothing is fetched at runtime.
 | FS01 | file server | network closet |
 | MAIL01 | mail server | network closet |
 
-Everyone signs in as a standard user, you included. The admin credentials
-for UAC are RAFIKI\itadmin / Bench-Tech-2026, and they are on the
-clipboard.
+Everyone signs in as a standard user, you included. Mason gives the admin
+credentials for UAC (RAFIKI\itadmin / Bench-Tech-2026).
 
 ### The tickets
 
@@ -485,17 +490,28 @@ longer one" never works.
 
 ```
 node verify/logic.mjs      # no browser · 17 plants
-node verify/page.mjs       # drives the page · 10 plants
+node verify/page.mjs       # drives the laptop · 10 plants
 node verify/contrast.mjs   # AAA on painted pixels, dark / light / dyslexia · 4 plants
 ```
 
 `--plant` runs the calibration. Each plant must be caught by the check it
-was written for. `ONLY=CLOSE node verify/page.mjs --plant` runs one.
+was written for. `ONLY=WALK node verify/page.mjs --plant` runs one.
+
+The page checks:
+- **LOAD:** sign-in, and the 12 tickets with their labels.
+- **CRAWL:** L1 and D1 finished by following only Mason's rings.
+- **WALK:** L2 driven out of order.
+- **RUN:** L4, and Mason's ladder.
+- **RED, NOTE, REVERT:** the cause marks, the note check, and revert.
+- **DROP:** a restart ends the session.
+- **WALKOVER:** shut down, walk over, power on, walk back.
+- **PERSIST:** a reload keeps the work and the settings.
 
 **What the contrast sweep does not measure:**
 - text behind a modal's scrim, or under the Start menu or Run box
 - text scrolled out of its own box
 - the hidden inside of a closed `<details>`
+- text covered, even partly, by another window or a notification
 
 ### Found while building, and fixed
 
@@ -518,14 +534,31 @@ was written for. `ONLY=CLOSE node verify/page.mjs --plant` runs one.
   runs the one command and returns, as Windows does.
 - **Deleting a DLL you had just put there counted as a guess.** It no
   longer does (see above).
+- **On the laptop** (previews 1–5, all in section 9):
+  - a lost student got no help
+  - Mason's ring covered a label
+  - a skipped crawl step left the panel stuck
+  - `dir` of one file said "File Not Found"
+  - restarts left a remote session running
+  - the office doors swung into the corridor
+  - two monitors faced the wall
 
 ### Known, not yet done
 
-- **The other nine sims are not built yet:** mail and Email Threat, Malware
-  IR, the router's web admin and app, the router sims with the 3D coverage
-  and the movable microwave, and the two chats.
-- **The 3D office is a way in, not yet a tool.** The Wi-Fi coverage and
-  the street come with the router build.
+- **The other nine sims are not built yet:**
+  - mail and Email Threat
+  - Malware IR (the walk-over's first real use: an infected PC to unplug)
+  - the router's web admin and app
+  - the router sims, with the Wi-Fi floor plan, the movable microwave and
+    the three-house street
+  - the two chats
+- **No ticket starts with an unreachable PC yet,** so the walk-over is
+  reached only when a student shuts down, crashes or unplugs a PC
+  themselves.
+- **The 3D walk needs a reasonable graphics card.** "Skip the walk" covers
+  slow machines.
+- **On a narrow screen**, the user's own taskbar can scroll out of sight
+  inside the remote session window.
 - **Photo textures** are blocked by this environment's network policy, so
   the office is clean 3D, not photographic.
 

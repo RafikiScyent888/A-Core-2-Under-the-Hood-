@@ -19,6 +19,7 @@ function btn(label, cls, fn, aria) { const b = el("button", cls || "w-btn", labe
 
 const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows" };
 const TOOLS = ["cmd", "ps", "taskmgr", "eventvwr", "settings", "softcenter", "explorer"];
+const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc" };
 
 export function createDesktop(host, ctx) {
   let wins = [], active = null, wid = 1, start = false, run = null, dialog = null, bootNote = null;
@@ -116,7 +117,8 @@ export function createDesktop(host, ctx) {
     const pub = M.dirOf(m(), "C:\\Users\\Public\\Desktop");
     ((pub && pub.files) || []).forEach(function (f) {
       const name = f.name.replace(/\.lnk$/i, "");
-      d.appendChild(btn(name, "icon-btn", function () { launchApp(name, "shortcut"); }, "Open the " + name + " shortcut on the desktop"));
+      const ib = btn("", "icon-btn", function () { launchApp(name, "shortcut"); }, "Open the " + name + " shortcut on the desktop");
+      ib.appendChild(el("span", "icon-glyph", name.slice(0, 2))); ib.appendChild(el("span", "icon-name", name)); d.appendChild(ib);
     });
     if (ctx.isTech) d.appendChild(btn("Help Desk", "icon-btn", function () { open("helpdesk"); }, "Open Help Desk"));
     return d;
@@ -127,24 +129,29 @@ export function createDesktop(host, ctx) {
     const s = btn("Start", "tb-start", function () { start = !start; run = null; draw(); }, "Start menu"); s.setAttribute("aria-expanded", String(start)); tb.appendChild(s);
     tb.appendChild(btn("Desktop", "tb-app" + (active === null ? " on" : ""), function () { active = null; draw(); }, "Show the desktop"));
     wins.forEach(function (w) { const b = btn(winTitle(w), "tb-app" + (w.id === active ? " on" : ""), function () { active = w.id; draw(); if (w.shell) focusConsole(w.id); }); b.setAttribute("aria-pressed", String(w.id === active)); tb.appendChild(b); });
-    tb.appendChild(el("span", "tb-clock", m().clock));
+    tb.appendChild(el("span", "tb-clock", ctx.clock ? ctx.clock() : m().clock));
     return tb;
   }
 
   function drawStart() {
     const sm = el("div", "startmenu"); sm.setAttribute("role", "dialog"); sm.setAttribute("aria-label", "Start menu");
     sm.appendChild(el("h3", "sm-h", "Start"));
+    /* Search, as Windows has it: type part of a name and the list narrows. */
+    const q = el("input", "w-input sm-search"); q.id = "sm-q-" + m().id; q.placeholder = "Type here to search"; q.setAttribute("aria-label", "Search for apps, settings and documents");
+    sm.appendChild(q);
     const list = el("ul", "sm-list");
+    q.addEventListener("input", function () { const v = q.value.trim().toLowerCase(); list.querySelectorAll(".sm-app").forEach(function (li) { li.hidden = !!v && li.dataset.find.indexOf(v) < 0; }); });
+    setTimeout(function () { q.focus(); }, 0);
     const items = TOOLS.slice(); if (ctx.isTech) items.unshift("helpdesk");
     items.forEach(function (a) {
-      const li = el("li", "sm-app"); li.appendChild(el("span", "sm-name", NAME[a]));
+      const li = el("li", "sm-app"); li.dataset.find = (NAME[a] + " " + a + " " + (FIND[a] || "")).toLowerCase(); li.appendChild(el("span", "sm-name", NAME[a]));
       const acts = el("span", "sm-acts");
       acts.appendChild(btn("Open", "w-btn", function () { open(a, false); }, "Open " + NAME[a]));
       if (a === "cmd" || a === "ps") acts.appendChild(btn("Run as administrator", "w-btn", function () { open(a, true); }, "Run " + NAME[a] + " as administrator"));
       li.appendChild(acts); list.appendChild(li);
     });
     (m().apps || []).filter(function (a) { return a.installed !== false; }).forEach(function (a) {
-      const li = el("li", "sm-app"); li.appendChild(el("span", "sm-name", a.name));
+      const li = el("li", "sm-app"); li.dataset.find = (a.name + " app program").toLowerCase(); li.appendChild(el("span", "sm-name", a.name));
       li.appendChild(btn("Open", "w-btn", function () { launchApp(a.name, "start"); }, "Open " + a.name)); list.appendChild(li);
     });
     sm.appendChild(list);

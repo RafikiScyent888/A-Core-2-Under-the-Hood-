@@ -16,17 +16,17 @@
    white text on a white ancestor when the paint is a gradient; pixels do
    not lie that way. Disabled controls are NOT exempt.
 
-   The states driven: the Help Desk queue; a ticket's error box; Event
-   Viewer with an error selected; a console with a refusal and its "what
-   just happened" line; the clipboard at rungs 1 and 3; the Start menu
-   and the Run box; Task Manager sorted with a row selected; Software
-   Center; the UAC credential prompt with its error; Settings and the
-   installer; File Explorer with a file selected; revert; Resolve refused;
-   the close form with wrong picks red, rung 3 struck, the right answer,
-   and a refused note; the closed ticket; the instructor PIN and answers;
-   the critical-process warning, the blue screen and the restart note;
-   no Explorer; the screen switched off. Dark, light, and dark with the
-   dyslexia setting on.
+   The states driven, on the laptop: the sign-in with a refused password;
+   the desktop with Help Desk and chat; connecting; the remote PC's error
+   box, Start search, and Event Viewer with Mason's ring; the remote
+   console; Mason's rung 3 in chat; Settings and Start; the resolution with
+   wrong picks red and rung 3 strikes; a refused note; the closed ticket;
+   instructor mode; the L2 walk with How? open; the D1 crawl; the D2 walk;
+   at a desk after the walk-over. Dark, light, and dark with dyslexia text.
+
+   It does not measure text behind a modal's scrim, under the Start menu
+   or Run box, scrolled out of its own box, inside a closed <details>, or
+   covered (even partly) by another window or a notification.
    ===================================================================== */
 import { serve, browser } from "./serve.mjs";
 const ROOT = new URL("..", import.meta.url).pathname;
@@ -75,6 +75,8 @@ export async function run(extraCss) {
           clips.forEach((c) => { x0 = Math.max(x0, c.left); y0 = Math.max(y0, c.top); x1 = Math.min(x1, c.right); y1 = Math.min(y1, c.bottom); });
           if ((x1 - x0) * (y1 - y0) < 0.6 * r0.width * r0.height) continue;
           if (occl.some((o) => r0.left < o.right && r0.right > o.left && r0.top < o.bottom && r0.bottom > o.top)) continue;
+          const mine = (px, py) => { const top = document.elementFromPoint(px, py); return top && (top === el || el.contains(top) || top.contains(el)); };
+          if (![[0.5, 0.5], [0.1, 0.2], [0.9, 0.2], [0.1, 0.85], [0.9, 0.85]].every(([fx, fy]) => mine(x0 + (x1 - x0) * fx, y0 + (y1 - y0) * fy))) continue;
           const r = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
           if (r.width > 4 && r.height > 6)
           out.push({ t: n.textContent.trim().slice(0, 40), c: cs.color, op, s: parseFloat(cs.fontSize), b: parseInt(cs.fontWeight) >= 700, x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height, el: desc(el) });
@@ -112,83 +114,70 @@ export async function run(extraCss) {
     });
   }
 
-  const scr = () => page.locator(".screen-host:not([hidden])");
-  const machine = (host) => page.locator("#machines .mc", { hasText: host }).click();
-  const startApp = async (label) => { await scr().getByRole("button", { name: "Start menu" }).click(); await scr().getByRole("button", { name: label }).click(); };
-  const typed = async (line) => { const c = scr().locator(".con-in"); await c.fill(line); await c.press("Enter"); await page.waitForTimeout(80); };
-  const okDialog = async () => { if (await scr().locator(".w-dialog").count()) await scr().locator(".w-dialog").getByRole("button", { name: "OK" }).click(); };
-  const creds = async (u, pw) => { await scr().getByLabel("User name").fill(u); await scr().getByLabel("Password").fill(pw); await scr().locator(".w-dialog").getByRole("button", { name: "Yes" }).click(); };
-
+  let rdp;
+  const run = async (c) => { const i = rdp.locator(".con-in"); await i.fill(c); await i.press("Enter"); await page.waitForTimeout(80); };
   async function pass(theme, reading) {
     const tag = theme + (reading ? "+dyslexia" : "");
     await page.goto(S.url + "/index.html");
     await page.evaluate(([t, r]) => { localStorage.clear(); localStorage.setItem("c2vm.theme", t); if (r) localStorage.setItem("c2vm.reading", "dyslexia"); }, [theme, reading]);
-    await page.reload(); await page.waitForTimeout(600);
-    await sweep(tag + ": Help Desk queue, no ticket");
-    await scr().getByRole("button", { name: "Open ticket L1" }).click();
-    await scr().getByRole("button", { name: "Resolve" }).click();
-    await sweep(tag + ": ticket open, Resolve refused while broken");
-    await machine("WS4-FIN");
-    await scr().getByRole("button", { name: /Open the Testing shortcut/ }).click();
-    await sweep(tag + ": the program's error box");
-    await okDialog();
-    await startApp("Open Event Viewer"); await scr().locator(".ev-row.lvl-err").first().click();
-    await sweep(tag + ": Event Viewer, error selected");
-    await startApp("Open Command Prompt");
-    for (const c of ['copy \\\\WS1-HR\\C$\\Windows\\SysWOW64\\msvcp100.dll "C:\\Program Files (x86)\\Testing"', "regsvr32 msvcp100.dll"]) await typed(c);
-    await sweep(tag + ": console, a refusal, what just happened, rung 1");
-    for (const c of ["setx PATH C:\\Temp", "setx PATH C:\\Temp2", "setx PATH C:\\Temp3"]) await typed(c);
-    await sweep(tag + ": clipboard at rung 3, four moves struck");
-    await scr().getByRole("button", { name: "Start menu" }).click(); await sweep(tag + ": Start menu");
-    await scr().getByRole("button", { name: "Start menu" }).click();
-    await page.getByRole("button", { name: /Windows and R/ }).click(); await scr().locator(".w-dialog.run input").fill("taskmgr"); await sweep(tag + ": Run box");
-    await scr().locator(".w-dialog.run").getByRole("button", { name: "OK", exact: true }).click();
-    await scr().locator(".th-btn", { hasText: "CPU" }).click(); await scr().locator(".tm-row").nth(2).click();
-    await sweep(tag + ": Task Manager sorted, a row selected");
-    await startApp("Open Software Center");
-    await scr().getByRole("button", { name: /(Install|Repair) Microsoft Visual C\+\+ 2013/ }).click();
-    await creds("itadmin", "wrong");
-    await sweep(tag + ": UAC credential prompt with its error");
-    await scr().locator(".w-dialog").getByRole("button", { name: "No" }).click();
-    await sweep(tag + ": Software Center");
-    await startApp("Open Settings"); await scr().getByRole("button", { name: "Modify Testing" }).click(); await creds("RAFIKI\\itadmin", "Bench-Tech-2026");
-    await sweep(tag + ": Settings, the installer dialog");
-    await scr().locator(".w-dialog").getByRole("button", { name: "Cancel" }).click();
-    await startApp("Open File Explorer"); await scr().locator(".fx-addr").fill("C:\\Program Files (x86)\\Testing"); await scr().locator(".fx-addr").press("Enter");
-    await scr().locator(".fx-f").first().click();
-    await sweep(tag + ": File Explorer, a file selected");
-    await page.getByRole("button", { name: "Revert to snapshot" }).click();
-    await sweep(tag + ": reverted");
-    await startApp("Open Software Center"); await scr().getByRole("button", { name: "Reinstall Testing 4.2" }).click(); await okDialog();
-    await machine("TECH-01"); await scr().getByRole("button", { name: "Resolve" }).click();
-    const opts = scr().locator(".hd-close .opt");
-    for (const w of ["licence", "network", "profile", "updates"]) await opts.filter({ hasText: w }).first().click();
-    await sweep(tag + ": close form, four red, rung 2");
-    await opts.filter({ hasText: "Windows Security" }).first().click();
-    await sweep(tag + ": close form, five red, rung 3");
-    await opts.filter({ hasText: "dependency is missing" }).first().click();
-    await scr().locator("#hd-note").fill("Fixed it for her."); await scr().getByRole("button", { name: "Close the ticket" }).click();
-    await sweep(tag + ": right answer marked, note refused");
-    await scr().locator("#hd-note").fill("Testing said MSVCP100.dll was missing. Reinstalled Testing from Software Center and tested it opens.");
-    await scr().getByRole("button", { name: "Close the ticket" }).click();
-    await sweep(tag + ": ticket closed");
-    await page.click("#instructorBtn"); await sweep(tag + ": instructor PIN dialog");
-    await page.fill("#pin-in", "3693"); await page.press("#pin-in", "Enter");
-    await scr().getByRole("button", { name: "Open ticket D1" }).click();
-    await sweep(tag + ": instructor mode, answers on the clipboard");
-    await page.click("#instructorBtn");
-    await machine("WS1-HR");
-    await page.getByRole("button", { name: /Ctrl, Shift and Escape/ }).click();
-    await scr().locator(".tm-row", { hasText: "Windows Explorer" }).first().click(); await scr().locator(".tm-tools button", { hasText: "End task" }).click();
-    await sweep(tag + ": no Explorer");
-    await scr().locator(".tm-row", { hasText: "Client Server Runtime" }).first().click(); await scr().locator(".tm-tools button", { hasText: "End task" }).click();
-    await sweep(tag + ": critical-process warning");
-    await scr().locator(".w-dialog button", { hasText: "Shut down" }).click();
-    await sweep(tag + ": blue screen");
-    await scr().getByRole("button", { name: "Let it restart" }).click();
-    await sweep(tag + ": restarted, boot note");
-    await scr().getByRole("button", { name: "Start menu" }).click(); await scr().locator(".sm-power").getByRole("button", { name: "Shut down" }).click();
-    await sweep(tag + ": screen off");
+    await page.reload(); await page.waitForTimeout(300);
+    await sweep(tag + ": lock screen");
+    await page.getByRole("button", { name: "Press to sign in" }).click();
+    await page.locator("#lock-pw").fill("x"); await page.getByRole("button", { name: "Sign in" }).click();
+    await sweep(tag + ": sign-in, wrong password");
+    await page.locator("#lock-pw").fill("TechStart-2026"); await page.locator("#lock-pw").press("Enter"); await page.waitForTimeout(300);
+    await sweep(tag + ": desktop, Help Desk and chat");
+    const hd = page.locator("[data-win=helpdesk]");
+    await hd.getByRole("button", { name: "Assign to me and start" }).click();
+    await hd.getByRole("button", { name: /Connect to WS4-FIN/ }).click();
+    await sweep(tag + ": connecting");
+    await page.waitForTimeout(1600); rdp = page.locator('[data-win="rdp:WS4"]');
+    await rdp.getByRole("button", { name: /Open the Testing shortcut/ }).click();
+    await sweep(tag + ": remote PC error box");
+    await rdp.locator(".w-dialog").getByRole("button", { name: "OK" }).click();
+    await rdp.getByRole("button", { name: "Start menu" }).click(); await rdp.locator(".sm-search").fill("event");
+    await sweep(tag + ": remote Start menu, searching");
+    await rdp.getByRole("button", { name: "Open Event Viewer" }).click(); await page.waitForTimeout(300);
+    await sweep(tag + ": Event Viewer, Mason's highlight on the Error row");
+    await rdp.getByRole("button", { name: "Start menu" }).click(); await rdp.getByRole("button", { name: "Open Command Prompt" }).click();
+    for (const c of ["regsvr32 msvcp100.dll", "setx PATH C:\\T1", "setx PATH C:\\T2"]) await run(c);
+    await sweep(tag + ": remote console, Mason's first hint as a notification");
+    for (const c of ["setx PATH C:\\T3", "setx PATH C:\\T4"]) await run(c);
+    await page.locator(".tb", { hasText: "Chat" }).click();
+    await sweep(tag + ": chat with rung 3");
+    await page.locator(".tb", { hasText: "Settings" }).click();
+    await sweep(tag + ": settings tray");
+    await page.locator(".tb", { hasText: "Settings" }).click();
+    await page.locator(".tb", { hasText: "Start" }).click(); await sweep(tag + ": Start");
+    await page.locator(".tb", { hasText: "Start" }).click();
+    await page.locator(".tb", { hasText: "WS4-FIN" }).click();
+    await rdp.getByRole("button", { name: "Start menu" }).click(); await rdp.getByRole("button", { name: "Open Software Center" }).click();
+    await rdp.getByRole("button", { name: "Reinstall Testing 4.2" }).click(); await rdp.locator(".w-dialog").getByRole("button", { name: "OK" }).click();
+    await page.locator(".tb", { hasText: "Help Desk" }).click();
+    await hd.getByRole("button", { name: "Resolve" }).click();
+    for (const w of ["licence", "network", "profile", "updates", "Windows Security"]) await hd.locator(".opt2", { hasText: w }).first().click();
+    await sweep(tag + ": resolution, five red, rung 3 strikes");
+    await hd.locator(".opt2", { hasText: "dependency is missing" }).click();
+    await hd.locator("#res-note").fill("Fixed it."); await hd.getByRole("button", { name: "Close the ticket" }).click();
+    await sweep(tag + ": right answer, notes refused");
+    await hd.locator("#res-note").fill("Testing said MSVCP100.dll was missing. Reinstalled Testing from Software Center and tested it opens.");
+    await hd.getByRole("button", { name: "Close the ticket" }).click();
+    await sweep(tag + ": closed");
+    await page.locator(".tb", { hasText: "Settings" }).click(); await page.locator("#instructorBtn").click(); await page.locator("#pin-in").fill("3693"); await page.locator("#pin-in").press("Enter");
+    await page.locator(".tb", { hasText: "Settings" }).click();
+    await sweep(tag + ": instructor mode");
+    await page.keyboard.press("Escape"); await page.evaluate(() => window.__LAP.openWin("helpdesk"));
+    await page.locator(".qi", { hasText: "INC20411" }).click(); await hd.locator("[data-coach=assign]").click();
+    await page.locator(".coach details summary").first().click();
+    await sweep(tag + ": walk checklist, How? open");
+    await page.locator(".qi", { hasText: "INC20416" }).click(); await page.waitForTimeout(300);
+    await sweep(tag + ": D1 crawl, step 1");
+    await page.locator(".qi", { hasText: "INC20417" }).click(); await hd.locator("[data-coach=assign]").click(); await page.locator(".coach details summary").nth(2).click();
+    await sweep(tag + ": D2 walk, How? open, Run chips in the queue");
+    await page.evaluate(() => window.__LAP.walkOver("WS2"));
+    await page.waitForSelector(".wo-desk", { timeout: 90000 }); await page.getByRole("button", { name: "Check the network cable" }).click();
+    await sweep(tag + ": walked over to WS2, at the desk");
+    await page.getByRole("button", { name: "Walk back to your desk" }).click(); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
   }
 
   try {
@@ -201,10 +190,10 @@ export async function run(extraCss) {
 }
 
 const PLANTS = {
-  "sky-blue primary buttons (the old sims' dashboard)": ".w-btn.primary, .btn.primary { background: #38bdf8 !important; color: #ffffff !important; }",
-  "a ruled-out reason dimmed to show it is ruled out": ".hd-close .opt.out .opt-why { color: #9ca3af !important; }",
-  "grey text in Task Manager's scrolled table": ".tm-table td { color: #9ca3af !important; }",
-  "the clipboard's struck moves faded": ".narrow .struck { opacity: 0.45 !important; }"
+  "sky-blue primary buttons (the old sims' dashboard)": ".b.pri, .w-btn.primary { background: #38bdf8 !important; color: #ffffff !important; border-color: #38bdf8 !important; }",
+  "a ruled-out cause's reason dimmed to show it is ruled out": ".opt2.out .ow { color: #9ca3af !important; }",
+  "Mason's struck moves faded": ".narrow2 .struck { opacity: 0.45 !important; }",
+  "grey text at the desk after the walk-over": ".wo-state { color: #6b7280 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

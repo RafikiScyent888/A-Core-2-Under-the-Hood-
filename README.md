@@ -3,47 +3,52 @@
 Hands-on labs for CompTIA A+ Core 2 (220-1202), part of the Cyber Warrior
 Program, built from the Core 2 sims only.
 
-The student is a Tier 1 technician at **Rafiki's IT Services**. Tickets
-arrive in the Help Desk on their own workstation, TECH-01. The office's PCs
-are running. The student sits at one, from the 3D office or the machine
-list, and uses Windows' own tools: the program itself, Event Viewer, Command
-Prompt and PowerShell, Task Manager, Settings, Software Center and File
-Explorer. Their job is to fix what is really wrong.
+**The whole screen is your work laptop at Rafiki's IT Services.** You sign
+in as a Tier 1 technician, and from then on everything happens in programs
+on the laptop:
+- **Help Desk** holds your queue. One page per ticket has everything: the
+  user's request, their PC, your work notes, the activity log, Resolve or
+  Escalate, the cause and the resolution notes.
+- **Remote support** takes you onto the user's PC, in a window. You fix it
+  with Windows' own tools: the program itself, Start search, Event Viewer,
+  Command Prompt and PowerShell, Task Manager, Settings and Software
+  Center.
+- **Chat with Mason,** your team lead. He guides you, and never gives you
+  the answer.
+- **When remote can't reach a PC,** you walk over in 3D. That covers a PC
+  that is switched off, blue-screened or unplugged. At the desk you see
+  the PC's screen, press its power button and check its network cable.
 
-It is as close to a virtual machine as a web page can get. Each PC is
-simulated, and it behaves like a running one:
-- its state persists
-- its faults are really there
-- every tool reads the machine
-- what the student does has real consequences
-- **Revert to snapshot** takes it back to the last point the student got
-  right
+The PCs are simulated but behave like running machines:
+- their faults are really there
+- what you do has real consequences
+- a restart ends your remote session
+- **Revert to snapshot** puts a PC back to the last point you got right
 
 Live: https://rafikiscyent888.github.io/A-Core-2-Under-the-Hood-/
 
-## What is built: the application tickets
+## Crawl, walk, run
 
-| Sim | Tickets | Tier |
+| | Tickets | How much help |
 |---|---|---|
-| Application Launch Troubleshooting | L1 (the sim itself) + L2–L6 | Tier 1: repair or reinstall the program; escalate when that is not enough |
-| Application Deployment Troubleshooting | D1 (the sim itself) + D2–D6 | Tier 2: runtimes, bitness, PATH, Group Policy |
+| **Crawl** | L1, D1: the two sims themselves | Mason walks you through every step and rings what to press |
+| **Walk** | L2, D2 | A checklist that ticks itself off as you work, with "How?" pointers |
+| **Run** | L3–L6, D3–D6 | On your own, as in the exam. Mason checks in after your third wrong move |
 
-D1 is rebuilt so the sim's old answer is tried and fails:
-- the robocopy from System32 gives 0xc000007b
-- `regsvr32` gives its real error
-
-A ticket closes only when the machine really is fixed. The student then
-picks the cause from six options and writes the ticket note.
+The L tickets come from the Application Launch sim (Tier 1) and the D
+tickets from the Application Deployment sim (Tier 2). The Deployment sim
+is rebuilt so its old answer is tried and fails: the robocopy from System32
+gives 0xc000007b, and `regsvr32` gives its real error.
 
 The program's rules apply throughout:
-- unlimited tries, with hints from the third wrong move
-- no hint ever gives the answer
+- unlimited tries
+- hints from the third wrong move, and no hint ever gives the answer
 - six options: one right, five near misses
 - a wrong pick stays red, marked three ways
 - WCAG AAA contrast
 - a dyslexia-friendly setting that stays on
 
-Instructor mode (PIN 3693) shows each ticket's fix and cause.
+Instructor mode (PIN 3693) is in the Settings tray.
 
 ## Running the checks
 

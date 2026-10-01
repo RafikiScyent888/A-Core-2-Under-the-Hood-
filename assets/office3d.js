@@ -202,7 +202,7 @@ export async function mountOffice(host, opts) {
     return out.map(([a, b]) => horiz ? [a, z0, b, z0] : [x0, a, x0, b]);
   }
   
-  function buildOffice(roof) {
+  function buildOffice(roof, full) {
     /* site */
     const grass = texMat("grassM", TEX.grass, [1, 1]);
     uvBox(-1400, -1400, 1400, 1400, -0.2, 0, grass, 70);
@@ -242,12 +242,12 @@ export async function mountOffice(host, opts) {
   
     /* walls */
     const brick = texMat("brickM", TEX.brick, [1, 1]), dry = texMat("dryM", TEX.drywall, [1, 1]);
-    const cut = roof ? H : 4.2;                                     /* cutaway: every wall cut to 4 ft, dollhouse style */
+    const cut = roof || full ? H : 4.2;                                     /* cutaway: every wall cut to 4 ft, dollhouse style */
     WALLS.forEach((w) => {
       const kind = w[4], t = kind === "ext" ? EXT : INT;
       segs(w).forEach(([x0, z0, x1, z1]) => {
         const horiz = z0 === z1;
-        const near = !roof;
+        const near = !roof && !full;
         const hh = near ? cut : H;
         const bx0 = horiz ? x0 : x0 - t / 2, bx1 = horiz ? x1 : x0 + t / 2, bz0 = horiz ? z0 - t / 2 : z0, bz1 = horiz ? z0 + t / 2 : z1;
         uvBox(bx0, bz0, bx1, bz1, 0.35, 0.35 + hh, kind === "ext" ? brick : dry, kind === "ext" ? 8 : 4);
@@ -264,7 +264,9 @@ export async function mountOffice(host, opts) {
       w[5].forEach(([g0, g1]) => {
         const horiz = w[1] === w[3]; const dm = M("door", { color: 0x8a6a4a, roughness: 0.6 });
         if (kind === "ext") { if (horiz) box(g0, w[1] - 0.2, g1, w[1] + 0.2, 0.35, 7.3, M("glassdoor", { color: 0x3b5a70, roughness: 0.1, metalness: 0.5 }), false); else box(w[0] - 0.2, g0, w[0] + 0.2, g1, 0.35, 7.3, M("glassdoor"), false); return; }
-        if (horiz) box(g0, w[1] + 0.3, g0 + 0.15, w[1] + 0.3 + (g1 - g0), 0.35, 7.3, dm); else box(w[0] + 0.3, g0, w[0] + 0.3 + (g1 - g0), g0 + 0.15, 0.35, 7.3, dm);
+        /* doors open into the room, never out into the corridor (z 12-17) */
+        const into = horiz && w[1] === 12 ? -1 : 1;
+        if (horiz) box(g0, into > 0 ? w[1] + 0.3 : w[1] - 0.3 - (g1 - g0), g0 + 0.15, into > 0 ? w[1] + 0.3 + (g1 - g0) : w[1] - 0.3, 0.35, 7.3, dm); else box(w[0] + 0.3, g0, w[0] + 0.3 + (g1 - g0), g0 + 0.15, 0.35, 7.3, dm);
       });
     });
     if (roof) {
@@ -284,26 +286,42 @@ export async function mountOffice(host, opts) {
       box(x - 0.8, z + faceZ * 0.9 - 0.25, x + 0.8, z + faceZ * 0.9 + 0.25, 2.5, 2.58, dark);
       box(x + 1.6, z - 0.9, x + 2.2, z + 0.9, 0.4, 1.9, dark);
     }
+    /* the same PC turned to face +x, for desks along the west wall */
+    function pcX(x, z) {
+      box(x - 0.08, z - 1.1, x + 0.08, z + 1.1, 3.0, 4.35, dark); box(x - 0.2, z - 0.15, x + 0.2, z + 0.15, 2.5, 3.0, dark);
+      box(x + 0.08, z - 1.0, x + 0.1, z + 1.0, 3.08, 4.27, M("screenOn"), false);
+      box(x + 0.65, z - 0.8, x + 1.15, z + 0.8, 2.5, 2.58, dark);
+      box(x - 0.9, z + 1.6, x + 0.9, z + 2.2, 0.4, 1.9, dark);
+    }
     function chair(x, z) { cyl(x, z, 0.9, 1.3, 1.6, chairM, 16); box(x - 0.9, z + 0.6, x + 0.9, z + 0.8, 1.6, 3.4, chairM); cyl(x, z, 0.12, 0.4, 1.3, M("leg"), 8); cyl(x, z, 0.9, 0.4, 0.5, M("leg"), 5); }
     /* Office 1 (HR, and Finance: the sim has seven machines and the plan has three offices) */
     desk(6.5, 0.9, 12, 3.4); pc(9, 1.6, 1); chair(9, 5);
-    desk(0.9, 5.5, 3.4, 11); pc(1.6, 8.2, 1); chair(5, 8.2);
+    desk(0.9, 5.5, 3.4, 11); pcX(1.6, 8.2); chair(5, 8.2);
     /* Office 2 (Sales) */ desk(20.5, 0.9, 26, 3.4); pc(23, 1.6, 1); chair(23, 5);
     /* Office 3 (Dev) */ desk(33.5, 0.9, 39, 3.4); pc(36, 1.6, 1); chair(36, 5);
     box(28.8, 4.3, 31.6, 6.1, 2.2, 2.35, deskM); cyl(29.2, 5.2, 0.1, 0.4, 2.2, M("leg"), 8); cyl(31.2, 5.2, 0.1, 0.4, 2.2, M("leg"), 8);
     box(29.7, 4.9, 30.7, 5.6, 2.35, 2.42, dark);                    /* the tablet */
     box(29.78, 4.97, 30.62, 5.53, 2.42, 2.43, M("tabscreen", { color: 0x3a6fbf, emissive: 0x3a6fbf, emissiveIntensity: 0.5 }), false);
     /* reception: the L counter from the plan, the round table */
-    box(0.8, 19, 3.3, 30.8, 0.35, 3.8, deskM); box(0.8, 28.3, 8.5, 30.8, 0.35, 3.8, deskM);
-    pc(2.0, 23.5, 1); chair(4.8, 23.5);
+    box(0.8, 19, 3.3, 28.3, 0.35, 2.5, deskM); box(0.8, 28.3, 8.5, 30.8, 0.35, 3.8, deskM);   /* work surface at desk height; the tall transaction counter in front */
+    pcX(2.0, 23.5); chair(4.8, 23.5);
     cyl(6.5, 22.2, 2.2, 2.4, 2.55, deskM, 28); cyl(6.5, 22.2, 0.25, 0.4, 2.4, M("leg"), 10);
     [[6.5, 19.4], [9.2, 22.2], [6.5, 25.0]].forEach(([x, z]) => chair(x, z));
     /* the breakroom counter and the microwave, against the closet wall */
     box(8.8, 17.6, 10.7, 21.2, 0.35, 3.3, M("cab", { color: 0xd8d4cb, roughness: 0.6 }));
     box(9.0, 18.2, 10.6, 20.4, 3.3, 4.5, M("micro", { color: 0xd9d9d9, roughness: 0.4, metalness: 0.3 }));
+    /* the IT bench in the closet: your desk, with your laptop on it */
+    box(11.4, 20.5, 13.6, 25.8, 2.35, 2.5, deskM);
+    box(11.75, 22.0, 11.9, 24.4, 3.0, 4.35, dark); box(11.91, 22.1, 11.93, 24.3, 3.08, 4.27, M("screenOn"), false);
+    box(12.5, 22.6, 13.3, 23.8, 2.5, 2.55, dark); box(12.5, 22.6, 12.56, 23.8, 2.55, 3.1, M("screenOn"), false);
+    chair(14.6, 23.2);
     /* the closet: rack with the file and mail servers and the switch; the WAP on the wall */
     box(15.5, 27, 17.6, 31.2, 0.35, 7.2, M("rack", { color: 0x1c1f24, roughness: 0.5, metalness: 0.4 }));
-    [2.0, 3.6, 5.2].forEach((y, i) => box(15.4, 27.3, 15.5, 30.9, y, y + 1.1, M("srv" + i, { color: i === 2 ? 0x2b2f35 : 0x3a3f46, metalness: 0.5, roughness: 0.4 }), false));
+    [2.0, 3.6, 5.2].forEach((y, i) => {
+      box(15.4, 27.3, 15.5, 30.9, y, y + 1.1, M("srv" + i, { color: i === 2 ? 0x2b2f35 : 0x3a3f46, metalness: 0.5, roughness: 0.4 }), false);
+      [27.7, 28.0, 28.3].forEach((z, k) => box(15.36, z, 15.4, z + 0.12, y + 0.45, y + 0.6, M("led" + (k === 2 && i === 2 ? "a" : "g"), { color: k === 2 && i === 2 ? 0xffb020 : 0x2fd45e, emissive: k === 2 && i === 2 ? 0xffb020 : 0x2fd45e, emissiveIntensity: 1 }), false));
+      box(15.36, 29.2, 15.4, 30.6, y + 0.3, y + 0.8, M("bays", { color: 0x15181c, roughness: 0.5 }), false);
+    });
     const ap = cyl(AP.x, AP.z, 0.55, AP.y - 0.15, AP.y + 0.1, M("ap", { color: 0xf1f1ef, roughness: 0.4 }), 24);
     box(AP.x - 0.08, AP.z - 0.6, AP.x + 0.08, AP.z - 0.25, AP.y - 0.05, AP.y + 0.05, M("aplight", { color: 0x2fd45e, emissive: 0x2fd45e, emissiveIntensity: 1 }), false);
     /* conference: table for ten, a screen on the east wall */
@@ -395,7 +413,7 @@ export async function mountOffice(host, opts) {
   
 
   /* ------------------------------------------------ the live model */
-  buildOffice(false);
+  buildOffice(false, !!opts.walk);
   const cam = new THREE.PerspectiveCamera(40, WIDTH() / HEIGHT, 1, 2000);
   cam.position.set(-14, 62, 70);
   const controls = new OrbitControls(cam, canvas);
@@ -418,12 +436,13 @@ export async function mountOffice(host, opts) {
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, cam));
   let ao = null;
-  if (opts.ao !== false) { ao = new GTAOPass(scene, cam, WIDTH(), HEIGHT); ao.blendIntensity = 0.9; ao.updateGtaoMaterial({ radius: 3.5, distanceExponent: 1.5, thickness: 2, scale: 1.2 }); composer.addPass(ao); }
+  if (opts.ao !== false && !opts.walk) { ao = new GTAOPass(scene, cam, WIDTH(), HEIGHT); ao.blendIntensity = 0.9; ao.updateGtaoMaterial({ radius: 3.5, distanceExponent: 1.5, thickness: 2, scale: 1.2 }); composer.addPass(ao); }
   composer.addPass(new OutputPass());
   let pending = false;
   function render() { if (pending) return; pending = true; requestAnimationFrame(function () { pending = false; composer.render(); }); }
   controls.addEventListener("change", render);
 
+  let lastWalk = null;
   const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
   let downAt = null;
   canvas.addEventListener("pointerdown", function (e) { downAt = [e.clientX, e.clientY]; });
@@ -453,6 +472,41 @@ export async function mountOffice(host, opts) {
       const v = hb.position.clone().project(cam); const r = canvas.getBoundingClientRect();
       return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height };
     },
+    /* THE WALK-OVER: the camera at standing eye height, walking a path of
+       [x, z] points through the doors, then turning to look at a point.
+       With reduced motion it cuts straight there. */
+    peek: function (u) { if (lastWalk) lastWalk(u); },
+    walk: function (path, look, done) {
+      controls.enabled = false;
+      const EYE = 5.4, pts = path.map(function (p) { return new THREE.Vector3(p[0], EYE, p[1]); });
+      const target = new THREE.Vector3(look[0], look[1], look[2]);
+      const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let seg = [], total = 0; for (let i = 1; i < pts.length; i++) { const d = pts[i].distanceTo(pts[i - 1]); seg.push(d); total += d; }
+      const SPEED = 5.5; /* feet a second: a brisk walk */
+      const dur = reduce ? 0 : (total / SPEED) * 1000, t0 = performance.now(); let stopped = false;
+      function at(u) {
+        let d = u * total, i = 0; while (i < seg.length - 1 && d > seg[i]) { d -= seg[i]; i++; }
+        const a = pts[i], b = pts[i + 1] || pts[i]; const k = seg[i] ? Math.min(1, d / seg[i]) : 1;
+        return a.clone().lerp(b, k);
+      }
+      function frame(now) {
+        if (stopped) return;
+        const u = dur ? Math.min(1, (now - t0) / dur) : 1;
+        const p = at(u); cam.position.copy(p);
+        const ahead = u < 0.92 ? at(Math.min(1, u + 0.06)) : null;
+        const lookNow = ahead ? new THREE.Vector3(ahead.x, EYE - 0.2, ahead.z).lerp(target, Math.max(0, (u - 0.75) / 0.25)) : target;
+        cam.lookAt(lookNow); composer.render();
+        if (u < 1) requestAnimationFrame(frame); else if (done) done();
+      }
+      requestAnimationFrame(frame);
+      /* for verify/: draw the walk at a given point along the route */
+      lastWalk = function (u) { stopped = true; const p = at(u); cam.position.copy(p); const ahead = u < 0.92 ? at(Math.min(1, u + 0.06)) : null; cam.lookAt(ahead ? new THREE.Vector3(ahead.x, EYE - 0.2, ahead.z).lerp(target, Math.max(0, (u - 0.75) / 0.25)) : target); composer.render(); };
+      return { skip: function () { stopped = true; cam.position.copy(pts[pts.length - 1]); cam.lookAt(target); composer.render(); if (done) done(); } };
+    },
+    /* Slide the picture sideways, so what the student is looking at sits
+       beside the panel that opens over the right of the screen. */
+    shift: function (fr) { const w = renderer.domElement.width, h = renderer.domElement.height; if (fr) cam.setViewOffset(w, h, w * fr, 0, w, h); else cam.clearViewOffset(); composer.render(); },
+    standAt: function (p, look) { controls.enabled = false; cam.position.set(p[0], 5.4, p[1]); cam.lookAt(look[0], look[1], look[2]); composer.render(); },
     dispose: function () { window.removeEventListener("resize", resize); renderer.dispose(); }
   };
 }
