@@ -1045,11 +1045,20 @@ The owner's answers, verbatim where it matters:
 9. **Wireless Reliability stays in Core 2.** "We need to build their base
    here and now. It is part of the actual exam and I am building this as a
    double training platform for them."
-10. **The chats get more replies.** The owner asked "how about 6 to 9?"
-    OPEN: Claude raised the conflict with the six-option rule; see the
-    reply of 1 October.
+10. **The chats: six replies shown, from a pool of nine.** SETTLED.
+    The owner asked "how about 6 to 9?". Showing nine would break rung 3
+    (seven strikes, each with a reason). So each chat step has nine
+    written replies, one right and eight near misses, and six are shown;
+    a retry or replay draws a different mix.
 11. **Extra training for the topics no sim covers: yes, to all.** "It is
     very important to me to build an all inclusive tool that will help
     them prep for the exam and cover everything in Core 2 that they will
     do in real life." These must be clearly separate from the sim tickets.
-    How they are told apart is OPEN: Claude proposed a way on 1 October.
+    **How they are told apart: two queue sections.** SETTLED.
+    - Help Desk's queue gets two headed sections: "Exam sims: from your
+      Core 2 practice sims", and "Extra training: real-world tickets
+      beyond the sims".
+    - Each ticket carries a worded badge with an icon, never colour alone.
+    - Each extra-training ticket names the objective it covers, for
+      example "Extra training · Backup and recovery".
+    - A preview is shown to the owner before it is built.
