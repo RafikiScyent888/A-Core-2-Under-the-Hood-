@@ -783,3 +783,19 @@ pushed):** the owner said "Build the walk for L2 and crawl for D1".
 - **`dir` of a single file** (`dir C:\Windows\System32\msvcp100.dll`) now
   lists it, as Windows does. The fix is in the preview's `cmd.js` and must
   be carried into the repo when the laptop build is adopted.
+
+**Preview 4 (1 October 2026, not pushed):** the owner said "Build the walks
+for D2 and the run tickets".
+- **D2 walk:** an 11-item checklist. The "How?" pointers name the share
+  and the idea of bitness, never the installer.
+- **Run tickets** (L3–L6, D3–D6) are labelled "Run: on your own" in the
+  queue and show no panel. Mason gives a pointer on request before any
+  wrong moves (now covering the System log, and a program Windows can't
+  find), then the standard ladder.
+- **A restart or shutdown ends the remote session**, as it does for real.
+  After a restart, a Reconnect button appears; a PC that was shut down
+  can't be reached (that is where the walk-over will come in).
+- **All twelve tickets play through the laptop UI**, each fault showing
+  itself as its ticket describes. The crawls were tested by following
+  only Mason's rings, the walks by driving them out of order, and the run
+  tickets with the fix a student would use.
