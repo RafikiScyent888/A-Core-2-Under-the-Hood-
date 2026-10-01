@@ -1111,3 +1111,37 @@ The owner's answers, verbatim where it matters:
     flickered under the pointer.
   - A user's own Mail took on the laptop's dark theme.
   - The contrast sweep measured input boxes hidden behind other windows.
+
+## 12. Exam views — SETTLED 1 October 2026
+
+**The owner:** "Now you did match some of the sims in the 2d modeling,
+correct? I just do not want another ticketing training. They need to see
+things like the way the sims are laid as well." And then: "I want to make
+this as dynamic as possible because everyone learns differently."
+
+**The honest answer, given that day:** the builds matched the sims'
+content (clues, emails, keys) but not their layouts. Only the 3D office
+came from a sim's 2D picture, the Wi-Fi sim's office map.
+
+**Settled:**
+- **A new laptop program, "Exam Practice".** It has one exam view per sim,
+  laid out like the sim and its exam question, using the sim's own
+  pictures:
+  - Port Forwarding's network diagram
+  - the Wi-Fi office map
+  - the three houses
+- **It is separate from Help Desk**, so it never feels like more ticket
+  training. Each ticket links to its sim's exam view.
+- **The program's rules apply in the exam views too:** six options on
+  choice questions, red stays red, Mason's ladder, unlimited tries, AAA,
+  dyslexia. Config fields (an SSID, a channel) are typed or set as on the
+  real screen. A wrong value is kept, marked red with its reason.
+- **Every way of learning gets a route.** The student chooses Guided,
+  Checklist or On my own in each exam view. The same objective is reached
+  by the exam view, by the real job as a ticket, and by the 2D/3D views.
+- **Order:** the router build comes first, with its exam views. Then exam
+  views are added for App Launch, App Deployment, Malware and Email.
+- **Neighboring Routers' Router 2 is shown at 40 MHz, not the sim's 80
+  MHz.** 80 MHz doesn't exist on 2.4 GHz channel 6. A teaching note
+  explains the widths per band. The key (Router 3: channel 11, 20 MHz) is
+  unchanged. The owner: "Build so the students will learn."
