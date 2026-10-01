@@ -736,3 +736,37 @@ give you reference points so that way you can tweak it."
 **Kept from VM build 1:** the machine model, the typed commands, the twelve
 tickets, the hint ladder's rules and the checks. Only what the student
 sees and touches is rebuilt.
+
+### Crawl, walk, run — SETTLED 1 October 2026
+
+After preview 1 the owner said: "I can't even fix the first ticket. I am
+clicking everywhere and Mason is no help." Then: "We need to apply the
+crawl, walk, run method here."
+
+**What went wrong in preview 1** (Claude's diagnosis):
+- Farah's desktop gave nothing to go on: two blank boxes, and no search in
+  Start.
+- Mason only helped after three wrong *moves*, and clicking around is not
+  a move, so a lost student never got help. "I'm stuck" said "give it a go
+  first".
+
+**The method, as built in preview 2 (scratchpad, not pushed):**
+- **Crawl:** the first ticket of each sim (L1 now; D1 next). Mason walks
+  the student through it from a panel docked beside the windows. Each step
+  says what to do and why, and puts a yellow ring on the one thing to
+  press. It waits until the student has really done it on the machine;
+  nothing is done for them. The steps are: see it for yourself, find the
+  evidence, work out the cause and the safe fix, fix it, test it, close it
+  out, document it.
+- **Walk** (proposed, not built): the next ticket. A checklist the student
+  drives, ticking itself off as they go.
+- **Run:** the rest, under exam conditions.
+- **"I'm stuck" always helps now.** Before any wrong moves, Mason says
+  where the student is in the job and which tool comes next. That is how
+  to work, not the answer; the answer hints still follow the ladder.
+- **Farah's PCs gained Start search** ("type event", "type software"), as
+  Windows has.
+
+The steps are named in plain words, not as CompTIA's troubleshooting
+methodology, because that methodology is a Core 1 objective and the builds
+are kept separate.
