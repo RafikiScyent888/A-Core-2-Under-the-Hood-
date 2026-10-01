@@ -913,6 +913,25 @@ Core 2 wording is unchanged. This build covers:
     its service restarts it
   - quarantine a clean PC, and that user complains
 - **Every PC on the network must be checked**, as in the sim.
+- **Every walk starts at the student's IT bench in the network closet.**
+  SETTLED 1 October 2026. The owner, asked whether students should have
+  an office of their own elsewhere: "Nope the IT bench is perfect".
+
+**The cutscenes as built (scratch preview, 1 October 2026, not pushed).**
+The owner saw rendered videos of four walks: to Brenda's office, back to
+the bench, to the server rack, and to reception.
+- Each walk fades in over an aerial shot of the office, then swoops down
+  into the closet already facing the door, and walks the route with a
+  slight step sway.
+- Letterbox bars carry a game-style caption, such as "TO OFFICE 2 ·
+  Brenda Smith, Sales · WS2-SALES".
+- It fades to black at the desk. Skip is always there.
+- The cutscene fills the screen; Mason's crawl panel returns at the desk.
+- Reduced motion cuts straight to the desk.
+- The rack is a few steps from the bench, so that walk has no aerial
+  shot.
+- So far only the walk-overs are cutscenes. The microwave job and the
+  three-house street come with the router build.
 
 **CompTIA's malware-removal steps** (the owner's earlier ruling, instead of
 PICERL), as hands-on work:
