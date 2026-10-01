@@ -19,6 +19,9 @@ import { TICKETS } from "./tickets.js";
 import { ordered } from "./order.js";
 import * as MW from "./malware.js";
 import { inspected, nextStep } from "./tickets-malware.js";
+import * as MX from "./mail.js";
+import { drawMail, drawAdmin } from "./mailui.js";
+import { staffOf, emailById, part as mailPart, emailDone, CATS } from "./tickets-mail.js";
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function btn(label, cls, fn, aria) { const b = el("button", cls || "b", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
@@ -86,7 +89,9 @@ const W = {}; let Z = 10, front = null;
 const APPS = {
   helpdesk: { title: "Help Desk — Rafiki's IT Services", mini: "HD", cls: "g-hd", geo: [0.085, 0.03, 0.60, 0.92], draw: drawHelpdesk },
   chat: { title: "Chat — Mason (Team Lead)", mini: "C", cls: "g-chat", geo: [0.695, 0.03, 0.295, 0.92], draw: drawChat },
-  mstsc: { title: "Remote Desktop Connection", mini: "RD", cls: "g-rdp", geo: [0.30, 0.20, 0.36, 0.46], draw: drawMstsc }
+  mstsc: { title: "Remote Desktop Connection", mini: "RD", cls: "g-rdp", geo: [0.30, 0.20, 0.36, 0.46], draw: drawMstsc },
+  mail: { title: "Mail — helpdesk@rafiki.local", mini: "@", cls: "g-mail", geo: [0.06, 0.04, 0.80, 0.90], draw: drawMailWin },
+  mailadmin: { title: "Mail admin — Rafiki's IT Services", mini: "MA", cls: "g-mail", geo: [0.20, 0.05, 0.62, 0.88], draw: drawAdminWin }
 };
 function appOf(id) { return id.indexOf("rdp:") === 0 ? { title: rosterOf(id.slice(4)).host + " — Remote support", mini: "RS", cls: "g-rdp", geo: [0.08, 0.03, 0.86, 0.92], draw: drawRdp } : APPS[id]; }
 function openWin(id) {
@@ -125,7 +130,7 @@ function drag(w) {
   w.bar.addEventListener("dblclick", function (e) { if (!e.target.closest("button")) { w.max = !w.max; place(w); } });
 }
 function redraw(id) { const w = W[id]; if (w) w.a.draw(w); }
-function refresh() { redraw("helpdesk"); redraw("chat"); drawTask(); coachTick(); }
+function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); drawTask(); coachTick(); }
 
 /* ------------------------------------------------ desktop and taskbar */
 function drawDesk() {
@@ -144,11 +149,11 @@ function drawTask() {
   const mid = el("div", "task-mid");
   const st = btn("", "tb", function () { togglePop("start"); }, "Start"); st.appendChild(el("span", "mini g-hd", "⊞")); st.appendChild(el("span", null, "Start")); st.setAttribute("aria-expanded", String(pop === "start"));
   mid.appendChild(st);
-  const pinned = ["helpdesk", "chat", "mstsc"];
+  const pinned = ["helpdesk", "chat", "mail", "mailadmin", "mstsc"];
   const ids = pinned.concat(Object.keys(W).filter(function (k) { return pinned.indexOf(k) < 0; }));
   ids.forEach(function (id) {
     const a = appOf(id); const w = W[id];
-    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : rosterOf(id.slice(4)).host;
+    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : rosterOf(id.slice(4)).host;
     const b = btn("", "tb" + (w ? " open" : "") + (front === id && w && !w.min ? " front" : ""), function () {
       if (!w) return openWin(id);
       if (front === id && !w.min) { w.min = true; place(w); front = null; drawTask(); } else { w.min = false; place(w); focusWin(id); }
@@ -282,6 +287,10 @@ function nextStepAdvice(t, st) {
   const r = rosterOf(t.machine), who = t.from.split(" ")[0];
   const ev = evs(t.machine);
   if (st.stage === "close") return t.kind === "malware" ? "Every PC is done. Last of CompTIA's steps: what do you tell the user, so it doesn't happen again? Pick it on the ticket." : "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
+  if (t.kind === "email") { const e = t.current(E.fleet()); if (!e) return "Every email is dealt with. Resolve the ticket."; const p = mailPart(E.fleet(), e), who = staffOf(e.to).first;
+    return p === "cat" ? (e.noForward ? who + "'s email can't be forwarded, so go and look at it: connect to " + who + "'s PC from Devices, open Mail there, and read the message and its details. Then say what it is on the ticket." : "Open Mail from the taskbar and read " + who + "'s forward: who it's really from, where its links really go (point at them, don't click), and what it wants. Then say what it is on the ticket.")
+      : p === "tell" ? "Now the giveaway: which one detail proves it? The address, a link's real destination, an attachment's full name, or (for one that can't be forwarded) the headers."
+      : "You know what it is. Now deal with it the way that kind of email is dealt with, in Mail and Mail admin. The card ticks itself off when it's done properly."; }
   if (t.kind === "malware") return "Work through CompTIA's malware-removal steps, in order, on every PC that needs them: investigate and verify, quarantine, disable System Restore, remediate (update the definitions, then scan and remove), schedule scans and run updates, enable System Restore and create a restore point, educate the user. Where are you in that list? The Devices list on the ticket shows which PCs you've checked.";
   if (!W["rdp:" + t.machine] && !ev.length) return "Start by seeing it for yourself. On the ticket in Help Desk, press Connect to " + r.host + ". When " + who + "'s screen opens, run the program they're having trouble with and read exactly what it says.";
   if (!ev.some(function (e) { return e.kind === "launch"; })) return "You're on " + who + "'s PC. Run the program they're having trouble with, from their desktop or Start (or type its name at a prompt), and read the message word for word. If Windows can't find it at all, that's evidence too.";
@@ -357,12 +366,12 @@ function drawTicket(t) {
   p.appendChild(el("p", "t-id", INC[t.id] + " · " + (t.base ? "the " + t.sim + " sim" : "based on the " + t.sim + " sim")));
   p.appendChild(el("h2", null, t.title));
   const dl = el("dl", "t-grid");
-  const mal = t.kind === "malware";
-  [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", mal ? "Every PC on the network (see Devices)" : r.host + " · " + r.ip], ["Location", mal ? "The whole office" : r.where], ["Category", mal ? "Security › Malware" : "Software › Application"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); });
+  const mal = t.kind === "malware", em = t.kind === "email";
+  [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", mal ? "Every PC on the network (see Devices)" : em ? "Mail: " + t.mails.length + " emails" + (t.devices.length ? ", one on " + rosterOf(t.devices[0]).host : "") : r.host + " · " + r.ip], ["Location", mal ? "The whole office" : em ? "Help desk mailbox" : r.where], ["Category", mal ? "Security › Malware" : em ? "Security › Email threats" : "Software › Application"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); });
   p.appendChild(dl);
 
   const m = el("section", "t-sec"); m.appendChild(el("h3", null, "Request"));
-  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, mal ? name : name + " (" + r.host + ")")); mh.appendChild(el("span", null, mal ? "assigned by your team lead" : "via email")); msg.appendChild(mh);
+  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, mal || em ? name : name + " (" + r.host + ")")); mh.appendChild(el("span", null, mal ? "assigned by your team lead" : em ? (t.devices.length ? "by phone" : "help desk mailbox") : "via email")); msg.appendChild(mh);
   t.brief.forEach(function (x) { msg.appendChild(el("p", null, x)); }); m.appendChild(msg); p.appendChild(m);
 
   const acts = el("div", "t-acts");
@@ -374,6 +383,11 @@ function drawTicket(t) {
     })));
   } else if (!isCur) {
     acts.appendChild(btn("Switch to this ticket", "b pri", function () { Object.keys(W).filter(function (k) { return k.indexOf("rdp:") === 0; }).forEach(closeWin); E.openTicket(t.id); logT(t.id, "Picked back up"); refresh(); }));
+  } else if (st.stage === "work" && em) {
+    acts.appendChild(coachTag("open-mail", btn("Open Mail", "b pri", function () { openWin("mail"); })));
+    acts.appendChild(coachTag("open-admin", btn("Open Mail admin", "b", function () { openWin("mailadmin"); })));
+    acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: every email triaged and dealt with" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
+    acts.appendChild(btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); }));
   } else if (st.stage === "work" && mal) {
     acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: every PC checked, the infected ones cleaned" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
     acts.appendChild(btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); }));
@@ -385,6 +399,7 @@ function drawTicket(t) {
   }
   p.appendChild(acts);
   if (mal && isCur && st && st.stage !== "done") p.appendChild(drawDevices(t));
+  if (em && isCur && st && st.stage === "work") { p.appendChild(drawTriage(t)); if (t.devices.length) p.appendChild(drawDevices(t)); }
   if (isCur && st && st.stage === "work") {
     const c = el("p", "t-id", LEVEL[t.id] === "crawl" ? "Mason is walking you through this one. Follow his steps on the right." : st.guesses ? "Moves that did not help so far: " + st.guesses + ". Looking around never counts." : "Looking around, reading logs, running the program to test it and typos never count against you.");
     p.appendChild(c);
@@ -414,13 +429,14 @@ function drawTicket(t) {
    infected: that is for them to find. */
 function drawDevices(t) {
   const sec = el("section", "t-sec devs"); sec.appendChild(el("h3", null, "Devices on the network"));
-  const tb = el("table", "dev-t"); const hr = el("tr"); ["Device", "Who and where", "Checked", "Network", ""].forEach(function (c) { const th = el("th", null, c); th.setAttribute("scope", "col"); hr.appendChild(th); });
+  const mal = t.kind === "malware";
+  const tb = el("table", "dev-t"); const hr = el("tr"); (mal ? ["Device", "Who and where", "Checked", "Network", ""] : ["Device", "Who and where", "Network", ""]).forEach(function (c) { const th = el("th", null, c); th.setAttribute("scope", "col"); hr.appendChild(th); });
   const th0 = el("thead"); th0.appendChild(hr); tb.appendChild(th0); const body = el("tbody");
   t.devices.forEach(function (id) {
     const r = rosterOf(id), m = E.machine(id); const tr = el("tr");
     const h = el("th", null, r.host); h.setAttribute("scope", "row"); tr.appendChild(h);
     tr.appendChild(el("td", null, (r.id === "FS01" || r.id === "MAIL01" ? r.fullName : r.fullName + ", " + r.dept) + " · " + r.where));
-    const ok = inspected(m); tr.appendChild(el("td", ok ? "dev-ok" : null, ok ? "✓ Checked" : "Not yet"));
+    if (mal) { const ok = inspected(m); tr.appendChild(el("td", ok ? "dev-ok" : null, ok ? "✓ Checked" : "Not yet")); }
     const net = MW.online(m) ? "Reachable" : m.power !== "on" ? "Switched off" : "Off the network";
     tr.appendChild(el("td", null, net));
     const a = el("td", "dev-acts");
@@ -429,7 +445,44 @@ function drawDevices(t) {
     tr.appendChild(a); body.appendChild(tr);
   });
   tb.appendChild(body); const wrap = el("div", "dev-wrap"); wrap.appendChild(tb); sec.appendChild(wrap);
-  sec.appendChild(el("p", "t-id", "\"Checked\" means you have looked at what is running (Task Manager) and at what Windows recorded (Event Viewer) on that PC."));
+  if (mal) sec.appendChild(el("p", "t-id", "\"Checked\" means you have looked at what is running (Task Manager) and at what Windows recorded (Event Viewer) on that PC."));
+  return sec;
+}
+/* The email ticket's own questions, one card per email: what it is, then
+   what gives it away, then acting on it in Mail and Mail admin. A wrong
+   pick stays red, marked three ways, as everywhere. */
+function drawTriage(t) {
+  const sec = el("section", "t-sec tri"); sec.appendChild(el("h3", null, "Emails to triage"));
+  const f = E.fleet(), g = E.guidance(), qs = g && g.qstrike;
+  t.mails.forEach(function (e) {
+    const x = MX.tri(f, e.id), who = staffOf(e.to), done = emailDone(f, e), p = mailPart(f, e);
+    const card = el("div", "tri-card" + (done ? " done" : "")); card.dataset.mail = e.id;
+    const h = el("div", "tri-h"); h.appendChild(el("strong", null, e.noForward ? e.subject + " (in " + who.first + "'s mailbox: can't be forwarded)" : "FW: " + e.subject)); h.appendChild(el("span", "chip" + (done ? " st-closed" : ""), done ? "✓ Done" : "From " + who.first)); card.appendChild(h);
+    [["cat", "1. What is it?"], ["tell", "2. " + e.tell.prompt]].forEach(function (Q, qi) {
+      if (Q[0] === "tell" && x.cat !== e.cat) return;
+      const q = t.question(e.id, Q[0]), out = Q[0] === "cat" ? x.catOut : x.tellOut, solved = Q[0] === "cat" ? x.cat === e.cat : x.tell;
+      const strike = qs && qs.id === e.id && qs.which === Q[0] ? qs.strike : {};
+      const grp = el("div", "opts tri-q" + (Q[0] === "cat" ? " four" : "")); grp.setAttribute("role", "group"); grp.setAttribute("aria-label", Q[1]);
+      card.appendChild(el("p", "tri-ask", Q[1]));
+      (Q[0] === "cat" ? q.options : ordered(q.options, t.id + e.id)).forEach(function (o) {
+        const wrong = out.indexOf(o.label) >= 0, struck = !wrong && !solved && strike[o.label];
+        const b = el("button", "opt2" + (wrong || struck ? " out" : "") + (solved && o.correct ? " right" : "")); b.type = "button";
+        if (wrong || struck) { b.appendChild(el("span", "om", wrong ? "✕ Ruled out" : "✕ Ruled out by Mason")); b.appendChild(el("span", "ol", o.label)); b.appendChild(el("span", "ow", o.why)); b.setAttribute("aria-disabled", "true"); }
+        else if (solved && o.correct) { b.appendChild(el("span", "om", "✓ Right")); b.appendChild(el("span", "ol", o.label)); }
+        else b.appendChild(el("span", "ol", o.label));
+        b.disabled = solved || wrong || !!struck;
+        b.addEventListener("click", function () {
+          const r = t.answer(E.fleet(), e.id, Q[0], o.label); if (!r) return;
+          E.onAct({ type: "mail-answer", id: e.id, which: Q[0], correct: r.correct, why: r.why, machine: "TECH", before: E.before() });
+          logT(t.id, "\"" + e.subject + "\": " + (r.correct ? (Q[0] === "cat" ? "classified as " : "giveaway: ") : "ruled out: ") + o.label); after();
+        });
+        grp.appendChild(b);
+      });
+      card.appendChild(grp);
+    });
+    if (x.cat === e.cat && x.tell) card.appendChild(el("p", "tri-act", done ? "3. Dealt with ✓" : "3. Now deal with it, in Mail" + (e.noForward ? " on " + who.first + "'s PC" : "") + " and Mail admin. This ticks itself off when it's done properly."));
+    sec.appendChild(card);
+  });
   return sec;
 }
 function drawResolution(t, st) {
@@ -458,6 +511,24 @@ function drawResolution(t, st) {
   return box;
 }
 function after() { if (!crawling()) masonCheck(); refresh(); }
+
+/* ----------------------------------------------------------- Mail */
+function mailAct(a, host) {
+  const t = E.ticket(); a.machine = a.machine || "TECH";
+  E.onAct(a); actLog(a, host || "TECH-01"); if (!crawling()) masonCheck(); refresh();
+}
+function mailCtx(mid, helpdesk, w) {
+  return { fleet: E.fleet, mid: mid, helpdesk: helpdesk, act: function (a) { a.before = a.before || E.before(); mailAct(a, mid === "TECH" ? "Mail" : rosterOf(mid).host); },
+    draw: function () { redraw(w.id); }, peek: function (id) { if (!(L.peek = L.peek || {})[id]) { L.peek[id] = true; saveL(); coachTick(); } }, noForward: function (id) { const e = emailById(id); return !!(e && e.noForward); } };
+}
+function drawMailWin(w) { w.ui = w.ui || {}; w.body.innerHTML = ""; w.body.classList.add("mx-host"); drawMail(w.body, mailCtx("TECH", true, w), w.ui); }
+function drawAdminWin(w) {
+  w.ui = w.ui || {}; const keep = w.body.scrollTop; w.body.innerHTML = "";
+  const ctx = mailCtx("TECH", true, w);
+  ctx.staff = ["WS1", "WS4", "WS2", "WS3", "WS5"].map(function (id) { const s0 = staffOf(id); return { id: id, name: s0.name, addr: s0.addr }; });
+  ctx.emailFor = function (who) { const t = E.ticket(); if (!t || !t.mails) return null; const hit = t.mails.filter(function (e) { return e.to === who && MX.tri(E.fleet(), e.id).compromised; })[0] || t.mails.filter(function (e) { return e.to === who; })[0]; return hit ? hit.id : null; };
+  drawAdmin(w.body, ctx, w.ui); w.body.scrollTop = keep;
+}
 
 /* --------------------------------------------- the remote session */
 function connect(id) {
@@ -494,7 +565,7 @@ function drawRdp(w) {
   if (w.phase === "dropped") { const x = el("div", "rdp-wait"); x.setAttribute("role", "alert"); x.appendChild(el("p", null, w.dropWhy)); if (w.dropOp !== "restart") { x.appendChild(btn(r.id === "FS01" || r.id === "MAIL01" ? "Walk to the closet" : "Walk to " + r.fullName.split(" ")[0] + "'s desk", "b pri", function () { closeWin(w.id); walkOver(id); })); host.appendChild(x); return; } x.appendChild(btn("Reconnect to " + r.host, "b pri", function () { w.phase = "wait"; w.desk = null; redraw(w.id); const t = E.ticket(); if (t) logT(t.id, "Reconnecting to " + r.host); setTimeout(function () { if (!W[w.id]) return; const m = E.machine(id); w.phase = MW.online(m) ? "on" : "fail"; if (t) logT(t.id, w.phase === "on" ? "Reconnected to " + r.host : r.host + " could not be reached"); redraw(w.id); refresh(); }, 1400); })); host.appendChild(x); return; }
   if (w.phase === "fail") { const x = el("div", "rdp-wait"); x.setAttribute("role", "alert"); x.appendChild(el("p", null, r.host + " can't be reached. It may be turned off, not connected to the network, or not working.")); x.appendChild(el("p", null, "If you can't connect, you'll have to go to the desk.")); x.appendChild(btn("Walk to " + (r.id === "FS01" || r.id === "MAIL01" ? "the closet" : r.fullName.split(" ")[0] + "'s desk"), "b pri", function () { closeWin(w.id); walkOver(id); })); host.appendChild(x); return; }
   w.desk = createDesktop(host, {
-    machine: function () { return E.machine(id); }, fleetLookup: E.lookup, isTech: false, before: E.before, clock: function () { const n = now(); return n.time + "  " + n.short; },
+    machine: function () { return E.machine(id); }, fleetLookup: E.lookup, fleet: E.fleet, noForward: function (x) { const e = emailById(x); return !!(e && e.noForward); }, isTech: false, before: E.before, clock: function () { const n = now(); return n.time + "  " + n.short; },
     onAct: function (a) { if (a.type === "power" && (a.op === "restart" || a.op === "off")) setTimeout(function () { dropped(w, a.op); }, 0); if ((a.type === "net" && a.op === "off") || (a.type === "cmd" && a.res && a.res.netChange)) setTimeout(function () { if (!MW.online(E.machine(id))) dropped(w, "net"); }, 0); if (a.type === "tm-end") setTimeout(function () { if (E.machine(id).crashed) dropped(w, "crash"); }, 0); if (a.type === "cmd" && E.ticket()) (L.lines[E.ticket().id] = L.lines[E.ticket().id] || []).push(String(a.line || "").toLowerCase()); E.onAct(a); actLog(a, r.host); if (!crawling()) masonCheck(); refresh(); }, helpdesk: function () {}
   });
 }
@@ -524,10 +595,22 @@ function actLog(a, host) {
     net: function () { return (a.op === "off" ? "Disabled" : "Enabled") + " the network adapter"; },
     restore: function () { return a.op === "point" ? (a.res && a.res.ok ? "Created a restore point" : "Tried to create a restore point: " + (a.res ? a.res.text : "")) : "Turned System Restore " + a.op; },
     av: function () { return a.op === "defs" ? (a.res && a.res.ok ? "Updated the Defender definitions" + (a.how === "usb" ? " from the USB stick" : "") : "Couldn't update the definitions: " + (a.res ? a.res.text : "")) : a.op === "schedule" ? "Turned scheduled scans " + (a.on ? "on" : "off") : "Ran a " + ({ quick: "quick", full: "full", offline: "Microsoft Defender Offline" }[a.kind] || a.kind) + " scan: " + (a.res ? a.res.text : ""); },
-    updates: function () { return "Ran Windows Update: " + (a.res ? a.res.text : ""); }
+    updates: function () { return "Ran Windows Update: " + (a.res ? a.res.text : ""); },
+    "mail-report": function () { return "Reported \"" + subj(a.id) + "\" as " + a.kind; },
+    "mail-safe": function () { return "Told " + staffOf(emailById(a.id).to).first + " that \"" + subj(a.id) + "\" is genuine"; },
+    "mail-delete": function () { return "Deleted \"" + subj(a.id) + "\""; },
+    "mail-restore": function () { return "Moved \"" + subj(a.id) + "\" back to the Inbox"; },
+    "mail-headers": function () { return "Read the message details (headers) of \"" + subj(a.id) + "\""; },
+    "mail-click": function () { return "Opened " + a.href + " from \"" + subj(a.id) + "\""; },
+    "mail-block": function () { return "Blocked " + a.entry; }, "mail-unblock": function () { return "Unblocked " + a.entry; },
+    "mail-purge": function () { return "Purged \"" + subj(a.id) + "\" from every mailbox"; }, "mail-unpurge": function () { return "Put \"" + subj(a.id) + "\" back"; },
+    "mail-policy": function () { return "Turned " + (a.on ? "on" : "off") + ": " + MX.POLICIES[a.key].label; },
+    "mail-reset": function () { return "Reset " + staffOf(a.who).name + "'s password and signed them out everywhere"; }
   }[a.type];
   if (say) logT(t.id, host + ": " + say());
 }
+
+function subj(id) { const e = emailById(id); return e ? e.subject : id; }
 
 /* Remote Desktop Connection: type the computer's name, as technicians do. */
 function drawMstsc(w) {
@@ -554,7 +637,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk" };
+const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -954,6 +1037,82 @@ function malWalk(id, who) {
   ], end: "You walked a malware incident: every PC checked, the infected one cleaned in CompTIA's order, and the user told how to avoid it. The rest of the malware tickets are yours to run." };
 }
 WALKS.M2 = malWalk("M2", "John");
+
+/* ----- Email: E1 is the sim itself, crawled; E2 is walked ----- */
+function mailWin() { return document.querySelector("[data-win=mail]"); }
+function mailSel(id) { const w = W.mail; return !!(w && w.ui && w.ui.sel === id); }
+/* the message in Mail: open Mail, show the Inbox, select it */
+function toMsg(id) {
+  const mw = mailWin(); if (!mw) return document.querySelector('[data-coach="open-mail"]');
+  if (W.mail.ui && W.mail.ui.folder !== "inbox") return byText(mw, /^Inbox/);
+  if (!mailSel(id)) { const e = emailById(id); return Array.from(mw.querySelectorAll(".mx-it")).filter(function (b) { return b.textContent.indexOf(e.subject) >= 0; })[0] || null; }
+  return null;
+}
+function triBtn(id, which, label) { const c = document.querySelector('[data-win=helpdesk] .tri-card[data-mail="' + id + '"]'); if (!c) return document.querySelector('[data-coach="open-mail"]') ? null : null;
+  const g = c.querySelector('.tri-q[aria-label^="' + (which === "cat" ? "1." : "2.") + '"]'); return g ? Array.from(g.querySelectorAll("button")).filter(function (b) { return b.textContent.indexOf(label) >= 0; })[0] || null : null; }
+function rightTell(id) { return emailById(id).tell.options.filter(function (o) { return o.correct; })[0].label; }
+function triOf(id) { return MX.tri(E.fleet(), id); }
+function admin() { return document.querySelector("[data-win=mailadmin]"); }
+function toAdmin() { return admin() ? null : document.querySelector('[data-coach="open-admin"]'); }
+function mailSteps(id, who, cat, catName) {
+  const e = emailById(id), st = [];
+  st.push({ tag: "Read it", win: "mail", say: "In Mail, open " + who + "'s forward: \"" + e.subject + "\".", why: "Read it the way an attacker hopes nobody will: slowly.",
+    target: function () { return toMsg(id); }, done: function () { return mailSel(id) || triOf(id).cat === e.cat; } });
+  if (/http/.test(e.body) || (e.links || []).length) st.push({ tag: "Read it", win: "mail", say: "Point at the link (or tab to it). Don't click it. Read where it really goes, in the line at the bottom of Mail.", why: "A link's words can say anything. Where it really goes is the truth, and you can read it without opening it.",
+    target: function () { return toMsg(id) || (mailWin() && mailWin().querySelector(".mx-link")); }, weak: true, done: function () { return !!(L.peek && L.peek[id]) || triOf(id).cat === e.cat; } });
+  if ((e.attach || []).length) st.push({ tag: "Read it", win: "mail", say: "Read the attachment's full name. Don't open it.", why: "The end of a file's name says what it really is.",
+    target: function () { return toMsg(id) || (mailWin() && mailWin().querySelector(".mx-attn")); }, weak: true, done: function () { return mailSel(id) || triOf(id).cat === e.cat; } });
+  st.push({ tag: "What is it?", win: "helpdesk", say: "On the ticket, say what it is: " + catName + ".", why: CATS_WHY[cat],
+    target: function () { return triBtn(id, "cat", catName); }, done: function () { return triOf(id).cat === e.cat; } });
+  st.push({ tag: "What gives it away?", win: "helpdesk", say: "Pick the giveaway: \"" + rightTell(id) + "\".", why: "The other five are the things people notice first. They're either fakeable or don't decide it.",
+    target: function () { return triBtn(id, "tell", rightTell(id)); }, done: function () { return triOf(id).tell; } });
+  return st;
+}
+const CATS_WHY = { legit: "It comes from where it says, and asks for nothing risky.", spam: "Unwanted marketing: it wants a sale, not a password or a download.", phishing: "It pretends to be someone trusted to get a password typed in.", malicious: "It wants something downloaded and run on the PC." };
+WALKS.E1 = { machine: "TECH", steps: [
+  { tag: "Start", win: "helpdesk", say: "Read the ticket: four staff forwarded emails asking \"is this safe?\". Press Assign to me and start.", why: "Every one of these is somebody about to click. Your answer decides what they do next.",
+    target: function () { return document.querySelector('[data-coach="assign"]'); }, done: function () { const t = E.ticket(); return !!(t && t.id === "E1" && E.T()); } },
+  { tag: "Start", win: "helpdesk", say: "Open Mail, from the ticket or the taskbar. That's the help desk mailbox, where staff forward suspicious email.", why: "The forwards are your evidence. Nothing in them gets opened, only read.",
+    target: function () { return document.querySelector('[data-coach="open-mail"]'); }, done: function () { return !!W.mail; } }
+].concat(mailSteps("msreset", "John", "phishing", "Phishing"), [
+  { tag: "Deal with it", win: "mail", say: "In Mail, with John's forward open, press Report: phishing.", why: "Reporting sends it to the security team, who block what it links to.",
+    target: function () { return toMsg("msreset") || byText(mailWin(), /^Report: phishing$/); }, done: function () { return triOf("msreset").report === "phishing"; } },
+  { tag: "Deal with it", win: "mailadmin", say: "Others may have it too. Open Mail admin, and in Search and purge type the subject's first word:", cmd: "Microsoft", why: "Purging pulls it out of every mailbox it reached, before anyone else clicks.",
+    target: function () { const a = admin(); if (!a) return toAdmin(); const q = a.querySelector("#mxa-q"); return q && !q.value ? q : byText(a, /^Purge from every mailbox$/); }, done: function () { return MX.state(E.fleet()).purged.indexOf("msreset") >= 0; } }
+], mailSteps("faster", "Dev", "malicious", "Malicious"), [
+  { tag: "Deal with it", win: "mail", say: "Report Dev's forward as phishing too: Report: phishing is how anything malicious reaches the security team.", why: "Junk would only hide it from Dev.",
+    target: function () { return toMsg("faster") || byText(mailWin(), /^Report: phishing$/); }, done: function () { return triOf("faster").report === "phishing"; } },
+  { tag: "Deal with it", win: "mailadmin", say: "Purge it from every mailbox: search for", cmd: "Faster", why: "Someone else may be about to download it.",
+    target: function () { const a = admin(); if (!a) return toAdmin(); const q = a.querySelector("#mxa-q"); return q && !/faster/i.test(q.value) ? q : byText(a, /^Purge from every mailbox$/); }, done: function () { return MX.state(E.fleet()).purged.indexOf("faster") >= 0; } },
+  { tag: "Deal with it", win: "mailadmin", say: "Block the domain that sent it, in Blocked senders and domains:", cmd: "maxspeed-pcfixer.com", why: "Malicious senders try again. Blocking the domain stops the next one arriving at all.",
+    target: function () { const a = admin(); if (!a) return toAdmin(); const q = a.querySelector("#mxa-block"); return q; }, done: function () { return MX.state(E.fleet()).blocked.indexOf("maxspeed-pcfixer.com") >= 0; } }
+], mailSteps("slim", "Rosa", "spam", "Spam"), [
+  { tag: "Deal with it", win: "mail", say: "Rosa's is just marketing. Press Report: junk.", why: "Junk moves it out of the way and teaches the filter. It isn't a security incident, so the security team doesn't need it.",
+    target: function () { return toMsg("slim") || byText(mailWin(), /^Report: junk$/); }, done: function () { return triOf("slim").report === "junk"; } }
+], mailSteps("statement", "Farah", "legit", "Legitimate"), [
+  { tag: "Deal with it", win: "mail", say: "Farah's is genuine. Reply to her: it's genuine, go ahead.", why: "Telling people when something is safe matters as much as warning them. Otherwise they stop asking.",
+    target: function () { return toMsg("statement") || byText(mailWin(), /^Reply to Farah/); }, done: function () { return triOf("statement").safe; } },
+  { tag: "Close it out", win: "helpdesk", say: "All four are dealt with. Press Resolve on the ticket.", why: "It only resolves when every email has been handled properly.",
+    target: function () { return document.querySelector('[data-coach="resolve"]'); }, done: function () { const st = E.state().tickets.E1; return !!(st && st.stage !== "work"); } },
+  { tag: "Close it out", win: "helpdesk", say: "Pick what you'd send all staff after this morning.", why: "One clear habit, for everyone, stops the next one.",
+    target: function () { return document.querySelector("[data-win=helpdesk] .res .opts"); }, done: function () { const st = E.state().tickets.E1; return !!(st && (st.closeOK || st.stage === "done")); } },
+  { tag: "Close it out", win: "helpdesk", say: "Write the resolution notes: each email, what it was, what gave it away, and what you did.", why: "The record of what reached the office and what was done about it.",
+    target: function () { return document.getElementById("res-note"); }, done: function () { const st = E.state().tickets.E1; return !!(st && st.stage === "done"); } }
+]), end: "That's the sim, all four kinds: phishing reported and purged, malware purged and blocked, spam junked, and the genuine one confirmed. The next mail ticket is a walk." };
+function mailWalk(id) {
+  const t = TICKETS.filter(function (x) { return x.id === id; })[0];
+  const on = function () { const c = E.ticket(); return !!(c && c.id === id); };
+  const st = function () { return E.state().tickets[id]; };
+  const how = { legit: "Who really sent it, where its link goes, and does it match something they did? Then let them know.", spam: "Who's it from and what does it want? Then make sure it stops reaching them.", phishing: "Where does its link really go? Then make sure nobody else falls for it either.", malicious: "What does it want opened or run? Then make sure it never arrives again, for anyone." };
+  return { mode: "walk", machine: "TECH", steps: t.mails.map(function (e) {
+    return { goal: "Triage " + staffOf(e.to).first + "'s \"" + e.subject + "\"", how: how[e.cat], done: function () { return on() && emailDone(E.fleet(), e); } };
+  }).concat([
+    { goal: "Resolve the ticket", how: "In Help Desk, on the ticket.", done: function () { return on() && !!(st() && st().stage !== "work"); } },
+    { goal: "Tell the staff what to watch for", how: "Pick it on the ticket.", done: function () { return on() && !!(st() && (st().closeOK || st().stage === "done")); } },
+    { goal: "Write the resolution notes", how: "Each email: what it was, the giveaway, and what you did.", done: function () { return on() && !!(st() && st().stage === "done"); } }
+  ]), end: "You walked the help desk mailbox. The rest of the mail tickets, including three that can't be forwarded, are yours to run." };
+}
+WALKS.E2 = mailWalk("E2");
 Object.keys(WALKS).forEach(function (k) { WALKS[k].steps.forEach(function (st, i) { if (!i) return; const d = st.done; st.done = function () { const t = E.ticket(); return !!(t && t.id === k) && d(); }; }); });
 function crawling() { const t = E.ticket(); return !!(t && LEVEL[t.id] === "crawl" && WALKS[t.id] && !(E.T() && E.T().stage === "done")); }
 /* Has the student typed this command on the ticket's PC? */
@@ -1125,7 +1284,7 @@ function walkOver(id) {
     const panel = el("section", "wo-desk"); panel.setAttribute("aria-label", "At " + r.host);
     panel.appendChild(el("h2", null, "At " + r.host + " · " + r.fullName));
     const mon = el("div", "wo-monitor"); mon.setAttribute("aria-label", r.host + "'s monitor"); panel.appendChild(mon);
-    const local = createDesktop(mon, { machine: function () { return E.machine(id); }, fleetLookup: E.lookup, isTech: false, before: E.before,
+    const local = createDesktop(mon, { machine: function () { return E.machine(id); }, fleetLookup: E.lookup, fleet: E.fleet, noForward: function (x) { const e = emailById(x); return !!(e && e.noForward); }, isTech: false, before: E.before,
       clock: function () { const n = now(); return n.time + "  " + n.short; },
       onAct: function (a) {
         /* what is done at the desk ends a remote session to the same PC */

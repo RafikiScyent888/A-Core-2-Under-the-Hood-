@@ -232,3 +232,44 @@ footer.bot p { max-width: 75ch; margin: 0.3rem 0; }
 :root[data-reading="dyslexia"] .screen { letter-spacing: 0.04em; word-spacing: 0.12em; }
 :root[data-reading="dyslexia"] .con { letter-spacing: 0.02em; line-height: 1.6; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* --------------------------------------------------------------- Mail */
+.mx { --mx-bg: #ffffff; --mx-bg2: #f3f4f6; --mx-ink: #111827; --mx-muted: #374151; --mx-line: #8a93a4; --mx-sel: #dbe7ff; --mx-link: #0b3a82;
+  display: grid; grid-template-columns: minmax(9rem, 11rem) minmax(12rem, 18rem) minmax(0, 1fr); min-height: 26rem; background: var(--mx-bg); color: var(--mx-ink); font: inherit; }
+.mx-nav { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.6rem; background: var(--mx-bg2); border-right: 1px solid var(--mx-line); }
+.mx-who { margin: 0 0 0.4rem; font-weight: 700; font-size: 0.9rem; word-break: break-all; }
+.mx-f, .mx-it, .mx-b { font: inherit; color: var(--mx-ink); background: transparent; border: 1px solid transparent; border-radius: 5px; cursor: pointer; text-align: left; }
+.mx-f { padding: 0.45rem 0.55rem; min-height: 36px; }
+.mx-f.on { background: var(--mx-sel); border-color: var(--mx-line); font-weight: 700; }
+.mx-list { overflow: auto; border-right: 1px solid var(--mx-line); max-height: 34rem; }
+.mx-it { display: grid; width: 100%; padding: 0.55rem 0.65rem; border-bottom: 1px solid var(--mx-line); border-radius: 0; gap: 0.1rem; }
+.mx-it.sel { background: var(--mx-sel); }
+.mx-subj { font-size: 0.92rem; } .mx-date { font-size: 0.82rem; color: var(--mx-muted); }
+.mx-read { padding: 0.6rem 0.9rem; overflow: auto; max-height: 34rem; display: grid; align-content: start; gap: 0.45rem; }
+.mx-bar { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.mx-b { padding: 0.3rem 0.65rem; min-height: 36px; border-color: var(--mx-line); background: var(--mx-bg2); }
+.mx-b:hover, .mx-f:hover:not(.on) { background: var(--mx-sel); }
+.mx-h { margin: 0.2rem 0; font-size: 1.12rem; }
+.mx-kv, .mx-p { margin: 0; overflow-wrap: anywhere; }
+.mx-p { min-height: 1.1em; }
+.mx-head { display: grid; gap: 0.1rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--mx-line); }
+.mx-body { display: grid; gap: 0.15rem; }
+.mx-sep { margin: 0.6rem 0 0.2rem; color: var(--mx-muted); font-weight: 700; }
+.mx-link { color: var(--mx-link); text-decoration: underline; font-weight: 600; }
+.mx-att { display: flex; gap: 0.6rem; align-items: center; margin-top: 0.5rem; padding: 0.4rem 0.6rem; border: 1px solid var(--mx-line); border-radius: 6px; background: var(--mx-bg2); }
+.mx-attn { font-weight: 700; overflow-wrap: anywhere; }
+.mx-hdrs { padding: 0.5rem 0.7rem; border: 1px solid var(--mx-line); border-radius: 6px; background: var(--mx-bg2); font: 0.88rem/1.45 Consolas, "Cascadia Mono", ui-monospace, monospace; }
+.mx-hl { margin: 0; overflow-wrap: anywhere; } .mx-note { margin: 0 0 0.4rem; font-family: "Segoe UI", Arial, sans-serif; }
+.mx-status { margin: 0; padding: 0.45rem 0.6rem; border: 2px solid #7f1d1d; border-radius: 6px; background: #fde8e8; color: #7f1d1d; font-weight: 600; }
+.mx-flag { margin: 0; padding: 0.45rem 0.6rem; border: 1px solid #6b5200; border-left-width: 6px; border-radius: 6px; background: #fff8db; color: #3f2f00; font-weight: 600; }
+.mx-empty { color: var(--mx-muted); padding: 0.8rem; margin: 0; }
+.mx-linkbar { margin: 0; padding: 0.35rem 0.7rem; border-top: 1px solid var(--mx-line); background: var(--mx-bg2); color: var(--mx-ink); font: 0.9rem/1.4 Consolas, "Cascadia Mono", ui-monospace, monospace; overflow-wrap: anywhere; }
+@media (max-width: 900px) { .mx { grid-template-columns: 1fr; } .mx-nav { flex-direction: row; flex-wrap: wrap; } .mx-list, .mx-read { max-height: none; } }
+/* inside a PC's screen, Mail is a window among others: shorter, so the
+   PC's own taskbar stays in view */
+.screen .mx { min-height: 0; }
+.screen .mx-list, .screen .mx-read { max-height: min(22rem, 48vh); }
+/* The link line keeps one height whatever it says: if it grew when a long
+   address wrapped, the pane above would shrink, the link would slide out
+   from under the pointer, and the two would flicker back and forth. */
+.mx-linkbar { height: 5.2em; overflow: auto; flex: 0 0 auto; }

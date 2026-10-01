@@ -313,3 +313,36 @@ tr.coach-target td:first-child { box-shadow: inset 4px 4px 0 #b88a00, inset 0 -4
    taskbar keep their height, and the desktop scrolls between them */
 .wo-monitor .sign-bar, .wo-monitor .taskbar { flex-shrink: 0; }
 .wo-monitor .desk-area { min-height: 0; overflow: auto; }
+
+/* Mail on the laptop follows the laptop's own light or dark */
+.g-mail { background: #0b5c3b; }
+.mx-host > .mx { --mx-bg: var(--win); --mx-bg2: var(--win-2); --mx-ink: var(--ink); --mx-muted: var(--muted); --mx-line: var(--line); --mx-sel: var(--sel, #2b3a63); --mx-link: var(--link, #9ec5ff); }
+:root[data-theme="light"] .mx-host > .mx { --mx-sel: #dbe7ff; --mx-link: #0b3a82; }
+.mx-host .mx-status { background: #3b0d0d; color: #ffd9d9; border-color: #ff9b9b; }
+:root[data-theme="light"] .mx-host .mx-status { background: #fde8e8; color: #7f1d1d; border-color: #7f1d1d; }
+/* Mail admin */
+.mxa { display: grid; gap: 0.6rem; padding: 0.8rem 1rem; }
+.mxa-sec { border: 1px solid var(--line); border-radius: 8px; padding: 0.7rem 0.9rem; background: var(--win); }
+.mxa-sec h3 { margin: 0 0 0.5rem; font-size: 1.02rem; } .mxa-sec h4 { margin: 0.7rem 0 0.3rem; }
+.mxa-sec p { margin: 0.2rem 0; }
+.mxa-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.mxa-row .field { flex: 1 1 14rem; }
+.mxa-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; gap: 0.35rem; }
+.mxa-list li { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; padding: 0.35rem 0.5rem; border: 1px solid var(--line); border-radius: 6px; background: var(--win-2); overflow-wrap: anywhere; }
+.mxa-pol { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.6rem; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid var(--line); }
+.mxa-msg { font-weight: 600; }
+/* the triage cards on an email ticket */
+.tri-card { border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.8rem; margin: 0.5rem 0; background: var(--win); }
+.tri-card.done { border-left: 6px solid var(--good-rule); }
+.tri-h { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; }
+.tri-ask { margin: 0.6rem 0 0; font-weight: 700; }
+.tri-q.four { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
+.tri-act { margin: 0.6rem 0 0; font-weight: 600; }
+/* the Mail window fills its window; the link line sits at the bottom */
+.mx-host { display: flex; flex-direction: column; }
+.mx-host .mx { flex: 1 1 auto; min-height: 0; }
+.mx-host .mx-list, .mx-host .mx-read { max-height: none; }
+/* each pane scrolls on its own, so a long message (or dyslexia spacing)
+   never pushes its links out of reach */
+.mx-host > .mx { grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+.mx-host .mx-nav, .mx-host .mx-list, .mx-host .mx-read { min-height: 0; overflow: auto; }

@@ -10,7 +10,8 @@ file. The coaching role is in `/root/.claude/exam-prep-coach.md`.
 **DIRECTION CHANGED AGAIN on 1 October 2026. Section 9 overrides
 everything above it, including section 8's layout; read it first.**
 
-**Status, 1 October 2026: THE MALWARE BUILD IS LIVE** (preview 7, M1–M6
+**Status, 1 October 2026: THE MAIL BUILD IS LIVE** (Email Threat, E1–E6;
+section 11). Before it: **THE MALWARE BUILD IS LIVE** (preview 7, M1–M6
 and the walk-over cutscenes). The owner: "Doing it live works best for
 me because it is solving two issues at once." From now on each build
 goes live once its checks pass; the owner tries it there. Section 11 has
@@ -1062,3 +1063,51 @@ The owner's answers, verbatim where it matters:
     - Each extra-training ticket names the objective it covers, for
       example "Extra training · Backup and recovery".
     - A preview is shown to the owner before it is built.
+
+### The mail build as built (1 October 2026, live)
+
+- **New files:** `mail.js` (the model), `mailui.js` (Mail and Mail admin),
+  `tickets-mail.js` (24 emails, six tickets).
+- **Mail on the laptop** holds the help desk mailbox. Staff's forwards
+  arrive there.
+- **Mail on each user's PC** holds their own inbox. That's where the three
+  emails that can't be forwarded are read, with their headers.
+- **Links show where they really go** in a line at the bottom of Mail,
+  when you point at them or tab to them. Opening one counts as a wrong
+  move.
+- **Mail admin** has:
+  - a block list
+  - search and purge, which can be undone
+  - three policies: quarantine SPF/DMARC failures, tag external mail,
+    flag lookalike domains
+  - password reset and sign-out everywhere
+- **The tickets:**
+  - E1 is the crawl and E2 the walk; E3–E6 run.
+  - E4, E5 and E6 each carry one email that can't be forwarded:
+    - E4: the gift cards. Its safeguard is the external tag.
+    - E5: the "mailbox full" email. Its safeguard is SPF/DMARC
+      quarantine.
+    - E6: the bank switch. Its safeguard is the lookalike-domain flag.
+- **What "dealt with" means:**
+
+  | Email | Done when |
+  |---|---|
+  | Legitimate | The user is told it's genuine |
+  | Spam | It's reported as junk, or its sender is blocked |
+  | Phishing | It's reported as phishing and purged, and the user's password is reset if they were told it was safe |
+  | Malicious | As phishing, plus its domain blocked |
+  | Can't be forwarded | Its headers are read on the user's PC, plus its policy (and a block) |
+
+- **Checks:**
+  - logic: 24 tickets, 29 plants
+  - page: 14 groups, including MAIL (E1 by Mason's rings, E4 through the
+    UI)
+  - contrast: the mail screens in dark, light and dyslexia
+- **Found and fixed:**
+  - The right giveaway was the longest option in 23 of 24 emails.
+  - The reading pane didn't scroll, so in dyslexia mode a link could be
+    unreachable.
+  - Mail's link line changed height as addresses wrapped, so links
+    flickered under the pointer.
+  - A user's own Mail took on the laptop's dark theme.
+  - The contrast sweep measured input boxes hidden behind other windows.

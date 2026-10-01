@@ -14,13 +14,14 @@ import { createShell, LAUNCH } from "./cmd.js";
 import { explain } from "./mech.js";
 import { APPS, CATALOGUE } from "./fleet.js";
 import * as MW from "./malware.js";
+import { drawMail } from "./mailui.js";
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function btn(label, cls, fn, aria) { const b = el("button", cls || "w-btn", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
 
-const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update" };
-const TOOLS = ["cmd", "ps", "taskmgr", "eventvwr", "settings", "softcenter", "explorer", "edge", "security", "sysprot", "netconn", "winupdate"];
-const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check" };
+const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update", mail: "Mail" };
+const TOOLS = ["mail", "cmd", "ps", "taskmgr", "eventvwr", "settings", "softcenter", "explorer", "edge", "security", "sysprot", "netconn", "winupdate"];
+const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check", mail: "email outlook inbox messages" };
 
 export function createDesktop(host, ctx) {
   let wins = [], active = null, wid = 1, start = false, run = null, dialog = null, bootNote = null;
@@ -214,6 +215,7 @@ export function createDesktop(host, ctx) {
     if (w.app === "sysprot") body.appendChild(drawSysProt(w));
     if (w.app === "netconn") body.appendChild(drawNetConn(w));
     if (w.app === "winupdate") body.appendChild(drawWinUpdate(w));
+    if (w.app === "mail") { w.ui = w.ui || {}; drawMail(body, { fleet: ctx.fleet, mid: m().id, helpdesk: false, act: function (a) { a.before = a.before || ctx.before(); act(a); draw(); }, draw: draw, noForward: ctx.noForward || function () { return false; } }, w.ui); }
     if (w.app === "helpdesk") ctx.helpdesk(body, { refresh: draw });
     if (w.app === "prog") { const p = el("div", "prog"); p.appendChild(el("h4", null, w.prog + " " + (M.appByName(m(), w.prog) || {}).ver)); p.appendChild(el("p", null, w.prog + " is open and working on " + m().host + ".")); body.appendChild(p); }
     box.appendChild(body);

@@ -10,8 +10,8 @@
    Written and reachable are different claims: the logic checks prove the
    tickets exist and solve; only driving the page proves a student can.
 
-     LOAD      sign-in refuses a wrong password; eighteen tickets, labelled
-               crawl (3), walk (3) and run (12); no page errors
+     LOAD      sign-in refuses a wrong password; twenty-four tickets,
+               labelled crawl (4), walk (4) and run (16); no page errors
      CRAWL     L1 and D1 finish by doing ONLY what Mason rings (and typing
                only the commands he shows)
      WALK      L2's checklist ticks itself off out of order, with no rings
@@ -33,21 +33,27 @@
                through the UI alone, doing CompTIA's steps the way a student
                would, with no wrong moves; M3-M5's malware tops Task Manager
                on the right PC
+     MAIL      E1 (the Email Threat sim) finishes by doing ONLY what Mason
+               rings, pointing at links without opening them; E4 (an email
+               that can't be forwarded) closes through the UI alone: the
+               headers on Farah's PC, reports, purges, blocks, the policy
      CINE      the walk-over plays as a cutscene (letterbox bars, a caption)
                and drops it at the desk; reduced motion cuts straight there
    ===================================================================== */
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431" };
 const NOTES = {
   L1: "Testing said MSVCP100.dll was missing. Reinstalled Testing from Software Center. Tested: it opens.",
   L2: "PayWise said VCRUNTIME140.dll was missing. Reinstalled PayWise from Software Center. Tested: it opens.",
   L4: "Testing gave a configuration error: config.ini was damaged. Reinstalled Testing, which rewrote the file, and tested it.",
   D1: "Event 2190: Testing failed on MSVCP100.dll. The System32 copy is 64-bit and gave 0xc000007b, so I removed it. Installed the x86 Visual C++ 2010 runtime from FS01. Tested: it opens.",
+  E1: "John's Microsoft email was phishing: reported and purged. Dev's 3x Faster was a malicious download: reported, purged, blocked. Rosa's diet email was spam: junk. Farah's statement was legit: told her it is genuine.",
+  E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -86,6 +92,8 @@ async function run(rewrites, groups) {
       if (!(await t.count()) && (await p.locator(".walkover").count())) await p.waitForFunction(() => document.querySelector(".coach-target") || document.querySelector(".wo-desk") || !document.querySelector(".walkover"), null, { timeout: 90000 }).catch(() => {});
       if (!(await t.count())) { await p.waitForTimeout(2600); if (!(await t.count())) return false; }
       const tag = await t.first().evaluate((e) => e.tagName + "." + e.className + " " + (e.getAttribute("aria-label") || ""));
+      if (/^A\.mx-link/.test(tag)) { await t.first().hover(); await p.waitForTimeout(150); continue; }
+      if (/^INPUT/.test(tag) && /mxa-/.test(await t.first().getAttribute("id") || "")) { await t.first().fill(await p.locator(".coach-cmd").innerText()); await t.first().press("Enter"); continue; }
       if (/TEXTAREA/.test(tag)) { await t.first().fill(NOTES[id]); await p.getByRole("button", { name: "Close the ticket" }).click(); continue; }
       if (/DIV/.test(tag) && /opts/.test(tag)) { const right = await p.evaluate(() => window.__LAP.engine.ticket().close.options.find((o) => o.correct).label); await p.locator(".opt2", { hasText: right }).first().click(); continue; }
       if (/con-in/.test(tag)) { const cmd = await p.locator(".coach-cmd").innerText(); await t.first().fill(cmd); await t.first().press("Enter"); continue; }
@@ -103,9 +111,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 18) F("LOAD: the queue shows " + items.length + " tickets, not 18");
+      if (items.length !== 24) F("LOAD: the queue shows " + items.length + " tickets, not 24");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 3 || count(/Walk: checklist/) !== 3 || count(/Run: on your own/) !== 12) F("LOAD: the queue's labels are not 3 crawl, 3 walk, 12 run");
+      if (count(/Crawl: guided/) !== 4 || count(/Walk: checklist/) !== 4 || count(/Run: on your own/) !== 16) F("LOAD: the queue's labels are not 4 crawl, 4 walk, 16 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
     });
 
@@ -320,6 +328,57 @@ async function run(rewrites, groups) {
         await r.getByRole("button", { name: "Disconnect" }).click();
       }
     });
+
+    /* the email tickets through the UI, the way a student does them */
+    async function playMail(p, id) {
+      await take(p, id);
+      const t = await p.evaluate(() => { const t = window.__LAP.engine.ticket(); return { mails: t.mails.map((e) => ({ id: e.id, to: e.to, cat: e.cat, subject: e.subject, from: e.from[1], noForward: !!e.noForward, guard: e.guard, blockDom: e.blockDom, tell: e.tell.options.find((o) => o.correct).label })), right: t.close.options.find((o) => o.correct).label }; });
+      const CAT = { legit: "Legitimate", spam: "Spam", phishing: "Phishing", malicious: "Malicious" };
+      for (const e of t.mails) {
+        let box;
+        if (e.noForward) {
+          await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=dev-connect-" + e.to + "]").click(); await p.waitForTimeout(1700);
+          box = p.locator(`[data-win="rdp:${e.to}"]`); await box.getByRole("button", { name: "Start menu" }).click(); await box.locator(".sm-search").fill("mail"); await box.getByRole("button", { name: "Open Mail" }).click();
+        } else { await p.evaluate(() => window.__LAP.openWin("mail")); box = p.locator("[data-win=mail]"); }
+        await box.locator(".mx-it", { hasText: e.subject }).first().click();
+        if (e.noForward) await box.getByRole("button", { name: /Message details/ }).click();
+        await p.evaluate(() => window.__LAP.openWin("helpdesk"));
+        const card = hd(p).locator(`.tri-card[data-mail="${e.id}"]`);
+        await card.locator(".tri-q").first().getByRole("button", { name: CAT[e.cat], exact: true }).click();
+        await card.locator(".tri-q").nth(1).locator(".opt2", { hasText: e.tell }).click();
+        if (e.noForward) { await p.evaluate((m) => window.__LAP.openWin("rdp:" + m), e.to); } else await p.evaluate(() => window.__LAP.openWin("mail"));
+        await box.locator(".mx-it", { hasText: e.subject }).first().click();
+        if (e.cat === "legit") await box.getByRole("button", { name: /it's genuine, go ahead/ }).click();
+        else await box.getByRole("button", { name: e.cat === "spam" ? "Report: junk" : "Report: phishing" }).click();
+        if (e.noForward) await box.getByRole("button", { name: "Disconnect" }).click();
+        if (e.cat === "phishing" || e.cat === "malicious") {
+          await p.evaluate(() => window.__LAP.openWin("mailadmin")); const a = p.locator("[data-win=mailadmin]");
+          await a.locator("#mxa-q").fill(e.subject.split(" ")[0]); await a.getByRole("button", { name: "Purge \"" + e.subject + "\" from every mailbox" }).click();
+          const blocks = [];
+          if (e.cat === "malicious") blocks.push(e.from.split("@")[1]);
+          if (e.blockDom) blocks.push(e.blockDom);
+          for (const d of blocks) { await a.locator("#mxa-block").fill(d); await a.getByRole("button", { name: "Block", exact: true }).click(); }
+          if (e.noForward) await a.getByRole("button", { name: new RegExp("^Turn on: ") }).nth(["antispoof", "external", "impersonation"].indexOf(e.guard)).click().catch(async () => { await a.locator(".mxa-pol").nth(["antispoof", "external", "impersonation"].indexOf(e.guard)).getByRole("button").click(); });
+        }
+      }
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click();
+      if (!(await hd(p).locator(".res .opt2").count())) { F("MAIL: " + id + " would not resolve after the right handling (" + (await p.evaluate(() => window.__LAP.engine.T().lastSay)) + ")"); return; }
+      await hd(p).locator(".opt2", { hasText: t.right }).click(); await hd(p).locator("#res-note").fill(NOTES[id]); await hd(p).getByRole("button", { name: "Close the ticket" }).click();
+      const st = await p.evaluate((id) => window.__LAP.engine.state().tickets[id], id);
+      if (st.stage !== "done") F("MAIL: " + id + " did not close");
+      if (st.guesses) F("MAIL: the right handling cost " + st.guesses + " wrong move(s) on " + id + ": " + st.says.filter(Boolean).join(" | "));
+    }
+    await step("MAIL", async (p) => {
+      p.setDefaultTimeout(30000); await p.emulateMedia({ reducedMotion: "reduce" });
+      await signIn(p); await p.locator(".qi", { hasText: INC.E1 }).click(); await p.waitForTimeout(500);
+      const head = (await p.locator(".coach-now").innerText().catch(() => "")).split("\n")[0];
+      if (!/Step 1 of/i.test(head)) F("MAIL: before it is assigned, E1's crawl is not at step 1 (" + head + ")");
+      if (!(await crawl(p, "E1", 80))) { F("MAIL: E1 could not be finished by following Mason's rings (stuck at: " + (await p.locator(".coach-now").innerText().catch(() => "")).split("\n")[0] + ")"); return; }
+      const st = await p.evaluate(() => window.__LAP.engine.state().tickets.E1);
+      if (st.stage !== "done" || st.guesses) F("MAIL: E1's crawl ended with the ticket " + st.stage + " and " + st.guesses + " wrong move(s)");
+      await p.getByRole("button", { name: "Close the walkthrough" }).click().catch(() => {});
+      await playMail(p, "E4");
+    });
   } finally { await b.close(); s.close(); }
   return fails;
 }
@@ -338,6 +397,7 @@ const PLANTS = [
   ["MALWARE", "a crawl step already true on the clean office, judged before the ticket is assigned", { "assets/laptop.js": [["return !!(t && t.id === k) && d();", "return d();"], ["return [\"WS2\", \"FS01\"].every(function (x) { return prog(x).removed && MW.online(E.machine(x)); });", "return MW.online(E.machine(\"WS2\")) && MW.online(E.machine(\"FS01\"));"]] }],
   ["CINE", "the walk is never framed as a cutscene", { "assets/laptop.js": [["ov.classList.add(\"cine-on\"); caption(\"Rafiki's IT Services\"", "caption(\"Rafiki's IT Services\""]] }],
   ["MALRUN", "the offline scan reports success but leaves the malware", { "assets/malware.js": [["w.removed = true; m.av.found = [];", "m.av.found = [];"]] }],
+  ["MAIL", "reading the message details is never recorded", { "assets/mailui.js": [["if (ui.details && !x.fwd) { MX.viewHeaders(fleet, ctx.mid, x.id); ctx.act(", "if (ui.details && !x.fwd) { ctx.act("]] }],
   ["PERSIST", "the dyslexia setting is not saved", { "assets/laptop.js": [["put(\"c2vm.reading\", on ? \"dyslexia\" : \"default\");", ""]] }]
 ];
 

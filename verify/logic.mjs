@@ -30,6 +30,14 @@
                 out of order costs (spread, a clean PC unplugged, an old-
                 definitions scan, a restore point while infected); six
                 moves at every step, no hint naming the move
+     MAIL       for each email ticket: every email reaches its user, and its
+                forward reaches the help desk unless it can't be forwarded;
+                the right handling closes it with no wrong moves; skipping
+                a safeguard leaves it open; the consequences count (a phish
+                called safe compromises the user, a genuine email junked or
+                its sender blocked, a link opened); every giveaway question
+                is six with one right, spread across the slots and not
+                usually the longest; no hint names the giveaway
 
    A plant run that passes is reported as a failure: a check that cannot
    fail is not a check.
@@ -42,6 +50,7 @@ import { createEngine, rungFor } from "../assets/engine.js";
 import { ordered } from "../assets/order.js";
 import * as MW from "../assets/malware.js";
 import { nextStep } from "../assets/tickets-malware.js";
+import * as MX from "../assets/mail.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -81,7 +90,13 @@ const NOTES = {
   M3: "Checked all seven PCs. SearchMate hijacker (smhelper.exe) on WS5 came with the coupon add-on. Unplugged to quarantine, System Restore off, definitions from USB, Defender Offline scan, scheduled scans, updates, restore point. Advised Rosa about add-ons.",
   M4: "Checked all seven PCs. A miner posing as WmiPrvSvc.exe on WS3, from the DarkPro VS Code theme extension. Unplugged to quarantine, System Restore off, USB definitions, Defender Offline scan, schedule, updates, restore point. Told Dev to use verified extensions.",
   M5: "Checked all seven PCs. PC Defender Pro, fake antivirus scareware, on WS4. Unplugged to quarantine, System Restore off, USB definitions, Defender Offline scan, scheduled scans, updates, restore point. Told Farah never to pay a pop-up.",
-  M6: "Checked all seven PCs. The Invoice xlsm macro Farah enabled dropped OfficeUpdate.exe on WS4 and on FS01, the file server. Quarantined both, System Restore off on WS4, USB definitions, Defender Offline scan, schedule, updates, restore point. Told Farah never to enable macros from email."
+  M6: "Checked all seven PCs. The Invoice xlsm macro Farah enabled dropped OfficeUpdate.exe on WS4 and on FS01, the file server. Quarantined both, System Restore off on WS4, USB definitions, Defender Offline scan, schedule, updates, restore point. Told Farah never to enable macros from email.",
+  E1: "John's Microsoft password email was phishing (link to msaccount-updatecenter.com): reported and purged. Dev's 3x Faster was a malicious download: reported, purged, domain blocked. Rosa's diet email was spam: junk. Farah's bank statement was legit: told her it's genuine.",
+  E2: "Dev's CloudHost receipt was genuine. Brenda's iPhone prize was spam, junked. Farah's PayPal email was phishing (paypal-resolve-login.net), reported and purged. The Hartwell invoice was an xlsm macro: malicious, reported, purged, blocked.",
+  E3: "Brenda's TravelSafe hotel booking was genuine. Dev's streaming offer was spam, junked. Rosa's bank suspended email and John's Jakarta login alert were both phishing: reported and purged.",
+  E4: "Farah's gift card request from Mason came from rafiki-lt.com with a Gmail reply-to, failing SPF and DMARC in the headers: phishing, reported, purged, blocked, and turned on the external tag policy. Dev's course was genuine, John's chairs spam, Brenda's bonus .exe malicious.",
+  E5: "Rosa's mailbox validate email claimed to be our help desk but the headers show SPF and DMARC failed from an outside server: phishing, reported, purged, anti-spoof quarantine policy on. Dev's PayWise notice was genuine (Software Center). Brenda's webinar spam. Rosa's parcel zip label malicious.",
+  E6: "Brady Tag's new bank details came from bradytag-co.com, a lookalike domain with a reply-to on another domain: phishing, reported, purged, blocked, lookalike policy on. Farah's order shipped notice was genuine. John's DocuSign was phishing. Brenda's timesheet xlsm macro was malicious."
 };
 
 export function check(D) {
@@ -91,12 +106,12 @@ export function check(D) {
   /* ---- SHAPE ---- */
   const bySim = {}; const ids = new Set();
   T.forEach((t) => { if (ids.has(t.id)) F("SHAPE: duplicate id " + t.id); ids.add(t.id); (bySim[t.sim] = bySim[t.sim] || []).push(t); });
-  const APP = T.filter((t) => t.kind !== "malware"), MAL = T.filter((t) => t.kind === "malware");
+  const APP = T.filter((t) => !t.kind), MAL = T.filter((t) => t.kind === "malware"), EM = T.filter((t) => t.kind === "email");
   Object.entries(bySim).forEach(([sim, list]) => {
     if (list.length !== 6) F("SHAPE: " + sim + " has " + list.length + " tickets, not 1 + 5");
     if (list.filter((t) => t.base).length !== 1) F("SHAPE: " + sim + " does not have exactly one ticket that is the sim itself");
   });
-  if (Object.keys(bySim).length !== 3) F("SHAPE: expected the two App sims and Malware, found " + Object.keys(bySim).length);
+  if (Object.keys(bySim).length !== 4) F("SHAPE: expected the two App sims, Malware and Email Threat, found " + Object.keys(bySim).length);
 
   const pos = [0, 0, 0, 0, 0, 0]; let longest = 0, lenQs = 0, movePos = [0, 0, 0, 0, 0, 0];
   APP.forEach((t) => {
@@ -154,6 +169,16 @@ export function check(D) {
     if (new Set(L).size > 1) { lenQs++; if (cl === Math.max(...L) && L.filter((x) => x === cl).length === 1) longest++; }
     malware(D, t, F);
   });
+  const tellPos = [0, 0, 0, 0, 0, 0]; let tellLong = 0, tells = 0;
+  EM.forEach((t) => {
+    const shown = D.ordered(t.close.options, t.id + "close"); pos[shown.findIndex((x) => x.correct)]++;
+    const L = t.close.options.map((x) => x.label.length); const cl = t.close.options.find((x) => x.correct).label.length;
+    if (new Set(L).size > 1) { lenQs++; if (cl === Math.max(...L) && L.filter((x) => x === cl).length === 1) longest++; }
+    t.mails.forEach((e) => { tells++; tellPos[D.ordered(e.tell.options, t.id + e.id).findIndex((x) => x.correct)]++; const ll = e.tell.options.map((x) => x.label.length), rl = e.tell.options[0].label.length; if (rl === Math.max(...ll)) tellLong++; });
+    mailChecks(D, t, F);
+  });
+  if (tells && Math.max(...tellPos) > Math.ceil(tells / 3)) F("MAIL: SPREAD: the right giveaway sits in one slot " + Math.max(...tellPos) + " times of " + tells + " (" + tellPos.join(" ") + ")");
+  if (tells && tellLong > Math.ceil(tells / 3)) F("MAIL: SPREAD: the right giveaway is the longest option in " + tellLong + " of " + tells + " emails");
   if (Math.max(...pos) > Math.ceil(T.length / 3)) F("SPREAD: the right close answer sits in one slot " + Math.max(...pos) + " times of " + T.length + " (" + pos.join(" ") + ")");
   if (Math.max(...movePos) > 4) F("SPREAD: the right move sits in one slot " + Math.max(...movePos) + " times of 12 (" + movePos.join(" ") + ")");
   if (longest > Math.ceil(lenQs / 3)) F("SPREAD: the right close answer is the longest option in " + longest + " of " + lenQs + " questions");
@@ -327,6 +352,78 @@ function malware(D, t, F) {
   if (D.noteOK(t, "I removed the virus from the computer and it is working fine now, all good.").ok) F("MALWARE " + id + ": NOTE: a note that says nothing specific is accepted");
 }
 
+/* ------------------------------------------------------------------ */
+/* Email tickets                                                       */
+/* ------------------------------------------------------------------ */
+/* The right handling of every email, each step through the engine. */
+export function mailSolve(E, t, how) {
+  how = how || {};
+  const f = () => E.fleet(); const act = (a, fn) => { const b = E.before(); const r = fn ? fn() : null; E.onAct(Object.assign({ before: b, machine: "TECH" }, a)); return r; };
+  for (const e of t.mails) {
+    for (const which of ["cat", "tell"]) { const o = t.question(e.id, which).options.find((x) => x.correct); act({ type: "mail-answer", id: e.id, which, correct: true }, () => t.answer(f(), e.id, which, o.label)); }
+    const mid = e.noForward ? e.to : "TECH";
+    if (e.noForward) act({ type: "mail-headers", id: e.id }, () => MX.viewHeaders(f(), e.to, e.id));
+    if (e.cat === "legit") act({ type: "mail-safe", id: e.id }, () => MX.safeReply(f(), e.id));
+    else if (e.cat === "spam") act({ type: "mail-report", kind: "junk", id: e.id }, () => MX.report(f(), mid, e.id, "junk"));
+    else {
+      act({ type: "mail-report", kind: "phishing", id: e.id }, () => MX.report(f(), mid, e.id, "phishing"));
+      act({ type: "mail-purge", id: e.id }, () => MX.purge(f(), e.id));
+      if (e.cat === "malicious") { const d = MX.domainOf(e.from[1]); act({ type: "mail-block", entry: d }, () => MX.block(f(), d)); }
+      if (e.noForward && !how.noGuard) act({ type: "mail-policy", key: e.guard, on: true }, () => MX.setPolicy(f(), e.guard, true));
+      if (e.noForward && e.blockDom) act({ type: "mail-block", entry: e.blockDom }, () => MX.block(f(), e.blockDom));
+    }
+  }
+}
+function mailChecks(D, t, F) {
+  const id = t.id, P = "MAIL " + id + ": ";
+  /* EXHIBITED */
+  const f = D.makeFleet(); t.setup(f);
+  t.mails.forEach((e) => {
+    if (!(f[e.to].mail || []).some((x) => x.id === e.id && !x.fwd)) F(P + "EXHIBITED: \"" + e.subject + "\" is not in " + e.to + "'s mailbox");
+    const fw = (f.TECH.mail || []).some((x) => x.id === e.id && x.fwd);
+    if (e.noForward && fw) F(P + "EXHIBITED: \"" + e.subject + "\" can't be forwarded, but its forward is in the help desk mailbox");
+    if (!e.noForward && !fw) F(P + "EXHIBITED: \"" + e.subject + "\" was not forwarded to the help desk");
+  });
+  if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts");
+  /* SOLVABLE */
+  { const E = D.createEngine(memStore()); E.openTicket(id); mailSolve(E, t);
+    if (!t.goal(E.fleet())) F(P + "SOLVABLE: the right handling does not meet the goal (" + (t.current(E.fleet()) || {}).id + ")");
+    if (E.T().guesses) F(P + "SOLVABLE: the right handling cost " + E.T().guesses + " wrong move(s): " + E.T().says.filter(Boolean).join(" | "));
+    if (!E.submit("resolve").ok) F(P + "SOLVABLE: Resolve refused after the right handling"); }
+  /* SAFEGUARD: an email that can't be forwarded isn't done without its policy */
+  if (t.mails.some((e) => e.noForward)) { const E = D.createEngine(memStore()); E.openTicket(id); mailSolve(E, t, { noGuard: true });
+    if (t.goal(E.fleet())) F(P + "SAFEGUARD: the ticket closes without the safeguard policy"); }
+  /* JUDGE: consequences */
+  { const E = D.createEngine(memStore()); E.openTicket(id); const fl = () => E.fleet(); let n = 0;
+    const act = (a, fn) => { const b = E.before(); if (fn) fn(); E.onAct(Object.assign({ before: b, machine: "TECH" }, a)); return E.T().guesses; };
+    if (act({ type: "mail-headers", id: t.mails[0].id }, () => MX.viewHeaders(fl(), t.mails[0].to, t.mails[0].id)) !== 0) F(P + "JUDGE: reading message details counted");
+    const ph = t.mails.find((e) => e.cat === "phishing"), lg = t.mails.find((e) => e.cat === "legit");
+    if (ph) { n = act({ type: "mail-safe", id: ph.id }, () => MX.safeReply(fl(), ph.id)); if (n !== 1 || !MX.tri(fl(), ph.id).compromised) F(P + "JUDGE: calling a phish safe did not count, or did not compromise the user");
+      E.revert(); }
+    if (lg) { const g0 = E.T().guesses; if (act({ type: "mail-report", kind: "junk", id: lg.id }, () => MX.report(fl(), "TECH", lg.id, "junk")) !== g0 + 1) F(P + "JUDGE: junking a genuine email did not count");
+      const d = MX.domainOf(lg.from[1]); if (act({ type: "mail-block", entry: d }, () => MX.block(fl(), d)) !== g0 + 2) F(P + "JUDGE: blocking a genuine sender did not count"); }
+    const g1 = E.T().guesses; if (act({ type: "mail-click", id: t.mails[0].id }, () => MX.click(fl(), "TECH", t.mails[0].id, "x")) !== g1 + 1) F(P + "JUDGE: opening a link from a suspicious email did not count");
+    const wrongCat = t.question(t.mails[0].id, "cat").options.find((o) => !o.correct);
+    const g2 = E.T().guesses; t.answer(fl(), t.mails[0].id, "cat", wrongCat.label); if (act({ type: "mail-answer", id: t.mails[0].id, which: "cat", correct: false, why: wrongCat.why }) !== g2 + 1) F(P + "JUDGE: a wrong category did not count");
+    if (MX.tri(fl(), t.mails[0].id).catOut.indexOf(wrongCat.label) < 0) F(P + "JUDGE: a wrong category was not kept red");
+    E.T().guesses = 7; const g = E.guidance(); const alive = (g.moves || []).filter((x) => !x.struck);
+    if (alive.length !== 2 || !alive.some((x) => x.correct)) F(P + "LADDER: rung 3 does not leave two moves alive with the right one");
+    if (!g.qstrike || Object.values(g.qstrike.strike).some((w) => !w)) F(P + "LADDER: rung 3 does not strike the open question with a reason each"); }
+  /* SIX and NO LEAK */
+  t.mails.forEach((e) => {
+    const o = e.tell.options;
+    if (o.length !== 6 || o.filter((x) => x.correct).length !== 1 || o.some((x) => !x.correct && !x.why) || new Set(o.map((x) => x.label)).size !== 6) F(P + "SIX: \"" + e.subject + "\": the giveaway is not six, one right, a reason on each wrong one");
+    const c = t.question(e.id, "cat").options; if (c.length !== 4 || c.filter((x) => x.correct).length !== 1 || c.some((x) => !x.correct && !x.why)) F(P + "SIX: \"" + e.subject + "\": the category question is not the four, with reasons");
+  });
+  { const E = D.createEngine(memStore()); E.openTicket(id); const seen = {};
+    const look = () => { const e = t.current(E.fleet()); if (!e) return; const right = e.tell.options[0].label.toLowerCase(); t.hints(E.fleet()).forEach((h, i) => { if (String(h).toLowerCase().indexOf(right) >= 0) F(P + "NO LEAK: rung " + (i + 1) + " names the giveaway of \"" + e.subject + "\""); }); seen[e.id] = 1; };
+    const o = E.onAct; E.onAct = (a) => { o(a); look(); }; look(); mailSolve(E, t); }
+  const six = t.close.options;
+  if (six.length !== 6 || six.filter((x) => x.correct).length !== 1 || six.some((x) => !x.correct && !x.why)) F(P + "SIX: the close question is not six with one right");
+  if (!D.noteOK(t, D.NOTES[id] || "").ok) F(P + "NOTE: the model note is refused: " + D.noteOK(t, D.NOTES[id] || "").missing.join("; "));
+  if (D.noteOK(t, "I looked at all of the emails and handled them the right way, so it's all done now.").ok) F(P + "NOTE: a note that says nothing specific is accepted");
+}
+
 const BASE = { TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
@@ -355,6 +452,12 @@ const PLANTS = [
   ["MALWARE M1: JUDGE", "the malware stays dead when ended", () => ({ createEngine: (s) => { const E = createEngine(s); const o = E.onAct; E.onAct = (a) => { if (a.type === "tm-end" && a.res) { a.res.respawned = false; const m = E.fleet()[a.machine]; m.procs = m.procs.filter((p) => p.tag !== "malware"); } o(a); }; return E; } })],
   ["MALWARE M1: SIX", "rung 3 at one step offers five moves", () => ({ TICKETS: withTicket("M1", (t) => ({ moves: (f) => t.moves(f).slice(0, nextStep(t, f).step === 3 ? 5 : 6) })) })],
   ["MALWARE M1: NO LEAK", "rung 2 names the move", () => ({ TICKETS: withTicket("M1", (t) => ({ hints: (f) => [t.hints(f)[0], "Do this: " + t.moves(f).find((x) => x.correct).label] })) })],
+  ["MAIL E1: EXHIBITED", "E1's emails are never forwarded to the help desk", () => ({ TICKETS: withTicket("E1", (t) => ({ setup: (f) => { t.setup(f); f.TECH.mail = []; } })) })],
+  ["MAIL E4: SAFEGUARD", "E4 closes on the categories alone", () => ({ TICKETS: withTicket("E4", (t) => ({ goal: (f) => t.mails.every((e) => MX.tri(f, e.id).cat === e.cat && MX.tri(f, e.id).tell && (e.noForward || t.goal(f) || true)) })) })],
+  ["MAIL E2: JUDGE", "calling a phish safe is not judged", () => ({ createEngine: (s) => { const E = createEngine(s); const o = E.onAct; E.onAct = (a) => { const n = E.T() ? E.T().guesses : 0; o(a); if (a.type === "mail-safe" && E.T()) E.T().guesses = n; }; return E; } })],
+  ["MAIL E3: SIX", "a giveaway question loses an option", () => ({ TICKETS: withTicket("E3", (t) => ({ mails: t.mails.map((e, i) => (i ? e : Object.assign({}, e, { tell: Object.assign({}, e.tell, { options: e.tell.options.slice(0, 5) }) }))) })) })],
+  ["MAIL E5: NO LEAK", "rung 1 names the giveaway", () => ({ TICKETS: withTicket("E5", (t) => ({ hints: (f) => { const e = t.current(f); return [e ? "Look: " + e.tell.options[0].label : "", "x"]; } })) })],
+  ["MAIL: SPREAD", "every right giveaway padded to be the longest", () => ({ TICKETS: BASE.TICKETS.map((t) => (t.kind === "email" ? Object.assign({}, t, { mails: t.mails.map((e) => Object.assign({}, e, { tell: Object.assign({}, e.tell, { options: e.tell.options.map((o) => (o.correct ? Object.assign({}, o, { label: o.label + ", and that settles it beyond any doubt at all" }) : o)) }) })) }) : t)) })],
   ["NOTE", "the note check accepts anything forty letters long", () => ({ noteOK: (t, s) => ({ ok: String(s).length >= 40, missing: [] }) })]
 ];
 

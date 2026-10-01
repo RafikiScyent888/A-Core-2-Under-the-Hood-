@@ -13,6 +13,10 @@ on the laptop:
   with Windows' own tools: the program itself, Start search, Event Viewer,
   Command Prompt and PowerShell, Task Manager, Settings and Software
   Center.
+- **Mail** holds the help desk mailbox, where staff forward suspicious
+  email. Point at a link to see where it really goes, without opening it.
+  **Mail admin** has the block list, search and purge, protection
+  policies, and password resets.
 - **Chat with Mason,** your team lead. He guides you, and never gives you
   the answer.
 - **When remote can't reach a PC,** you walk over in 3D, played as a
@@ -33,9 +37,9 @@ Live: https://rafikiscyent888.github.io/A-Core-2-Under-the-Hood-/
 
 | | Tickets | How much help |
 |---|---|---|
-| **Crawl** | L1, D1, M1: the three sims themselves | Mason walks you through every step and rings what to press |
-| **Walk** | L2, D2, M2 | A checklist that ticks itself off as you work, with "How?" pointers |
-| **Run** | L3–L6, D3–D6, M3–M6 | On your own, as in the exam. Mason checks in after your third wrong move |
+| **Crawl** | L1, D1, M1, E1: the four sims themselves | Mason walks you through every step and rings what to press |
+| **Walk** | L2, D2, M2, E2 | A checklist that ticks itself off as you work, with "How?" pointers |
+| **Run** | L3–L6, D3–D6, M3–M6, E3–E6 | On your own, as in the exam. Mason checks in after your third wrong move |
 
 The L tickets come from the Application Launch sim (Tier 1), the D
 tickets from the Application Deployment sim (Tier 2), and the M tickets
@@ -44,7 +48,14 @@ CompTIA's malware-removal steps across all seven of the office's PCs:
 investigate, quarantine, disable System Restore, remediate, schedule
 scans and update, a fresh restore point, and educate the user. Doing
 them out of order has real consequences: malware ended on a networked PC
-restarts and spreads. The Deployment sim
+restarts and spreads.
+
+The E tickets come from the Email Threat Classification sim: its twelve
+emails and twelve more. Each email is legitimate, spam, phishing or
+malicious. You say which, pick the detail that gives it away (six
+options), and deal with it. Three can't be forwarded: you look at the
+original's headers on the user's PC and add the safeguard that stops the
+next one. The Deployment sim
 is rebuilt so its old answer is tried and fails: the robocopy from System32
 gives 0xc000007b, and `regsvr32` gives its real error.
 

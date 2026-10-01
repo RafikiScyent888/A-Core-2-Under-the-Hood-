@@ -97,6 +97,9 @@ export async function run(extraCss) {
       /* inputs carry their text in a value, not a text node */
       document.querySelectorAll("input[type=text],input:not([type]),input[type=password]").forEach((i) => {
         if (!i.value || i.offsetParent === null) return; const r = i.getBoundingClientRect(); const cs = getComputedStyle(i);
+        /* an input behind another window is covered, not shown: the same
+           test as for text, at the input's middle */
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); if (!top || (top !== i && !i.contains(top))) return;
         out.push({ t: "[input] " + i.value.slice(0, 30), c: cs.color, op: 1, s: parseFloat(cs.fontSize), b: false, x: r.x + scrollX + 4, y: r.y + scrollY + 4, w: Math.min(r.width - 8, 60), h: r.height - 8, el: "input." + i.className });
       });
       return out;
@@ -243,6 +246,33 @@ export async function run(extraCss) {
     await page.evaluate(() => window.__LAP.openWin("helpdesk"));
     await page.locator(".qi", { hasText: "INC20423" }).click(); await hd.locator("[data-coach=assign]").click(); await page.locator(".coach details summary").nth(1).click();
     await sweep(tag + ": M2 malware walk, How? open");
+
+    /* Email Threat: Mail, the triage card, Mail admin, a user's own Mail */
+    await page.evaluate(() => window.__LAP.openWin("helpdesk"));
+    await page.locator(".qi", { hasText: "INC20429" }).click(); await hd.locator("[data-coach=assign]").click();
+    await hd.locator("[data-coach=open-mail]").click(); const mw = page.locator("[data-win=mail]");
+    await mw.locator(".mx-it", { hasText: "PayPal" }).click(); await mw.locator(".mx-link").first().hover();
+    await sweep(tag + ": Mail, a forward open, the link's real address showing");
+    await mw.getByRole("button", { name: /Message details/ }).click();
+    await sweep(tag + ": Mail, a forward's message details");
+    await mw.locator(".mx-link").first().click(); await mw.locator(".mx-link").first().click();
+    await page.evaluate(() => window.__LAP.openWin("helpdesk"));
+    const card = hd.locator('.tri-card[data-mail="paypal"]');
+    for (const c of ["Spam", "Malicious", "Legitimate"]) await card.getByRole("button", { name: c, exact: true }).click();
+    await card.scrollIntoViewIfNeeded();
+    await sweep(tag + ": triage card, wrong picks red, Mason's strikes");
+    await page.evaluate(() => window.__LAP.openWin("mail"));
+    await sweep(tag + ": Mail, the warning after opening a link");
+    await page.evaluate(() => window.__LAP.openWin("mailadmin")); const ad = page.locator("[data-win=mailadmin]");
+    await ad.locator("#mxa-block").fill("paypal-resolve-login.net"); await ad.getByRole("button", { name: "Block", exact: true }).click();
+    await ad.locator("#mxa-q").fill("PayPal"); await ad.getByRole("button", { name: /^Purge/ }).first().click();
+    await sweep(tag + ": Mail admin, a block and a purge");
+    await page.evaluate(() => window.__LAP.openWin("helpdesk"));
+    await page.locator(".qi", { hasText: "INC20431" }).click(); await hd.locator("[data-coach=assign]").click();
+    await hd.locator("[data-coach=dev-connect-WS4]").click(); await page.waitForTimeout(1700);
+    const r4 = page.locator('[data-win="rdp:WS4"]'); await r4.getByRole("button", { name: "Start menu" }).click(); await r4.locator(".sm-search").fill("mail"); await r4.getByRole("button", { name: "Open Mail" }).click();
+    await r4.locator(".mx-it", { hasText: "Quick favour" }).click(); await r4.getByRole("button", { name: /Message details/ }).click();
+    await sweep(tag + ": Farah's own Mail, flagged, with the headers");
   }
 
   try {
@@ -260,7 +290,10 @@ const PLANTS = {
   "Mason's struck moves faded": ".narrow2 .struck { opacity: 0.45 !important; }",
   "grey text at the desk after the walk-over": ".wo-state { color: #6b7280 !important; }",
   "the cutscene's place line in a dim yellow": ".cine-s { color: #8a7a1c !important; }",
-  "a checked PC's tick in a pale green": ".dev-t td.dev-ok { color: #4ade80 !important; }"
+  "a checked PC's tick in a pale green": ".dev-t td.dev-ok { color: #4ade80 !important; }",
+  "Mail's link line in a faint grey": ".mx-linkbar { color: #9ca3af !important; }",
+  "a flagged-message banner in a pale amber": ".mx-flag { color: #c79a1a !important; }",
+  "text typed into a field in a faint grey": ".field, .w-input { color: #9ca3af !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

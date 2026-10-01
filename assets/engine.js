@@ -143,6 +143,9 @@ export function createEngine(storage) {
       const h = t.hints(S.fleet);
       const g = { rung: r, where: h[0], principle: r >= 2 ? h[1] : null };
       if (r === 3) g.moves = narrow(t.moves(S.fleet), tried(S.fleet[t.machine], t.moves(S.fleet)));
+      /* an email ticket's own questions: rung 3 strikes on the one the
+         student is stuck on, as on the close question */
+      if (r === 3 && t.strikeNow) g.qstrike = t.strikeNow(S.fleet, survivor);
       return g;
     }
     if (st.stage === "close" && !st.closeOK) {
