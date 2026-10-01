@@ -15,9 +15,11 @@ on the laptop:
   Center.
 - **Chat with Mason,** your team lead. He guides you, and never gives you
   the answer.
-- **When remote can't reach a PC,** you walk over in 3D. That covers a PC
-  that is switched off, blue-screened or unplugged. At the desk you see
-  the PC's screen, press its power button and check its network cable.
+- **When remote can't reach a PC,** you walk over in 3D, played as a
+  cutscene from your IT bench. That covers a PC that is switched off,
+  blue-screened or unplugged, or one you have to take off the network. At
+  the desk you see the PC's screen, press its power button, check, unplug
+  or plug in its network cable, and plug in a USB stick.
 
 The PCs are simulated but behave like running machines:
 - their faults are really there
@@ -31,12 +33,18 @@ Live: https://rafikiscyent888.github.io/A-Core-2-Under-the-Hood-/
 
 | | Tickets | How much help |
 |---|---|---|
-| **Crawl** | L1, D1: the two sims themselves | Mason walks you through every step and rings what to press |
-| **Walk** | L2, D2 | A checklist that ticks itself off as you work, with "How?" pointers |
-| **Run** | L3–L6, D3–D6 | On your own, as in the exam. Mason checks in after your third wrong move |
+| **Crawl** | L1, D1, M1: the three sims themselves | Mason walks you through every step and rings what to press |
+| **Walk** | L2, D2, M2 | A checklist that ticks itself off as you work, with "How?" pointers |
+| **Run** | L3–L6, D3–D6, M3–M6 | On your own, as in the exam. Mason checks in after your third wrong move |
 
-The L tickets come from the Application Launch sim (Tier 1) and the D
-tickets from the Application Deployment sim (Tier 2). The Deployment sim
+The L tickets come from the Application Launch sim (Tier 1), the D
+tickets from the Application Deployment sim (Tier 2), and the M tickets
+from the Malware Incident Response sim. The Malware tickets follow
+CompTIA's malware-removal steps across all seven of the office's PCs:
+investigate, quarantine, disable System Restore, remediate, schedule
+scans and update, a fresh restore point, and educate the user. Doing
+them out of order has real consequences: malware ended on a networked PC
+restarts and spreads. The Deployment sim
 is rebuilt so its old answer is tried and fails: the robocopy from System32
 gives 0xc000007b, and `regsvr32` gives its real error.
 

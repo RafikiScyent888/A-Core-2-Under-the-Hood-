@@ -10,8 +10,8 @@
    Written and reachable are different claims: the logic checks prove the
    tickets exist and solve; only driving the page proves a student can.
 
-     LOAD      sign-in refuses a wrong password; twelve tickets, labelled
-               crawl (2), walk (2) and run (8); no page errors
+     LOAD      sign-in refuses a wrong password; eighteen tickets, labelled
+               crawl (3), walk (3) and run (12); no page errors
      CRAWL     L1 and D1 finish by doing ONLY what Mason rings (and typing
                only the commands he shows)
      WALK      L2's checklist ticks itself off out of order, with no rings
@@ -26,18 +26,28 @@
                reconnect
      PERSIST   a reload keeps the ticket and the guesses; dyslexia text
                stays on
+     MALWARE   M1 (the Malware sim) finishes by doing ONLY what Mason rings,
+               across seven PCs, remote sessions and walk-overs, with no
+               wrong moves; before it is assigned its crawl starts at step 1
+     MALRUN    M2 (the walk) and M6 (run, a PC and the file server) close
+               through the UI alone, doing CompTIA's steps the way a student
+               would, with no wrong moves; M3-M5's malware tops Task Manager
+               on the right PC
+     CINE      the walk-over plays as a cutscene (letterbox bars, a caption)
+               and drops it at the desk; reduced motion cuts straight there
    ===================================================================== */
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427" };
 const NOTES = {
   L1: "Testing said MSVCP100.dll was missing. Reinstalled Testing from Software Center. Tested: it opens.",
   L2: "PayWise said VCRUNTIME140.dll was missing. Reinstalled PayWise from Software Center. Tested: it opens.",
   L4: "Testing gave a configuration error: config.ini was damaged. Reinstalled Testing, which rewrote the file, and tested it.",
-  D1: "Event 2190: Testing failed on MSVCP100.dll. The System32 copy is 64-bit and gave 0xc000007b, so I removed it. Installed the x86 Visual C++ 2010 runtime from FS01. Tested: it opens."
+  D1: "Event 2190: Testing failed on MSVCP100.dll. The System32 copy is 64-bit and gave 0xc000007b, so I removed it. Installed the x86 Visual C++ 2010 runtime from FS01. Tested: it opens.",
+  M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -65,19 +75,21 @@ async function run(rewrites, groups) {
     if (p) { p.errs.forEach((e) => F(name + ": page error — " + e)); await p.close(); }
   }
   /* follow Mason's rings and nothing else, to the end of a crawl */
-  async function crawl(p, id) {
+  async function crawl(p, id, max) {
     await take(p, id).catch(() => {});
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < (max || 70); i++) {
       await p.waitForTimeout(300);
       const head = (await p.locator(".coach-now").innerText().catch(() => "")).split("\n")[0];
       if (/done/i.test(head)) return true;
       const t = p.locator(".coach-target");
-      if (!(await t.count())) { await p.waitForTimeout(1600); if (!(await t.count())) return false; }
+      /* mid-walk there is nothing to press: wait for the desk, or the laptop */
+      if (!(await t.count()) && (await p.locator(".walkover").count())) await p.waitForFunction(() => document.querySelector(".coach-target") || document.querySelector(".wo-desk") || !document.querySelector(".walkover"), null, { timeout: 90000 }).catch(() => {});
+      if (!(await t.count())) { await p.waitForTimeout(2600); if (!(await t.count())) return false; }
       const tag = await t.first().evaluate((e) => e.tagName + "." + e.className + " " + (e.getAttribute("aria-label") || ""));
       if (/TEXTAREA/.test(tag)) { await t.first().fill(NOTES[id]); await p.getByRole("button", { name: "Close the ticket" }).click(); continue; }
       if (/DIV/.test(tag) && /opts/.test(tag)) { const right = await p.evaluate(() => window.__LAP.engine.ticket().close.options.find((o) => o.correct).label); await p.locator(".opt2", { hasText: right }).first().click(); continue; }
       if (/con-in/.test(tag)) { const cmd = await p.locator(".coach-cmd").innerText(); await t.first().fill(cmd); await t.first().press("Enter"); continue; }
-      if (/INPUT/.test(tag)) { const c = p.locator(".w-dialog.uac-creds"); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); continue; }
+      if (/INPUT/.test(tag)) { const c = p.locator(".w-dialog.uac-creds:visible").first(); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); continue; }
       const h = await t.first().elementHandle(); await h.click({ timeout: 4000 }).catch(() => {});
       if (/tb-start/.test(tag)) { await p.waitForTimeout(120); const w = ((await p.locator(".coach-say").innerText()).match(/type (\w+)/) || [])[1]; if (w) await p.locator(".sm-search").last().fill(w); }
     }
@@ -91,9 +103,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 12) F("LOAD: the queue shows " + items.length + " tickets, not 12");
+      if (items.length !== 18) F("LOAD: the queue shows " + items.length + " tickets, not 18");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 2 || count(/Walk: checklist/) !== 2 || count(/Run: on your own/) !== 8) F("LOAD: the queue's labels are not 2 crawl, 2 walk, 8 run");
+      if (count(/Crawl: guided/) !== 3 || count(/Walk: checklist/) !== 3 || count(/Run: on your own/) !== 12) F("LOAD: the queue's labels are not 3 crawl, 3 walk, 12 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
     });
 
@@ -218,6 +230,96 @@ async function run(rewrites, groups) {
       if ((await guesses(p)) !== g) F("PERSIST: the guess count was lost on reload");
       if ((await p.getAttribute("html", "data-reading")) !== "dyslexia") F("PERSIST: dyslexia-friendly text did not stay on after a reload");
     });
+
+    await step("MALWARE", async (p) => {
+      p.setDefaultTimeout(30000); await p.emulateMedia({ reducedMotion: "reduce" });
+      await signIn(p); await p.locator(".qi", { hasText: INC.M1 }).click(); await p.waitForTimeout(500);
+      const head = (await p.locator(".coach-now").innerText().catch(() => "")).split("\n")[0];
+      if (!/Step 1 of/i.test(head)) F("MALWARE: before it is assigned, M1's crawl is not at step 1 (" + head + ")");
+      if (!(await crawl(p, "M1", 260))) { F("MALWARE: M1 could not be finished by following Mason's rings (stuck at: " + (await p.locator(".coach-now").innerText().catch(() => "")).split("\n")[0] + ")"); return; }
+      const st = await p.evaluate(() => window.__LAP.engine.state().tickets.M1);
+      if (st.stage !== "done") F("MALWARE: M1's crawl said done but the ticket is not closed");
+      if (st.guesses) F("MALWARE: following Mason's rings cost " + st.guesses + " wrong move(s)");
+    });
+
+    await step("CINE", async (p) => {
+      p.setDefaultTimeout(120000);
+      await signIn(p); await take(p, "L4");
+      await p.evaluate(() => window.__LAP.walkOver("WS5"));
+      await p.waitForFunction(() => window.__LAP.wo() && window.__LAP.wo().office(), null, { timeout: 120000 }).catch(() => {});
+      await p.waitForTimeout(400);
+      const during = await p.evaluate(() => { const o = document.querySelector(".walkover"); const bar = o && o.querySelector(".cine-top"); return { on: !!(o && o.classList.contains("cine-on")), cap: (document.querySelector(".cine-t") || {}).textContent || "", bar: bar ? bar.getBoundingClientRect().height : 0, desk: !!document.querySelector(".wo-desk") }; });
+      if (!during.desk && (!during.on || !during.cap)) F("CINE: the walk is not framed as a cutscene (no letterbox bars or caption)");
+      await p.waitForSelector(".wo-desk", { timeout: 180000 });
+      await p.waitForTimeout(700);
+      const after = await p.evaluate(() => ({ on: document.querySelector(".walkover").classList.contains("cine-on"), fade: !!document.querySelector(".cine-fade.on") }));
+      if (after.on || after.fade) F("CINE: at the desk the cutscene's bars or fade are still over the screen");
+      await p.getByRole("button", { name: "Walk back to your desk" }).click(); await p.waitForSelector(".walkover", { state: "detached", timeout: 180000 });
+      /* reduced motion: a plain cut, no bars, no fade */
+      await p.emulateMedia({ reducedMotion: "reduce" });
+      await p.evaluate(() => window.__LAP.walkOver("WS5")); await p.waitForSelector(".wo-desk", { timeout: 120000 }); await p.waitForTimeout(300);
+      const cut = await p.evaluate(() => ({ on: document.querySelector(".walkover").classList.contains("cine-on"), fade: !!document.querySelector(".cine-fade.on") }));
+      if (cut.on || cut.fade) F("CINE: with reduced motion the cutscene's bars or fade still show");
+    });
+
+    /* CompTIA's steps through the laptop, as a student does them */
+    async function uacOK(scope) { const c = scope.locator(".w-dialog.uac-creds"); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); await scope.page().waitForTimeout(150); }
+    async function okAll(scope) { for (let i = 0; i < 3; i++) { const d = scope.locator(".w-dialog button", { hasText: /^OK$/ }); if (!(await d.count())) return; await d.first().click(); } }
+    async function startApp(scope, q, name) { await okAll(scope); await scope.getByRole("button", { name: "Start menu" }).click(); await scope.locator(".sm-search").fill(q); await scope.getByRole("button", { name }).click(); await scope.page().waitForTimeout(150); }
+    async function checkAll(p, id) {
+      for (const d of ["WS1", "WS2", "WS3", "WS4", "WS5", "FS01", "MAIL01"]) {
+        await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=dev-connect-" + d + "]").click(); await p.waitForTimeout(1700);
+        const r = p.locator(`[data-win="rdp:${d}"]`);
+        await startApp(r, "task", "Open Task Manager"); await startApp(r, "event", "Open Event Viewer"); await r.getByRole("button", { name: /^System$/ }).click();
+        if (d === id) await startApp(r, "browser", "Open Microsoft Edge");
+        await r.getByRole("button", { name: "Disconnect" }).click();
+      }
+    }
+    async function cleanAtDesk(p, d) {
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=dev-walk-" + d + "]").click();
+      await p.locator(".wo-skip").click().catch(() => {}); await p.waitForSelector(".wo-desk");
+      const mon = p.locator(".wo-monitor"), server = /FS01|MAIL01/.test(d);
+      await p.getByRole("button", { name: "Check the network cable" }).click(); await p.getByRole("button", { name: /^Unplug/ }).click();
+      if (!server) { await startApp(mon, "restore", "Open System Properties"); await mon.getByRole("button", { name: /Disable system protection/ }).click(); await uacOK(mon); }
+      await p.getByRole("button", { name: /Plug in the USB stick/ }).click();
+      await startApp(mon, "files", "Open File Explorer"); await mon.getByRole("button", { name: /Go to the USB drive/ }).click(); await mon.getByRole("button", { name: "File mpam-fe.exe" }).click(); await mon.getByRole("button", { name: "Open mpam-fe.exe" }).click(); await uacOK(mon);
+      await startApp(mon, "defender", "Open Windows Security"); await mon.getByRole("button", { name: /Offline scan now/ }).click(); await uacOK(mon);
+      await startApp(mon, "defender", "Open Windows Security"); await mon.getByRole("button", { name: /Turn on \(every day/ }).click(); await uacOK(mon);
+      await p.getByRole("button", { name: "Check the network cable" }).click(); await p.getByRole("button", { name: /Plug .*back in/ }).click();
+      await startApp(mon, "update", "Open Windows Update"); await mon.getByRole("button", { name: "Check for updates" }).click();
+      if (!server) { await startApp(mon, "restore", "Open System Properties"); await mon.getByRole("button", { name: /Turn on system protection/ }).click(); await uacOK(mon); await okAll(mon); await mon.getByRole("button", { name: /Create a restore point/ }).click(); await mon.getByRole("button", { name: "Create", exact: true }).click(); await uacOK(mon); }
+      await p.getByRole("button", { name: "Walk back to your desk" }).click(); await p.waitForSelector(".walkover", { state: "detached" });
+    }
+    async function playMalware(p, id, note) {
+      await take(p, id);
+      const t = await p.evaluate(() => { const t = window.__LAP.engine.ticket(); return { machine: t.machine, infects: t.infects, right: t.close.options.find((o) => o.correct).label }; });
+      await checkAll(p, t.machine);
+      for (const d of t.infects) await cleanAtDesk(p, d);
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click();
+      if (!(await hd(p).locator(".opt2").count())) { F("MALRUN: " + id + " would not resolve after CompTIA's steps (" + (await p.evaluate(() => window.__LAP.engine.T().lastSay)) + ")"); return; }
+      await hd(p).locator(".opt2", { hasText: t.right }).click(); await hd(p).locator("#res-note").fill(note); await hd(p).getByRole("button", { name: "Close the ticket" }).click();
+      const st = await p.evaluate((id) => window.__LAP.engine.state().tickets[id], id);
+      if (st.stage !== "done") F("MALRUN: " + id + " did not close");
+      if (st.guesses) F("MALRUN: CompTIA's steps in order cost " + st.guesses + " wrong move(s) on " + id + ": " + st.says.filter(Boolean).join(" | "));
+    }
+    await step("MALRUN", async (p) => {
+      p.setDefaultTimeout(30000); await p.emulateMedia({ reducedMotion: "reduce" });
+      await signIn(p);
+      await playMalware(p, "M2", "Checked all seven PCs. SpeedBoostPro.exe on WS1 from the 3x faster email. Unplugged to quarantine, System Restore off, USB definitions, Defender Offline scan, schedule, updates, restore point. Told John not to install from email links.");
+      const done = await p.locator(".coach-now").innerText().catch(() => "");
+      if (!/done/i.test(done)) F("MALRUN: M2's walk checklist did not reach Done when the ticket closed");
+      await p.getByRole("button", { name: "Close the checklist" }).click().catch(() => {});
+      await playMalware(p, "M6", "Checked all seven PCs. The invoice xlsm macro Farah enabled dropped OfficeUpdate.exe on WS4 and FS01, the file server. Quarantined both, restore off on WS4, USB definitions, Defender Offline scan, schedule, updates, restore point. Told Farah about macros.");
+      for (const [id, mach, desc] of [["M3", "WS5", "Search Helper"], ["M4", "WS3", "WMI Provider Host"], ["M5", "WS4", "PC Defender Pro"]]) {
+        await p.evaluate(() => window.__LAP.openWin("helpdesk")); await take(p, id);
+        await hd(p).locator("[data-coach=dev-connect-" + mach + "]").click(); await p.waitForTimeout(1700);
+        const r = p.locator(`[data-win="rdp:${mach}"]`); await startApp(r, "task", "Open Task Manager");
+        await r.getByRole("button", { name: /Sort by .*CPU/ }).click();
+        const top = await r.locator("tbody tr").first().innerText();
+        if (top.indexOf(desc) < 0) F("MALRUN: on " + id + ", the top of " + mach + "'s CPU column is not the malware (" + top.split("\t")[0] + ")");
+        await r.getByRole("button", { name: "Disconnect" }).click();
+      }
+    });
   } finally { await b.close(); s.close(); }
   return fails;
 }
@@ -233,6 +335,9 @@ const PLANTS = [
   ["REVERT", "revert keeps the broken machine", { "assets/engine.js": [["S.fleet = M.clone(S.snap);", ""]] }],
   ["DROP", "a restart leaves the session running", { "assets/laptop.js": [["if (a.type === \"power\" && (a.op === \"restart\" || a.op === \"off\")) setTimeout(function () { dropped(w, a.op); }, 0);", ""]] }],
   ["WALKOVER", "the power button does nothing", { "assets/laptop.js": [["if (m.power !== \"on\") { M.boot(m);", "if (m.power !== \"on\") {"]] }],
+  ["MALWARE", "a crawl step already true on the clean office, judged before the ticket is assigned", { "assets/laptop.js": [["return !!(t && t.id === k) && d();", "return d();"], ["return [\"WS2\", \"FS01\"].every(function (x) { return prog(x).removed && MW.online(E.machine(x)); });", "return MW.online(E.machine(\"WS2\")) && MW.online(E.machine(\"FS01\"));"]] }],
+  ["CINE", "the walk is never framed as a cutscene", { "assets/laptop.js": [["ov.classList.add(\"cine-on\"); caption(\"Rafiki's IT Services\"", "caption(\"Rafiki's IT Services\""]] }],
+  ["MALRUN", "the offline scan reports success but leaves the malware", { "assets/malware.js": [["w.removed = true; m.av.found = [];", "m.av.found = [];"]] }],
   ["PERSIST", "the dyslexia setting is not saved", { "assets/laptop.js": [["put(\"c2vm.reading\", on ? \"dyslexia\" : \"default\");", ""]] }]
 ];
 

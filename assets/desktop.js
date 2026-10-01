@@ -13,13 +13,14 @@ import * as M from "./machine.js";
 import { createShell, LAUNCH } from "./cmd.js";
 import { explain } from "./mech.js";
 import { APPS, CATALOGUE } from "./fleet.js";
+import * as MW from "./malware.js";
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function btn(label, cls, fn, aria) { const b = el("button", cls || "w-btn", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
 
-const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows" };
-const TOOLS = ["cmd", "ps", "taskmgr", "eventvwr", "settings", "softcenter", "explorer"];
-const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc" };
+const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update" };
+const TOOLS = ["cmd", "ps", "taskmgr", "eventvwr", "settings", "softcenter", "explorer", "edge", "security", "sysprot", "netconn", "winupdate"];
+const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check" };
 
 export function createDesktop(host, ctx) {
   let wins = [], active = null, wid = 1, start = false, run = null, dialog = null, bootNote = null;
@@ -54,6 +55,7 @@ export function createDesktop(host, ctx) {
     if (app === "explorer") { w.path = "C:\\Users\\" + m().user; w.sel = null; }
     if (app === "settings") { w.sel = null; }
     wins.push(w); active = w.id;
+    M.note(m(), "opened", { app: app });
     act({ type: "open", app: app, elevated: !!elevated });
     draw();
     if (w.shell) focusConsole(w.id);
@@ -207,6 +209,11 @@ export function createDesktop(host, ctx) {
     if (w.app === "settings") body.appendChild(drawSettings(w));
     if (w.app === "softcenter") body.appendChild(drawSoftCenter(w));
     if (w.app === "explorer") body.appendChild(drawExplorer(w));
+    if (w.app === "edge") body.appendChild(drawEdge(w));
+    if (w.app === "security") body.appendChild(drawSecurity(w));
+    if (w.app === "sysprot") body.appendChild(drawSysProt(w));
+    if (w.app === "netconn") body.appendChild(drawNetConn(w));
+    if (w.app === "winupdate") body.appendChild(drawWinUpdate(w));
     if (w.app === "helpdesk") ctx.helpdesk(body, { refresh: draw });
     if (w.app === "prog") { const p = el("div", "prog"); p.appendChild(el("h4", null, w.prog + " " + (M.appByName(m(), w.prog) || {}).ver)); p.appendChild(el("p", null, w.prog + " is open and working on " + m().host + ".")); body.appendChild(p); }
     box.appendChild(body);
@@ -292,6 +299,7 @@ export function createDesktop(host, ctx) {
     if (!p) return; const r = M.endProcess(m(), p.pid);
     if (r.effect === "confirm-critical") { dialog = { kind: "confirm-critical", proc: p, text: r.say }; return draw(); }
     if (r.effect === "denied") dialog = { kind: "message", title: "Unable to end task", text: r.say }; else w.flash = r.say;
+    const back = r.ok ? MW.afterEnd(m(), p) : null; if (back) { w.flash = back; r.respawned = true; }
     act({ type: "tm-end", pid: p.pid, name: p.name, res: r }); w.sel = null; draw();
   }
 
@@ -379,6 +387,9 @@ export function createDesktop(host, ctx) {
     const lab = el("label", "fx-lab", "Address"); const inp = el("input", "w-input fx-addr"); inp.id = "fx-" + mm.id + "-" + w.id; lab.setAttribute("for", inp.id); inp.value = w.path;
     inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { const d = M.dirOf(mm, inp.value.trim()); if (d) { w.path = d.path; w.sel = null; } else dialog = { kind: "message", title: "File Explorer", text: "Windows can't find '" + inp.value + "'. Check the spelling and try again." }; draw(); } });
     bar.appendChild(lab); bar.appendChild(inp);
+    /* This PC: the drives, as Windows lists them, a USB stick included */
+    bar.appendChild(btn("Local Disk (C:)", "w-btn", function () { w.path = "C:\\"; w.sel = null; draw(); }, "Go to Local Disk (C:)"));
+    if (MW.ready(mm).usb) bar.appendChild(btn(mm.usb.label, "w-btn", function () { w.path = "E:\\"; w.sel = null; draw(); }, "Go to the USB drive " + mm.usb.label));
     bar.appendChild(btn("Up", "w-btn", function () { const i = w.path.lastIndexOf("\\"); if (i > 2) { w.path = w.path.slice(0, i); } else w.path = "C:\\"; w.sel = null; draw(); }));
     wrap.appendChild(bar);
     const d = M.dirOf(mm, w.path);
@@ -392,11 +403,97 @@ export function createDesktop(host, ctx) {
       const acts = el("div", "fx-acts"); acts.appendChild(el("span", null, "Selected: " + w.sel));
       acts.appendChild(btn("Delete", "w-btn", function () {
         const full = w.path + "\\" + w.sel;
-        const doIt = function () { const before = ctx.before(); const sh = createShell(mm, { elevated: true, fleet: ctx.fleetLookup }); const res = sh.run('del "' + full + '"'); act({ type: "cmd", line: "del " + full, res: res, elevated: true, before: before, via: "explorer" }); w.sel = null; draw(); };
+        const doIt = function () { const before = ctx.before(); const sh = createShell(mm, { elevated: true, fleet: ctx.fleetLookup }); const res = sh.run('del "' + full + '"'); if (res.inUse) dialog = { kind: "message", title: "File In Use", text: "The action can't be completed because the file is open in " + w.sel + ". Close the file and try again." }; act({ type: "cmd", line: "del " + full, res: res, elevated: true, before: before, via: "explorer" }); w.sel = null; draw(); };
         if (/^c:\\(windows|program files)/i.test(full)) askUAC("File Explorer (delete)", doIt); else doIt();
       }, "Delete " + w.sel));
+      if (/^mpam-fe\.exe$/i.test(w.sel)) acts.appendChild(btn("Open", "w-btn primary", function () {
+        askUAC("Microsoft Defender Antivirus definitions update", function () { const before = ctx.before(); const r = MW.updateDefs(m(), "usb"); dialog = { kind: "message", title: "mpam-fe.exe", text: r.text }; act({ type: "av", op: "defs", how: "usb", res: r, before: before }); draw(); });
+      }, "Open " + w.sel));
       wrap.appendChild(acts);
     }
+    return wrap;
+  }
+
+  /* ------------------------------------------------- Microsoft Edge */
+  /* Only the History page: what the user downloaded is evidence. */
+  function drawEdge(w) {
+    const mm = MW.ready(m()); const wrap = el("div", "edge");
+    wrap.appendChild(el("h4", "set-h", "History"));
+    if (!mm.browser.length) wrap.appendChild(el("p", "sc-note", "Nothing in the history."));
+    const ul = el("ul", "set-list");
+    mm.browser.slice().reverse().forEach(function (b) { const li = el("li", "set-item edge-h"); const t = el("span", "set-name"); t.appendChild(el("strong", null, b.title || b.url)); t.appendChild(el("span", null, (b.time ? b.time + " · " : "") + b.url)); li.appendChild(t); ul.appendChild(li); });
+    if (!w.noted) { w.noted = true; M.note(mm, "view-history"); act({ type: "view-history" }); }
+    wrap.appendChild(ul); return wrap;
+  }
+
+  /* ----------------------------------------------- Windows Security */
+  function drawSecurity(w) {
+    const mm = MW.ready(m()); const wrap = el("div", "set wsec");
+    wrap.appendChild(el("h4", "set-h", "Virus & threat protection"));
+    const cur = el("section", "wsec-sec"); cur.appendChild(el("h5", null, "Current threats"));
+    cur.appendChild(el("p", null, mm.av.found.length ? "Threats found: " + mm.av.found.join(", ") + ". Action needed." : mm.av.lastScan ? "No current threats." : "No scan has been run recently."));
+    wrap.appendChild(cur);
+    const sc = el("section", "wsec-sec"); sc.appendChild(el("h5", null, "Scan options"));
+    const opts = el("div", "dlg-row wsec-opts");
+    [["quick", "Quick scan"], ["full", "Full scan"], ["offline", "Microsoft Defender Offline scan"]].forEach(function (k) {
+      opts.appendChild(btn(k[1], "w-btn" + (k[0] === "offline" ? " primary" : ""), function () {
+        askUAC("Microsoft Defender Antivirus (" + k[1] + ")", function () {
+          const before = ctx.before(); let r;
+          if (k[0] === "offline") { r = MW.scan(mm, "offline"); if (r.offline) r = MW.offlineScan(mm); }
+          else r = MW.scan(mm, k[0]);
+          dialog = { kind: "message", title: "Windows Security", text: r.text };
+          act({ type: "av", op: "scan", kind: k[0], res: r, before: before });
+          if (r.removed) { wins = []; active = null; bootNote = r.text; act({ type: "power", op: "restart", reason: "offline scan" }); }
+          draw();
+        });
+      }, k[1] + " now"));
+    });
+    sc.appendChild(opts); wrap.appendChild(sc);
+    const up = el("section", "wsec-sec"); up.appendChild(el("h5", null, "Protection updates"));
+    up.appendChild(el("p", null, "Security intelligence version " + mm.av.defs + ", last updated " + mm.av.defsDate + "."));
+    up.appendChild(btn("Check for updates", "w-btn", function () { const before = ctx.before(); const r = MW.updateDefs(mm, "internet"); dialog = { kind: "message", title: "Protection updates", text: r.text }; act({ type: "av", op: "defs", how: "internet", res: r, before: before }); draw(); }));
+    wrap.appendChild(up);
+    const sch = el("section", "wsec-sec"); sch.appendChild(el("h5", null, "Scheduled scan"));
+    sch.appendChild(el("p", null, mm.av.schedule ? "On: " + mm.av.schedule + "." : "Off. No scan is scheduled."));
+    sch.appendChild(btn(mm.av.schedule ? "Turn off" : "Turn on (every day at 2:00 AM)", "w-btn", function () { askUAC("Microsoft Defender Antivirus (scheduled scan)", function () { const before = ctx.before(); const r = MW.setSchedule(mm, !mm.av.schedule); act({ type: "av", op: "schedule", on: !!mm.av.schedule, res: r, before: before }); draw(); }); }));
+    wrap.appendChild(sch);
+    return wrap;
+  }
+
+  /* ------------------------------- System Properties, System Protection */
+  function drawSysProt(w) {
+    const mm = MW.ready(m()); const wrap = el("div", "set sysprot");
+    wrap.appendChild(el("h4", "set-h", "System Properties › System Protection"));
+    if (!mm.restore.available) { wrap.appendChild(el("p", null, "System Restore is not available on Windows Server. Servers are protected with Windows Server Backup instead.")); return wrap; }
+    const t = el("table", "ev-table"); const hr = el("tr"); ["Available drives", "Protection"].forEach(function (c) { const th = el("th", null, c); th.setAttribute("scope", "col"); hr.appendChild(th); });
+    const th0 = el("thead"); th0.appendChild(hr); t.appendChild(th0); const tb = el("tbody"); const r1 = el("tr"); r1.appendChild(el("td", null, "Local Disk (C:) (System)")); r1.appendChild(el("td", null, mm.restore.enabled ? "On" : "Off")); tb.appendChild(r1); t.appendChild(tb); wrap.appendChild(t);
+    wrap.appendChild(el("p", null, "Restore points: " + (mm.restore.points.length ? mm.restore.points.map(function (p) { return p.name + " (" + p.date + ")"; }).join("; ") : "none")));
+    const row = el("div", "dlg-row");
+    row.appendChild(btn(mm.restore.enabled ? "Configure: Disable system protection" : "Configure: Turn on system protection", "w-btn", function () {
+      askUAC("System Properties", function () { const before = ctx.before(); const r = MW.setRestore(mm, !mm.restore.enabled); dialog = { kind: "message", title: "System Protection", text: r.text }; act({ type: "restore", op: mm.restore.enabled ? "on" : "off", res: r, before: before }); draw(); });
+    }));
+    row.appendChild(btn("Create a restore point…", "w-btn", function () { dialog = { kind: "restorepoint" }; draw(); }));
+    wrap.appendChild(row); return wrap;
+  }
+
+  /* -------------------------------------------- Network Connections */
+  function drawNetConn(w) {
+    const mm = MW.ready(m()); const wrap = el("div", "set netconn");
+    wrap.appendChild(el("h4", "set-h", "Network Connections"));
+    const li = el("div", "set-item"); const t = el("span", "set-name"); t.appendChild(el("strong", null, "Ethernet"));
+    t.appendChild(el("span", null, mm.net.adapter === false ? "Disabled" : mm.net.cable === false ? "Network cable unplugged" : "Rafiki.local · Intel(R) Ethernet Connection")); li.appendChild(t);
+    li.appendChild(btn(mm.net.adapter === false ? "Enable" : "Disable", "w-btn", function () {
+      askUAC("Network Connections", function () { const before = ctx.before(); const on = mm.net.adapter === false; MW.setAdapter(mm, on); act({ type: "net", op: on ? "on" : "off", how: "adapter", before: before }); draw(); });
+    }, (mm.net.adapter === false ? "Enable" : "Disable") + " Ethernet"));
+    wrap.appendChild(li); return wrap;
+  }
+
+  /* -------------------------------------------------- Windows Update */
+  function drawWinUpdate(w) {
+    const mm = MW.ready(m()); const wrap = el("div", "set winupdate");
+    wrap.appendChild(el("h4", "set-h", "Settings › Windows Update"));
+    wrap.appendChild(el("p", null, mm.updates.pending ? mm.updates.pending + " updates are waiting. Last checked: " + mm.updates.last + "." : "You're up to date. Last checked: " + mm.updates.last + "."));
+    wrap.appendChild(btn("Check for updates", "w-btn primary", function () { const before = ctx.before(); const r = MW.runUpdates(mm); dialog = { kind: "message", title: "Windows Update", text: r.text }; act({ type: "updates", res: r, before: before }); draw(); }));
     return wrap;
   }
 
@@ -437,6 +534,12 @@ export function createDesktop(host, ctx) {
         else { mm.runtimes[it.key] = false; M.syncRuntimes(mm); M.note(mm, "uninstall", { runtime: it.key }); }
         dialog = { kind: "message", title: it.label + " Setup", text: it.label + " was removed." }; act({ type: "cmd", line: "uninstall " + it.key, res: { kind: "change" }, before: before }); draw();
       }));
+      row.appendChild(btn("Cancel", "w-btn", close));
+    }
+    if (d.kind === "restorepoint") {
+      box.appendChild(el("h3", "dlg-h", "Create a restore point")); const lab = el("label", null, "Type a description to help you identify the restore point:"); const inp = el("input", "w-input"); inp.id = "rp-" + mm.id; lab.setAttribute("for", inp.id); inp.value = "After malware removal";
+      box.appendChild(lab); box.appendChild(inp);
+      row.appendChild(btn("Create", "w-btn primary", function () { const v = inp.value.trim(); askUAC("System Properties", function () { const before = ctx.before(); const r = MW.createPoint(MW.ready(mm), v); dialog = { kind: "message", title: "System Protection", text: r.text }; act({ type: "restore", op: "point", res: r, before: before }); draw(); }); }));
       row.appendChild(btn("Cancel", "w-btn", close));
     }
     if (d.kind === "confirm-critical") {

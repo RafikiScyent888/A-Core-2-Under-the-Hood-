@@ -35,7 +35,7 @@ function survivor(options, picked) {
 /* The wrong moves the student has already made on this machine, read
    from what it recorded. Rung 3 never leaves one of those alive: they
    have seen it fail. */
-const TRIED = { copy: /^(robocopy|copy)\b/i, regsvr32: /^regsvr32\b/i, setx: /^setx\b/i, sfc: /^run sfc\b/i, gpupdate: /^gpupdate\b/i };
+const TRIED = { copy: /^(robocopy|copy)\b/i, regsvr32: /^regsvr32\b/i, setx: /^setx\b/i, sfc: /^run sfc\b/i, gpupdate: /^gpupdate\b/i, "malware-respawned": /^End the malicious process/i };
 function tried(m, moves) {
   const out = {}; if (!m) return out;
   (m.events || []).forEach(function (e) { const re = TRIED[e.kind]; if (re) moves.forEach(function (x) { if (!x.correct && re.test(x.label)) out[x.label] = true; }); });
@@ -74,6 +74,9 @@ export function createEngine(storage) {
     const t = ticket(), st = T();
     if (t && st && st.stage === "work") {
       const b = a.before || { score: score(t, S.fleet) };
+      /* Consequences first (malware ended on a networked PC spreads),
+         then the judging, which can then explain what happened. */
+      if (t.react) t.react(a, S.fleet);
       let j = t.judge(a, S.fleet, b) || {};
       /* Putting back what you changed yourself is not a guess: the
          machine is where your last snapshot had it. */

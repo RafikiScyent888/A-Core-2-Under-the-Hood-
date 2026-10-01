@@ -476,32 +476,70 @@ export async function mountOffice(host, opts) {
        [x, z] points through the doors, then turning to look at a point.
        With reduced motion it cuts straight there. */
     peek: function (u) { if (lastWalk) lastWalk(u); },
-    walk: function (path, look, done) {
+    walk: function (path, look, done, cine) {
+      cine = cine || {};
       controls.enabled = false;
       const EYE = 5.4, pts = path.map(function (p) { return new THREE.Vector3(p[0], EYE, p[1]); });
       const target = new THREE.Vector3(look[0], look[1], look[2]);
       const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       let seg = [], total = 0; for (let i = 1; i < pts.length; i++) { const d = pts[i].distanceTo(pts[i - 1]); seg.push(d); total += d; }
       const SPEED = 5.5; /* feet a second: a brisk walk */
-      const dur = reduce ? 0 : (total / SPEED) * 1000, t0 = performance.now(); let stopped = false;
+      const dur = reduce ? 0 : (total / SPEED) * 1000; let t0 = 0, stopped = false, finished = false;
+      /* THE CUTSCENE (owner, 1 Oct: "like a cut screen from a video
+         game"). An establishing shot high over the building swoops down
+         into the room the walk starts from; then the walk itself, eased
+         in and out, with a slight sway in step. Reduced motion: none of
+         it, a plain cut. */
+      /* no establishing shot for a few steps across the same room (the
+         server rack is beside your bench) */
+      const AERIAL = reduce || !cine.aerial || total < 12 ? 0 : 3400;
+      const A0 = new THREE.Vector3(W / 2 - 34, 78, D + 62), AL = new THREE.Vector3(W / 2, 0, D / 2);
+      const ease = function (x) { return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
       function at(u) {
         let d = u * total, i = 0; while (i < seg.length - 1 && d > seg[i]) { d -= seg[i]; i++; }
         const a = pts[i], b = pts[i + 1] || pts[i]; const k = seg[i] ? Math.min(1, d / seg[i]) : 1;
         return a.clone().lerp(b, k);
       }
+      function lookAt(u) { const ahead = u < 0.92 ? at(Math.min(1, u + 0.06)) : null; return ahead ? new THREE.Vector3(ahead.x, EYE - 0.2, ahead.z).lerp(target, Math.max(0, (u - 0.75) / 0.25)) : target; }
+      function walkAt(u) {
+        const e = dur ? ease(u) : 1, p = at(e);
+        /* in step: a little bob and sway, fading out as you stop */
+        const fade = Math.min(1, e * 8, (1 - e) * 8), dist = e * total;
+        if (dur) { p.y += Math.sin(dist * 2.2) * 0.07 * fade; const ahead = at(Math.min(1, e + 0.01)); const side = new THREE.Vector3(ahead.z - p.z, 0, p.x - ahead.x).normalize(); p.addScaledVector(side, Math.sin(dist * 1.1) * 0.05 * fade); }
+        cam.position.copy(p); cam.lookAt(lookAt(e)); composer.render();
+      }
+      /* The establishing shot: high over the building, a curve down over
+         the roofless room the walk starts in, then straight down into it,
+         already facing the way the walk goes, so the cut to walking is
+         seamless. */
+      function aerialAt(u) {
+        const e = ease(u), p0 = pts[0];
+        const fwd = at(0.3).sub(p0).setY(0).normalize();
+        const P1 = new THREE.Vector3(p0.x - 4, 58, p0.z + 34), P2 = p0.clone().addScaledVector(fwd, -2.5).setY(17);
+        const k = 1 - e, pos = A0.clone().multiplyScalar(k * k * k).add(P1.clone().multiplyScalar(3 * k * k * e)).add(P2.clone().multiplyScalar(3 * k * e * e)).add(p0.clone().multiplyScalar(e * e * e));
+        cam.position.copy(pos);
+        const ahead = at(0.3).setY(EYE - 0.4), endLook = lookAt(0);
+        const look = e < 0.8 ? AL.clone().lerp(ahead, Math.pow(e / 0.8, 1.4)) : ahead.lerp(endLook, (e - 0.8) / 0.2);
+        cam.lookAt(look); composer.render();
+      }
+      let phase = AERIAL ? "aerial" : "walk";
+      if (cine.onPhase) cine.onPhase(phase);
       function frame(now) {
         if (stopped) return;
-        const u = dur ? Math.min(1, (now - t0) / dur) : 1;
-        const p = at(u); cam.position.copy(p);
-        const ahead = u < 0.92 ? at(Math.min(1, u + 0.06)) : null;
-        const lookNow = ahead ? new THREE.Vector3(ahead.x, EYE - 0.2, ahead.z).lerp(target, Math.max(0, (u - 0.75) / 0.25)) : target;
-        cam.lookAt(lookNow); composer.render();
-        if (u < 1) requestAnimationFrame(frame); else if (done) done();
+        if (!t0) t0 = now;
+        if (phase === "aerial") {
+          const u = Math.min(1, (now - t0) / AERIAL); aerialAt(u);
+          if (u >= 1) { phase = "walk"; t0 = now; if (cine.onPhase) cine.onPhase("walk"); }
+          return requestAnimationFrame(frame);
+        }
+        const u = dur ? Math.min(1, (now - t0) / dur) : 1; walkAt(u);
+        if (u < 1) requestAnimationFrame(frame); else { stopped = finished = true; if (cine.onPhase) cine.onPhase("end"); if (done) done(); }
       }
       requestAnimationFrame(frame);
-      /* for verify/: draw the walk at a given point along the route */
-      lastWalk = function (u) { stopped = true; const p = at(u); cam.position.copy(p); const ahead = u < 0.92 ? at(Math.min(1, u + 0.06)) : null; cam.lookAt(ahead ? new THREE.Vector3(ahead.x, EYE - 0.2, ahead.z).lerp(target, Math.max(0, (u - 0.75) / 0.25)) : target); composer.render(); };
-      return { skip: function () { stopped = true; cam.position.copy(pts[pts.length - 1]); cam.lookAt(target); composer.render(); if (done) done(); } };
+      /* for verify/: draw the walk at a given point along the route
+         (u < 0 draws the establishing shot, -1 its start) */
+      lastWalk = function (u) { stopped = true; if (cine.onPhase) cine.onPhase(u < 0 ? "aerial" : "walk"); if (u < 0) aerialAt(1 + u); else walkAt(u); };
+      return { skip: function () { if (finished) return; stopped = finished = true; cam.position.copy(pts[pts.length - 1]); cam.lookAt(target); composer.render(); if (cine.onPhase) cine.onPhase("end"); if (done) done(); } };
     },
     /* Slide the picture sideways, so what the student is looking at sits
        beside the panel that opens over the right of the screen. */

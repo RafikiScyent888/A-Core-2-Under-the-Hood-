@@ -22,7 +22,11 @@
    console; Mason's rung 3 in chat; Settings and Start; the resolution with
    wrong picks red and rung 3 strikes; a refused note; the closed ticket;
    instructor mode; the L2 walk with How? open; the D1 crawl; the D2 walk;
-   at a desk after the walk-over. Dark, light, and dark with dyslexia text.
+   at a desk after the walk-over; the Malware incident (Devices, Task
+   Manager's process details, Edge, Windows Security, System Properties,
+   Windows Update, Network Connections), the cutscene's caption, the USB
+   stick at the desk, a session ended by quarantine. Dark, light, and dark
+   with dyslexia text.
 
    It does not measure text behind a modal's scrim, under the Start menu
    or Run box, scrolled out of its own box, inside a closed <details>, or
@@ -46,6 +50,11 @@ export async function run(extraCss) {
   async function sweep(state) {
     where = state;
     await page.waitForTimeout(250);
+    /* elementFromPoint (the occlusion test below) looks straight through
+       anything with pointer-events: none, such as the cutscene's caption
+       layer, and would call its text covered. Every layer is made
+       hit-testable while the runs are collected. */
+    const pe = await page.addStyleTag({ content: "*{pointer-events:auto!important}" });
     const runs = await page.evaluate(() => {
       const out = []; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n;
       const desc = (el) => { const p = []; for (let e = el; e && e !== document.body && p.length < 3; e = e.parentElement) p.unshift(e.tagName.toLowerCase() + (typeof e.className === "string" && e.className.trim() ? "." + e.className.trim().split(/\s+/).join(".") : "")); return p.join(" > "); };
@@ -75,7 +84,10 @@ export async function run(extraCss) {
           clips.forEach((c) => { x0 = Math.max(x0, c.left); y0 = Math.max(y0, c.top); x1 = Math.min(x1, c.right); y1 = Math.min(y1, c.bottom); });
           if ((x1 - x0) * (y1 - y0) < 0.6 * r0.width * r0.height) continue;
           if (occl.some((o) => r0.left < o.right && r0.right > o.left && r0.top < o.bottom && r0.bottom > o.top)) continue;
-          const mine = (px, py) => { const top = document.elementFromPoint(px, py); return top && (top === el || el.contains(top) || top.contains(el)); };
+          /* the topmost layer that is actually painted: a fully transparent
+             layer (a fade at opacity 0) hides nothing */
+          const seen = (e) => { for (let a = e; a; a = a.parentElement) { const o = getComputedStyle(a); if (parseFloat(o.opacity) === 0 || o.visibility === "hidden") return false; } return true; };
+          const mine = (px, py) => { const top = document.elementsFromPoint(px, py).filter(seen)[0]; return top && (top === el || el.contains(top) || top.contains(el)); };
           if (![[0.5, 0.5], [0.1, 0.2], [0.9, 0.2], [0.1, 0.85], [0.9, 0.85]].every(([fx, fy]) => mine(x0 + (x1 - x0) * fx, y0 + (y1 - y0) * fy))) continue;
           const r = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
           if (r.width > 4 && r.height > 6)
@@ -89,6 +101,7 @@ export async function run(extraCss) {
       });
       return out;
     });
+    await pe.evaluate((t) => t.remove());
     const tag = await page.addStyleTag({ content: "*{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;caret-color:transparent!important}" });
     const png = await page.screenshot({ fullPage: true });
     await tag.evaluate((t) => t.remove());
@@ -188,6 +201,48 @@ export async function run(extraCss) {
     await page.waitForSelector(".wo-desk", { timeout: 90000 }); await page.getByRole("button", { name: "Check the network cable" }).click();
     await sweep(tag + ": walked over to WS2, at the desk");
     await page.getByRole("button", { name: "Walk back to your desk" }).click(); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+
+    /* the Malware incident: Devices, the new Windows tools, the cutscene,
+       the USB stick at the desk, a session ended by quarantine */
+    await page.evaluate(() => window.__LAP.openWin("helpdesk"));
+    await page.locator(".qi", { hasText: "INC20422" }).click(); await hd.locator("[data-coach=assign]").click(); await page.waitForTimeout(300);
+    await sweep(tag + ": M1 incident ticket, Devices, crawl step 2");
+    const win = (id, app) => page.locator('[data-win="rdp:' + id + '"] section.win[aria-label^="' + app + '"]');
+    const open = async (id, q, name) => { const r = page.locator('[data-win="rdp:' + id + '"]'); await r.getByRole("button", { name: "Start menu" }).click(); await r.locator(".sm-search").fill(q); await r.getByRole("button", { name }).click(); await page.waitForTimeout(250); };
+    await hd.locator("[data-coach=dev-connect-FS01]").click(); await page.waitForTimeout(1700);
+    await open("FS01", "task", "Open Task Manager");
+    await win("FS01", "Task Manager").getByRole("button", { name: /Sort by .*CPU/ }).click(); await win("FS01", "Task Manager").locator("tbody tr").first().click();
+    await sweep(tag + ": FS01 Task Manager, What is this process?");
+    await open("FS01", "event", "Open Event Viewer");
+    await page.evaluate(() => window.__LAP.openWin("helpdesk"));
+    await sweep(tag + ": Devices, FS01 checked");
+    await hd.locator("[data-coach=dev-connect-WS2]").click(); await page.waitForTimeout(1700);
+    await open("WS2", "browser", "Open Microsoft Edge"); await sweep(tag + ": WS2 Edge history");
+    await open("WS2", "defender", "Open Windows Security"); await sweep(tag + ": WS2 Windows Security");
+    await open("WS2", "restore", "Open System Properties"); await sweep(tag + ": WS2 System Properties");
+    await open("WS2", "update", "Open Windows Update"); await sweep(tag + ": WS2 Windows Update");
+    await open("WS2", "network", "Open Network Connections"); await sweep(tag + ": WS2 Network Connections");
+    /* the cutscene, frozen mid-swoop */
+    await page.evaluate(() => window.__LAP.walkOver("WS2"));
+    await page.waitForFunction(() => window.__LAP.wo() && window.__LAP.wo().office(), null, { timeout: 90000 });
+    await page.evaluate(() => window.__LAP.wo().office().peek(-0.5)); await page.waitForTimeout(700);
+    await sweep(tag + ": walk-over cutscene, caption on the letterbox");
+    await page.evaluate(() => { const s = document.querySelector(".wo-skip"); if (s) s.click(); });
+    await page.waitForSelector(".wo-desk", { timeout: 90000 }); await page.waitForTimeout(700);
+    await page.getByRole("button", { name: "Check the network cable" }).click();
+    await page.getByRole("button", { name: /Plug in the USB stick/ }).click();
+    const mon = page.locator(".wo-monitor");
+    await mon.getByRole("button", { name: "Start menu" }).click(); await mon.locator(".sm-search").fill("files"); await mon.getByRole("button", { name: "Open File Explorer" }).click();
+    await mon.getByRole("button", { name: /Go to the USB drive/ }).click(); await mon.getByRole("button", { name: "File mpam-fe.exe" }).click();
+    await sweep(tag + ": at WS2's desk, USB stick in, File Explorer on E:");
+    await page.getByRole("button", { name: "Unplug the network cable" }).click(); await page.waitForTimeout(300);
+    await page.getByRole("button", { name: "Walk back to your desk" }).click(); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+    await page.evaluate(() => { const w = window.__LAP.W["rdp:WS2"]; if (w) { w.min = false; } window.__LAP.openWin("rdp:WS2"); });
+    await page.waitForTimeout(300);
+    await sweep(tag + ": WS2's remote session ended by quarantine");
+    await page.evaluate(() => window.__LAP.openWin("helpdesk"));
+    await page.locator(".qi", { hasText: "INC20423" }).click(); await hd.locator("[data-coach=assign]").click(); await page.locator(".coach details summary").nth(1).click();
+    await sweep(tag + ": M2 malware walk, How? open");
   }
 
   try {
@@ -203,7 +258,9 @@ const PLANTS = {
   "sky-blue primary buttons (the old sims' dashboard)": ".b.pri, .w-btn.primary { background: #38bdf8 !important; color: #ffffff !important; border-color: #38bdf8 !important; }",
   "a ruled-out cause's reason dimmed to show it is ruled out": ".opt2.out .ow { color: #9ca3af !important; }",
   "Mason's struck moves faded": ".narrow2 .struck { opacity: 0.45 !important; }",
-  "grey text at the desk after the walk-over": ".wo-state { color: #6b7280 !important; }"
+  "grey text at the desk after the walk-over": ".wo-state { color: #6b7280 !important; }",
+  "the cutscene's place line in a dim yellow": ".cine-s { color: #8a7a1c !important; }",
+  "a checked PC's tick in a pale green": ".dev-t td.dev-ok { color: #4ade80 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

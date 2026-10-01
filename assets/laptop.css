@@ -284,3 +284,32 @@ tr.coach-target td:first-child { box-shadow: inset 4px 4px 0 #b88a00, inset 0 -4
 .wo-acts { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .wo-back { align-self: flex-start; }
 @media (max-width: 760px) { .wo-desk { top: 5.6rem; left: 0.5rem; right: 0.5rem; width: auto; } }
+
+/* ---------------------------------------------- incident: the devices */
+.devs .dev-wrap { overflow-x: auto; }
+.dev-t { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.dev-t th, .dev-t td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.dev-t thead th { color: var(--muted); font-weight: 700; font-size: 0.85rem; }
+.dev-t td.dev-ok { font-weight: 700; color: var(--good-ink); }
+.dev-acts { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+
+/* ------------------------------------------ the walk-over's cutscene */
+.cine { position: absolute; inset: 0; pointer-events: none; }
+.cine-top, .cine-bot { position: absolute; left: 0; right: 0; background: #000; height: 0; transition: height 0.6s ease; overflow: hidden; }
+.cine-top { top: 0; }
+.cine-bot { bottom: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 2rem; }
+.walkover.cine-on .cine-top, .walkover.cine-on .cine-bot { height: 13%; }
+.cine-t { margin: 0; color: #fff; font-size: clamp(1.15rem, 2.4vw, 1.7rem); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.cine-s { margin: 0.2rem 0 0; color: #ffd426; font-size: clamp(0.95rem, 1.6vw, 1.15rem); font-weight: 600; }
+.cine-fade { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 0.45s ease; }
+.cine-fade.on { opacity: 1; }
+.walkover .wo-bar, .walkover .wo-desk { z-index: 2; }
+.walkover.cine-on .wo-bar { top: 1rem; border-color: #ffd426; }
+@media (prefers-reduced-motion: reduce) { .cine-top, .cine-bot, .cine-fade { transition: none; } }
+/* the bars sit under the walk's status bar; the fade covers everything */
+.cine-top, .cine-bot { z-index: 1; }
+.cine-fade { z-index: 3; }
+/* at the desk the monitor is shorter than a remote window: its top bar and
+   taskbar keep their height, and the desktop scrolls between them */
+.wo-monitor .sign-bar, .wo-monitor .taskbar { flex-shrink: 0; }
+.wo-monitor .desk-area { min-height: 0; overflow: auto; }

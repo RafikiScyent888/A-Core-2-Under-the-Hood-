@@ -23,6 +23,7 @@
    ===================================================================== */
 import * as M from "./machine.js";
 import { APPS } from "./fleet.js";
+import { MALWARE } from "./tickets-malware.js";
 
 function works(m, app) { return M.launchApp(M.clone(m), app).ok; }
 function has(m, kind, test) { return m.events.some(function (e) { return e.kind === kind && (!test || test(e)); }); }
@@ -296,9 +297,14 @@ TICKETS.filter(function (t) { return t.tier === 2; }).forEach(function (t) {
   t.moves = function (fleet) { return deployMoves(t, fleet); };
 });
 
+/* The Malware tickets come after the Tier 2 ones: they bring their own
+   judge, hints and moves (tickets-malware.js). */
+MALWARE.forEach(function (t) { TICKETS.push(t); });
+
 /* How far along a Tier 2 fix is: used so a step that helps is never
    counted as a guess, even when the program does not run yet. */
 export function score(t, fleet) {
+  if (t.scoreFn) return t.goal(fleet) ? 1000 : t.scoreFn(fleet);
   const m = fleet[t.machine]; let s = 0;
   if (t.goal && t.goal(fleet)) return 10;
   if (t.id === "D1") { if (M.findFile(m, "C:\\Windows\\SysWOW64", "msvcp100.dll") || (M.findFile(m, "C:\\Program Files (x86)\\Testing", "msvcp100.dll") || {}).bits === 32) s++; if (M.findFile(m, "C:\\Windows\\SysWOW64", "msvcr100.dll") || (M.findFile(m, "C:\\Program Files (x86)\\Testing", "msvcr100.dll") || {}).bits === 32) s++; }

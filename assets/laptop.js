@@ -17,6 +17,8 @@ import { createEngine, rungFor } from "./engine.js";
 import { createDesktop } from "./desktop.js";
 import { TICKETS } from "./tickets.js";
 import { ordered } from "./order.js";
+import * as MW from "./malware.js";
+import { inspected, nextStep } from "./tickets-malware.js";
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function btn(label, cls, fn, aria) { const b = el("button", cls || "b", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
@@ -279,7 +281,8 @@ function askMason(q) {
 function nextStepAdvice(t, st) {
   const r = rosterOf(t.machine), who = t.from.split(" ")[0];
   const ev = evs(t.machine);
-  if (st.stage === "close") return "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
+  if (st.stage === "close") return t.kind === "malware" ? "Every PC is done. Last of CompTIA's steps: what do you tell the user, so it doesn't happen again? Pick it on the ticket." : "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
+  if (t.kind === "malware") return "Work through CompTIA's malware-removal steps, in order, on every PC that needs them: investigate and verify, quarantine, disable System Restore, remediate (update the definitions, then scan and remove), schedule scans and run updates, enable System Restore and create a restore point, educate the user. Where are you in that list? The Devices list on the ticket shows which PCs you've checked.";
   if (!W["rdp:" + t.machine] && !ev.length) return "Start by seeing it for yourself. On the ticket in Help Desk, press Connect to " + r.host + ". When " + who + "'s screen opens, run the program they're having trouble with and read exactly what it says.";
   if (!ev.some(function (e) { return e.kind === "launch"; })) return "You're on " + who + "'s PC. Run the program they're having trouble with, from their desktop or Start (or type its name at a prompt), and read the message word for word. If Windows can't find it at all, that's evidence too.";
   if (!ev.some(function (e) { return e.kind === "view-log"; })) return "You've seen the problem. Now check what Windows recorded: on " + who + "'s PC press Start, type event, and open Event Viewer. Read the Errors and Warnings in both the Application and System logs.";
@@ -354,11 +357,12 @@ function drawTicket(t) {
   p.appendChild(el("p", "t-id", INC[t.id] + " · " + (t.base ? "the " + t.sim + " sim" : "based on the " + t.sim + " sim")));
   p.appendChild(el("h2", null, t.title));
   const dl = el("dl", "t-grid");
-  [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", r.host + " · " + r.ip], ["Location", r.where], ["Category", "Software › Application"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); });
+  const mal = t.kind === "malware";
+  [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", mal ? "Every PC on the network (see Devices)" : r.host + " · " + r.ip], ["Location", mal ? "The whole office" : r.where], ["Category", mal ? "Security › Malware" : "Software › Application"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); });
   p.appendChild(dl);
 
   const m = el("section", "t-sec"); m.appendChild(el("h3", null, "Request"));
-  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, name + " (" + r.host + ")")); mh.appendChild(el("span", null, "via email")); msg.appendChild(mh);
+  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, mal ? name : name + " (" + r.host + ")")); mh.appendChild(el("span", null, mal ? "assigned by your team lead" : "via email")); msg.appendChild(mh);
   t.brief.forEach(function (x) { msg.appendChild(el("p", null, x)); }); m.appendChild(msg); p.appendChild(m);
 
   const acts = el("div", "t-acts");
@@ -370,6 +374,9 @@ function drawTicket(t) {
     })));
   } else if (!isCur) {
     acts.appendChild(btn("Switch to this ticket", "b pri", function () { Object.keys(W).filter(function (k) { return k.indexOf("rdp:") === 0; }).forEach(closeWin); E.openTicket(t.id); logT(t.id, "Picked back up"); refresh(); }));
+  } else if (st.stage === "work" && mal) {
+    acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: every PC checked, the infected ones cleaned" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
+    acts.appendChild(btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); }));
   } else if (st.stage === "work") {
     acts.appendChild(coachTag("connect", btn("Connect to " + r.host, "b pri", function () { connect(t.machine); }, "Connect to " + r.host + " by remote support")));
     acts.appendChild(coachTag("walk", btn("Walk to " + first + "'s desk", "b", function () { walkOver(t.machine); })));
@@ -377,6 +384,7 @@ function drawTicket(t) {
     acts.appendChild(btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); }));
   }
   p.appendChild(acts);
+  if (mal && isCur && st && st.stage !== "done") p.appendChild(drawDevices(t));
   if (isCur && st && st.stage === "work") {
     const c = el("p", "t-id", LEVEL[t.id] === "crawl" ? "Mason is walking you through this one. Follow his steps on the right." : st.guesses ? "Moves that did not help so far: " + st.guesses + ". Looking around never counts." : "Looking around, reading logs, running the program to test it and typos never count against you.");
     p.appendChild(c);
@@ -399,6 +407,30 @@ function drawTicket(t) {
     const a = el("div", "ins"); a.appendChild(el("strong", null, "Instructor: ")); a.appendChild(document.createTextNode("Fix: " + (mv ? mv.label : "") + ". Outcome: " + t.outcome + ". Cause: " + t.close.options.filter(function (x) { return x.correct; })[0].label + ".")); p.appendChild(a);
   }
   return p;
+}
+/* An incident covers the whole network: every PC is one click from a
+   remote session or a walk. The list shows only what the student has
+   done or can see from here (checked, reachable), never which PCs are
+   infected: that is for them to find. */
+function drawDevices(t) {
+  const sec = el("section", "t-sec devs"); sec.appendChild(el("h3", null, "Devices on the network"));
+  const tb = el("table", "dev-t"); const hr = el("tr"); ["Device", "Who and where", "Checked", "Network", ""].forEach(function (c) { const th = el("th", null, c); th.setAttribute("scope", "col"); hr.appendChild(th); });
+  const th0 = el("thead"); th0.appendChild(hr); tb.appendChild(th0); const body = el("tbody");
+  t.devices.forEach(function (id) {
+    const r = rosterOf(id), m = E.machine(id); const tr = el("tr");
+    const h = el("th", null, r.host); h.setAttribute("scope", "row"); tr.appendChild(h);
+    tr.appendChild(el("td", null, (r.id === "FS01" || r.id === "MAIL01" ? r.fullName : r.fullName + ", " + r.dept) + " · " + r.where));
+    const ok = inspected(m); tr.appendChild(el("td", ok ? "dev-ok" : null, ok ? "✓ Checked" : "Not yet"));
+    const net = MW.online(m) ? "Reachable" : m.power !== "on" ? "Switched off" : "Off the network";
+    tr.appendChild(el("td", null, net));
+    const a = el("td", "dev-acts");
+    a.appendChild(coachTag("dev-connect-" + id, btn("Connect", "b small", function () { connect(id); }, "Connect to " + r.host + " by remote support")));
+    a.appendChild(coachTag("dev-walk-" + id, btn(r.id === "FS01" || r.id === "MAIL01" ? "Walk to the closet" : "Walk to the desk", "b small", function () { walkOver(id); }, "Walk to " + r.host)));
+    tr.appendChild(a); body.appendChild(tr);
+  });
+  tb.appendChild(body); const wrap = el("div", "dev-wrap"); wrap.appendChild(tb); sec.appendChild(wrap);
+  sec.appendChild(el("p", "t-id", "\"Checked\" means you have looked at what is running (Task Manager) and at what Windows recorded (Event Viewer) on that PC."));
+  return sec;
 }
 function drawResolution(t, st) {
   const box = el("section", "t-sec res");
@@ -431,14 +463,16 @@ function after() { if (!crawling()) masonCheck(); refresh(); }
 function connect(id) {
   const t = E.ticket();
   /* Already connected, or connecting: just bring the session forward. */
+  if (W["rdp:" + id] && W["rdp:" + id].phase === "dropped") closeWin("rdp:" + id);
   if (W["rdp:" + id] && W["rdp:" + id].phase !== "fail") { W["rdp:" + id].min = false; place(W["rdp:" + id]); focusWin("rdp:" + id); return; }
   if (t) logT(t.id, "Remote support request sent to " + rosterOf(id).host);
   const w = openWin("rdp:" + id); w.phase = "wait"; redraw("rdp:" + id);
   setTimeout(function () {
     if (!W["rdp:" + id]) return;
     const m = E.machine(id);
-    w.phase = m.power !== "on" || m.crashed || (m.net && m.net.cable === false) ? "fail" : "on";
-    if (t) logT(t.id, w.phase === "on" ? rosterOf(id).fullName + " accepted. Connected to " + rosterOf(id).host : rosterOf(id).host + " could not be reached");
+    w.phase = MW.online(m) ? "on" : "fail";
+    const srv = MW.server(m);
+    if (t) logT(t.id, w.phase === "on" ? (srv ? "Signed in to " + rosterOf(id).host + " with Remote Desktop, as RAFIKI\\itadmin" : rosterOf(id).fullName + " accepted. Connected to " + rosterOf(id).host) : rosterOf(id).host + " could not be reached");
     redraw("rdp:" + id); refresh();
   }, 1400);
 }
@@ -449,19 +483,19 @@ function drawRdp(w) {
   w.desk = null;
   b.innerHTML = ""; const box = el("div", "rdp");
   const bar = el("div", "rdp-bar");
-  bar.appendChild(el("span", "who", w.phase === "on" ? "Connected to " + r.host + " · " + r.fullName + "'s session · you have control" : "Rafiki Remote Support · " + r.host));
+  bar.appendChild(el("span", "who", w.phase === "on" ? (r.id === "FS01" || r.id === "MAIL01" ? "Connected to " + r.host + " · Remote Desktop · RAFIKI\\itadmin" : "Connected to " + r.host + " · " + r.fullName + "'s session · you have control") : "Rafiki Remote Support · " + r.host));
   if (w.phase === "on") bar.appendChild(btn("Revert to snapshot", "b small", function () {
     E.revert(); Object.keys(W).forEach(function (k) { if (W[k].desk) W[k].desk.reset(); }); const t = E.ticket(); if (t) logT(t.id, "Reverted the PCs to the last snapshot"); refresh();
   }, "Revert to snapshot: puts the PC back to the last point you got right. Your hints carry on."));
   bar.appendChild(btn("Disconnect", "b small", function () { const t = E.ticket(); if (t) logT(t.id, "Disconnected from " + r.host); closeWin(w.id); }));
   box.appendChild(bar);
   const host = el("div", "rdp-host"); box.appendChild(host); b.appendChild(box);
-  if (w.phase === "wait") { const x = el("div", "rdp-wait"); x.setAttribute("role", "status"); x.appendChild(el("div", "spin")); x.appendChild(el("p", null, "Requesting control of " + r.host + "…")); x.appendChild(el("p", null, "Waiting for " + r.fullName + " to accept.")); host.appendChild(x); return; }
-  if (w.phase === "dropped") { const x = el("div", "rdp-wait"); x.setAttribute("role", "alert"); x.appendChild(el("p", null, w.dropWhy)); if (w.dropOp !== "restart") { x.appendChild(btn("Walk to " + r.fullName.split(" ")[0] + "'s desk", "b pri", function () { closeWin(w.id); walkOver(id); })); host.appendChild(x); return; } x.appendChild(btn("Reconnect to " + r.host, "b pri", function () { w.phase = "wait"; w.desk = null; redraw(w.id); const t = E.ticket(); if (t) logT(t.id, "Reconnecting to " + r.host); setTimeout(function () { if (!W[w.id]) return; const m = E.machine(id); w.phase = m.power !== "on" || m.crashed || (m.net && m.net.cable === false) ? "fail" : "on"; if (t) logT(t.id, w.phase === "on" ? "Reconnected to " + r.host : r.host + " could not be reached"); redraw(w.id); refresh(); }, 1400); })); host.appendChild(x); return; }
+  if (w.phase === "wait") { const x = el("div", "rdp-wait"); x.setAttribute("role", "status"); x.appendChild(el("div", "spin")); const srv = r.id === "FS01" || r.id === "MAIL01"; x.appendChild(el("p", null, (srv ? "Connecting to " : "Requesting control of ") + r.host + "…")); x.appendChild(el("p", null, srv ? "Signing in as RAFIKI\\itadmin." : "Waiting for " + r.fullName + " to accept.")); host.appendChild(x); return; }
+  if (w.phase === "dropped") { const x = el("div", "rdp-wait"); x.setAttribute("role", "alert"); x.appendChild(el("p", null, w.dropWhy)); if (w.dropOp !== "restart") { x.appendChild(btn(r.id === "FS01" || r.id === "MAIL01" ? "Walk to the closet" : "Walk to " + r.fullName.split(" ")[0] + "'s desk", "b pri", function () { closeWin(w.id); walkOver(id); })); host.appendChild(x); return; } x.appendChild(btn("Reconnect to " + r.host, "b pri", function () { w.phase = "wait"; w.desk = null; redraw(w.id); const t = E.ticket(); if (t) logT(t.id, "Reconnecting to " + r.host); setTimeout(function () { if (!W[w.id]) return; const m = E.machine(id); w.phase = MW.online(m) ? "on" : "fail"; if (t) logT(t.id, w.phase === "on" ? "Reconnected to " + r.host : r.host + " could not be reached"); redraw(w.id); refresh(); }, 1400); })); host.appendChild(x); return; }
   if (w.phase === "fail") { const x = el("div", "rdp-wait"); x.setAttribute("role", "alert"); x.appendChild(el("p", null, r.host + " can't be reached. It may be turned off, not connected to the network, or not working.")); x.appendChild(el("p", null, "If you can't connect, you'll have to go to the desk.")); x.appendChild(btn("Walk to " + (r.id === "FS01" || r.id === "MAIL01" ? "the closet" : r.fullName.split(" ")[0] + "'s desk"), "b pri", function () { closeWin(w.id); walkOver(id); })); host.appendChild(x); return; }
   w.desk = createDesktop(host, {
     machine: function () { return E.machine(id); }, fleetLookup: E.lookup, isTech: false, before: E.before, clock: function () { const n = now(); return n.time + "  " + n.short; },
-    onAct: function (a) { if (a.type === "power" && (a.op === "restart" || a.op === "off")) setTimeout(function () { dropped(w, a.op); }, 0); if (a.type === "tm-end") setTimeout(function () { if (E.machine(id).crashed) dropped(w, "crash"); }, 0); if (a.type === "cmd" && E.ticket()) (L.lines[E.ticket().id] = L.lines[E.ticket().id] || []).push(String(a.line || "").toLowerCase()); E.onAct(a); actLog(a, r.host); if (!crawling()) masonCheck(); refresh(); }, helpdesk: function () {}
+    onAct: function (a) { if (a.type === "power" && (a.op === "restart" || a.op === "off")) setTimeout(function () { dropped(w, a.op); }, 0); if ((a.type === "net" && a.op === "off") || (a.type === "cmd" && a.res && a.res.netChange)) setTimeout(function () { if (!MW.online(E.machine(id))) dropped(w, "net"); }, 0); if (a.type === "tm-end") setTimeout(function () { if (E.machine(id).crashed) dropped(w, "crash"); }, 0); if (a.type === "cmd" && E.ticket()) (L.lines[E.ticket().id] = L.lines[E.ticket().id] || []).push(String(a.line || "").toLowerCase()); E.onAct(a); actLog(a, r.host); if (!crawling()) masonCheck(); refresh(); }, helpdesk: function () {}
   });
 }
 /* A restart or shutdown ends the remote session, as it does for real:
@@ -470,8 +504,8 @@ function drawRdp(w) {
 function dropped(w, op) {
   const id = w.id.slice(4), r = rosterOf(id), t = E.ticket();
   w.phase = "dropped"; w.desk = null; w.dropOp = op;
-  w.dropWhy = op === "crash" ? "Connection lost: " + r.host + " stopped responding. A remote session can't show you why. Go and look at the screen." : op === "restart" ? "The remote session ended because " + r.host + " restarted. It's back up now: reconnect to carry on." : "The remote session ended because " + r.host + " was shut down. Nobody can reach it remotely until it's switched back on.";
-  if (t) logT(t.id, "Remote session to " + r.host + " ended: " + (op === "crash" ? "the PC stopped responding" : "the PC " + (op === "restart" ? "restarted" : "shut down")));
+  w.dropWhy = op === "net" ? "The remote session ended: " + r.host + " is off the network now, so nothing can reach it remotely, you included. From here on, work on it at the desk." : op === "crash" ? "Connection lost: " + r.host + " stopped responding. A remote session can't show you why. Go and look at the screen." : op === "restart" ? "The remote session ended because " + r.host + " restarted. It's back up now: reconnect to carry on." : "The remote session ended because " + r.host + " was shut down. Nobody can reach it remotely until it's switched back on.";
+  if (t) logT(t.id, "Remote session to " + r.host + " ended: " + (op === "net" ? "the PC was taken off the network" : op === "crash" ? "the PC stopped responding" : "the PC " + (op === "restart" ? "restarted" : "shut down")));
   redraw(w.id); refresh();
 }
 /* What Help Desk's activity list records: what a real remote-support
@@ -484,7 +518,13 @@ function actLog(a, host) {
     cmd: function () { return "> " + a.line; },
     repair: function () { return "Repaired " + a.app; }, reinstall: function () { return "Reinstalled " + a.app + " from Software Center"; }, install: function () { return "Installed " + a.app; },
     "catalogue-admin": function () { return "Installed or repaired " + a.key + " as administrator"; },
-    power: function () { return a.op === "restart" ? "Restarted " + host : a.op === "off" ? "Shut down " + host : "Powered on " + host; }
+    power: function () { return a.op === "restart" ? "Restarted " + host + (a.reason === "offline scan" ? " for the Microsoft Defender Offline scan" : "") : a.op === "off" ? "Shut down " + host : "Powered on " + host; },
+    "tm-end": function () { return "Ended " + a.name + " in Task Manager" + (a.res && a.res.respawned ? ": it started again" : ""); },
+    "view-history": function () { return "Read the browser history"; },
+    net: function () { return (a.op === "off" ? "Disabled" : "Enabled") + " the network adapter"; },
+    restore: function () { return a.op === "point" ? (a.res && a.res.ok ? "Created a restore point" : "Tried to create a restore point: " + (a.res ? a.res.text : "")) : "Turned System Restore " + a.op; },
+    av: function () { return a.op === "defs" ? (a.res && a.res.ok ? "Updated the Defender definitions" + (a.how === "usb" ? " from the USB stick" : "") : "Couldn't update the definitions: " + (a.res ? a.res.text : "")) : a.op === "schedule" ? "Turned scheduled scans " + (a.on ? "on" : "off") : "Ran a " + ({ quick: "quick", full: "full", offline: "Microsoft Defender Offline" }[a.kind] || a.kind) + " scan: " + (a.res ? a.res.text : ""); },
+    updates: function () { return "Ran Windows Update: " + (a.res ? a.res.text : ""); }
   }[a.type];
   if (say) logT(t.id, host + ": " + say());
 }
@@ -514,7 +554,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk" };
+const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -734,9 +774,187 @@ const WALKS = {
       done: function () { const st = E.state().tickets.D2; return !!(st && (st.closeOK || st.stage === "done")); } },
     { goal: "Write the resolution notes", how: "Name the missing file, which bitness, and how you put it back. Say you tested it.",
       done: function () { const st = E.state().tickets.D2; return !!(st && st.stage === "done"); } }
-  ], end: "You walked a deployment ticket: the program's own reinstall couldn't help, so you found which copy was missing and put back the right runtime as an admin. The rest of the deployment tickets are yours to run." }
+  ], end: "You walked a deployment ticket: the program's own reinstall couldn't help, so you found which copy was missing and put back the right runtime as an admin. The rest of the deployment tickets are yours to run." },
+
+  /* ---------------- Malware: the sim itself, CompTIA's seven steps ---------------- */
+  M1: { machine: "WS2", steps: [
+    { tag: "1. Investigate and verify", win: "helpdesk",
+      say: "Read Mason's incident report on the ticket: Brenda in Sales installed a PDF editor that wasn't approved, her PC is crawling, and the file server is slow. Then press Assign to me and start.",
+      why: "Every clue in that report matters: the unapproved download, her PC, and the file server. Malware that reaches a server can reach everyone.",
+      target: function () { return document.querySelector('[data-coach="assign"]'); },
+      done: function () { const t = E.ticket(); return !!(t && t.id === "M1" && E.T()); } },
+    { tag: "1. Investigate and verify", win: "helpdesk",
+      say: "Start with Brenda's PC. In Devices on the ticket, press Connect on WS2-SALES.",
+      why: "You can look at a PC remotely without touching anything. Looking never costs you anything.",
+      target: function () { return goRemote("WS2"); },
+      waiting: function () { return W["rdp:WS2"] && W["rdp:WS2"].phase === "wait" ? "Connecting… waiting for Brenda to accept." : null; },
+      done: function () { return !!(W["rdp:WS2"] && W["rdp:WS2"].phase === "on") || opened("WS2", "taskmgr"); } },
+    { tag: "1. Investigate and verify", win: "rdp:WS2",
+      say: "See what's making it crawl. On Brenda's PC press Start, type task, and open Task Manager.",
+      why: "\"Slow\" is a symptom. Task Manager shows what is actually using the processor.",
+      target: function () { return dlg("WS2") || tool("WS2", "Task Manager"); },
+      done: function () { return opened("WS2", "taskmgr"); } },
+    { tag: "1. Investigate and verify", win: "rdp:WS2",
+      say: "Click the CPU column to sort by it, then click the process at the top. Read \"What is this process?\" underneath: where it runs from, and who published it.",
+      why: "It calls itself Service Host, but Windows' real one is svchost.exe, in System32, signed by Microsoft. This is SCVHOST.exe, letters swapped, in Brenda's AppData folder, with no publisher.",
+      target: function () { return dlg("WS2") || tool("WS2", "Task Manager") || inWin("WS2", "Task Manager", function (w) { const th = w.querySelector('th[aria-sort="descending"] .th-btn'); return th && /CPU/.test(th.textContent) ? w.querySelector("tbody tr") : byText(w, /CPU/); }); },
+      done: function () { return !!inWin("WS2", "Task Manager", function (w) { const i = w.querySelector(".tm-info"); return i && /SCVHOST\.exe/.test(i.textContent) ? w : null; }); } },
+    { tag: "1. Investigate and verify", win: "rdp:WS2",
+      say: "Check what Windows recorded. Press Start, type event, open Event Viewer, and switch to the System log. Read the newest entry.",
+      why: "Event 7045: a new service, PDF Pro Updater, installed from that same AppData folder. That's why it runs at every start-up. The Application log also shows the User Account Control prompt Brenda allowed for setup.exe.",
+      target: function () { return dlg("WS2") || tool("WS2", "Event Viewer") || inWin("WS2", "Event Viewer", function (w) { return byText(w, /^System$/); }); },
+      done: function () { return viewed("WS2", "System"); } },
+    { tag: "1. Investigate and verify", win: "rdp:WS2",
+      say: "Find where it came from. Press Start, type browser, and open Microsoft Edge: it opens on the history.",
+      why: "totally-legit-soft.net/download/setup.exe, two minutes before the service appeared. The history, the UAC prompt and the new service tell one story.",
+      target: function () { return dlg("WS2") || tool("WS2", "Microsoft Edge"); },
+      done: function () { return lastAt("WS2", function (e) { return e.kind === "view-history"; }) >= 0; } },
+    { tag: "1. Investigate and verify", win: "helpdesk",
+      say: "Now the file server. In Devices, press Connect on FS01.",
+      why: "The report says the server slowed down at the same time. Never assume one infected PC is the only one.",
+      target: function () { return goRemote("FS01"); },
+      waiting: function () { return W["rdp:FS01"] && W["rdp:FS01"].phase === "wait" ? "Connecting to FS01…" : null; },
+      done: function () { return !!(W["rdp:FS01"] && W["rdp:FS01"].phase === "on") || opened("FS01", "taskmgr"); } },
+    { tag: "1. Investigate and verify", win: "rdp:FS01",
+      say: "On FS01, open Task Manager, then Event Viewer's System log.",
+      why: "The same SCVHOST.exe, running as SYSTEM. The log shows a flood of file-share traffic from 192.168.1.22 (that's WS2), then \"Unknown executable written\" into the Contracts share. It spread from Brenda's PC.",
+      target: function () { return dlg("FS01") || (opened("FS01", "taskmgr") ? (tool("FS01", "Event Viewer") || inWin("FS01", "Event Viewer", function (w) { return byText(w, /^System$/); })) : tool("FS01", "Task Manager")); },
+      done: function () { return inspected(mw("FS01")) && viewed("FS01", "System"); } },
+    { tag: "1. Investigate and verify", win: function () { const id = nextUnchecked(); return id && W["rdp:" + id] && W["rdp:" + id].phase === "on" ? "rdp:" + id : "helpdesk"; },
+      say: "Check the other five the same way: Connect, then Task Manager and Event Viewer on each. The Devices list ticks each one off.",
+      why: "Things will look odd at a glance: Docker on Dev's PC, a blocked macro on Farah's, Spotify eating memory at reception, a failed admin login on the mail server. Read each one. Every one has an innocent explanation, and a PC is only clean once you've looked.",
+      target: function () { const id = nextUnchecked(); if (!id) return null; if (!scr(id)) return goRemote(id); return dlg(id) || (opened(id, "taskmgr") ? tool(id, "Event Viewer") : tool(id, "Task Manager")); },
+      waiting: function () { const n = OTHER5.filter(function (id) { return inspected(E.machine(id)); }).length; return n < 5 ? "Checked " + n + " of 5." : null; },
+      done: function () { return OTHER5.every(function (id) { return inspected(E.machine(id)); }); } },
+    { tag: "2. Quarantine", win: "helpdesk",
+      list: "Quarantine the infected PCs, Brenda's first",
+      say: "Two PCs are infected: WS2 and FS01. Take Brenda's PC off the network first. Walk to her desk (Walk to the desk, in Devices), check the network cable, and unplug it.",
+      why: "While it's on the network it can keep spreading, and every step after this is safer with it isolated. Pulling the cable is certain, and you can see it's done.",
+      target: function () { return goDesk("WS2") || hand("unplug") || hand("check-cable"); },
+      done: function () { return prog("WS2").quarantined; } },
+    { tag: "2. Quarantine", win: "helpdesk",
+      say: "Now the file server. Walk back, then walk to the closet, and unplug FS01's cable from the switch.",
+      why: "Disabling its network adapter (Network Connections, or netsh) would also isolate it, but it ends any remote session at once. At the rack you can see it's done.",
+      target: function () { return goDesk("FS01") || hand("unplug") || hand("check-cable"); },
+      done: function () { return prog("FS01").quarantined; } },
+    { tag: "3. Disable System Restore", win: "helpdesk",
+      say: "Back to Brenda's desk: it's off the network, so you work at the PC now. Press Start, type restore, open System Properties, and choose Configure: Disable system protection. Mason has the admin details for the UAC box.",
+      why: "Restore points are copies of the system, and they can hold the infection; one restore could bring it all back. Turning protection off deletes them. FS01 is a server: Windows Server has no System Restore (it's backed up with Windows Server Backup), so this step is for WS2 only.",
+      target: function () { return goDesk("WS2") || dlg("WS2") || tool("WS2", "System Properties") || inWin("WS2", "System Properties", function (w) { return byText(w, /Disable system protection/); }); },
+      done: function () { return !mw("WS2").restore.enabled || prog("WS2").removed; } },
+    { tag: "4. Remediate", win: "helpdesk",
+      say: "Plug the USB stick from your bench into Brenda's PC.",
+      why: "Her definitions are a month old, and new malware isn't in them. She's off the network, so the update comes on a stick: Microsoft's offline definitions package, mpam-fe.exe.",
+      target: function () { return goDesk("WS2") || hand("usb-in"); },
+      done: function () { const m = mw("WS2"); return !!m.usb || m.av.current; } },
+    { tag: "4. Remediate", win: "helpdesk",
+      say: "Update the definitions. Open File Explorer, go to the USB drive (DEFS (E:)), select mpam-fe.exe and press Open.",
+      why: "A scan is only as good as its definitions. Scanning first would have come back \"No current threats\", and you'd have believed it.",
+      target: function () { return goDesk("WS2") || dlg("WS2") || tool("WS2", "File Explorer") || inWin("WS2", "File Explorer", function (w) { return w.querySelector('[aria-label="Open mpam-fe.exe"]') || w.querySelector('[aria-label="File mpam-fe.exe"]') || w.querySelector('[aria-label^="Go to the USB drive"]'); }); },
+      done: function () { return mw("WS2").av.current; } },
+    { tag: "4. Remediate", win: "helpdesk",
+      say: "Scan and remove. Open Windows Security and run the Microsoft Defender Offline scan.",
+      why: "SCVHOST.exe is running, and its service restarts it, so Windows can't delete it from inside Windows. The offline scan restarts the PC and scans before Windows loads, when nothing is running to protect it.",
+      target: function () { return goDesk("WS2") || dlg("WS2") || tool("WS2", "Windows Security") || inWin("WS2", "Windows Security", function (w) { return byText(w, /Microsoft Defender Offline scan/); }); },
+      done: function () { return prog("WS2").removed; } },
+    { tag: "4. Remediate", win: "helpdesk",
+      say: "Do the same on FS01: walk to the closet, plug in the USB stick, update the definitions from it, then run the Offline scan.",
+      why: "The same threat, the same order. On a server, schedule the restart with the business if you can: here it's down already.",
+      target: function () { const m = mw("FS01"); return goDesk("FS01") || dlg("FS01") || (!m.usb && !m.av.current ? hand("usb-in") : !m.av.current ? (tool("FS01", "File Explorer") || inWin("FS01", "File Explorer", function (w) { return w.querySelector('[aria-label="Open mpam-fe.exe"]') || w.querySelector('[aria-label="File mpam-fe.exe"]') || w.querySelector('[aria-label^="Go to the USB drive"]'); })) : (tool("FS01", "Windows Security") || inWin("FS01", "Windows Security", function (w) { return byText(w, /Microsoft Defender Offline scan/); }))); },
+      done: function () { return prog("FS01").removed; } },
+    { tag: "5. Schedule scans and run updates", win: "helpdesk",
+      say: "Schedule scans on both. In Windows Security, under Scheduled scan, turn it on. Start with the PC you're at.",
+      why: "Remediation isn't finished until protection keeps running on its own.",
+      target: function () { const id = pickHere(["WS2", "FS01"], function (x) { return !prog(x).scheduled; }); if (!id) return null; return goDesk(id) || dlg(id) || tool(id, "Windows Security") || inWin(id, "Windows Security", function (w) { return byText(w, /^Turn on \(every day/); }); },
+      done: function () { return prog("WS2").scheduled && prog("FS01").scheduled; } },
+    { tag: "5. Schedule scans and run updates", win: "helpdesk",
+      say: "They're clean: put both back on the network. Check the cable and plug it back in, at Brenda's desk and at the rack.",
+      why: "Back on the network, they can get their updates, and Brenda and the whole office can work again.",
+      target: function () { const id = pickHere(["WS2", "FS01"], function (x) { return !MW.online(E.machine(x)); }); if (!id) return null; return goDesk(id) || hand("plug-in") || hand("check-cable"); },
+      done: function () { return ["WS2", "FS01"].every(function (x) { return prog(x).removed && MW.online(E.machine(x)); }); } },
+    { tag: "5. Schedule scans and run updates", win: "helpdesk",
+      say: "Run Windows Update on both: Start, type update, Check for updates. They're on the network now, so you can do it from your desk by remote, or where you stand.",
+      why: "Updates close the holes malware gets in through, and bring the definitions up to date the normal way.",
+      target: function () { const id = pickHere(["WS2", "FS01"], function (x) { return !prog(x).updated; }); if (!id) return null; if (!scr(id)) return goRemote(id); return dlg(id) || tool(id, "Windows Update") || inWin(id, "Windows Update", function (w) { return byText(w, /Check for updates/); }); },
+      done: function () { return prog("WS2").updated && prog("FS01").updated; } },
+    { tag: "6. Enable System Restore, create a restore point", win: "helpdesk",
+      say: "On Brenda's PC, open System Properties again, turn system protection back on, then Create a restore point.",
+      why: "Now the PC is clean, a restore point is a known-good copy to come back to. Made earlier, it would have saved the infection with it.",
+      target: function () { if (!scr("WS2")) return goRemote("WS2"); const m = mw("WS2"); return dlg("WS2") || tool("WS2", "System Properties") || inWin("WS2", "System Properties", function (w) { return m.restore.enabled ? byText(w, /Create a restore point/) : byText(w, /Turn on system protection/); }); },
+      done: function () { return prog("WS2").restoreBack; } },
+    { tag: "7. Educate the end user", win: "helpdesk",
+      say: "Every PC is checked and both infected ones are clean. Walk back if you're out, then press Resolve on the ticket.",
+      why: "The ticket only resolves when every machine really is done, in order.",
+      target: function () { if (walkUI) return document.querySelector(".wo-back"); return document.querySelector('[data-coach="resolve"]'); },
+      done: function () { const st = E.state().tickets.M1; return !!(st && st.stage !== "work"); } },
+    { tag: "7. Educate the end user", win: "helpdesk",
+      say: "The last of CompTIA's steps: what do you tell Brenda? Pick the advice on the ticket.",
+      why: "Clean-up fixes today. What the user does next time stops it happening again.",
+      target: function () { return document.querySelector("[data-win=helpdesk] .opts"); },
+      done: function () { const st = E.state().tickets.M1; return !!(st && (st.closeOK || st.stage === "done")); } },
+    { tag: "Document it", win: "helpdesk",
+      say: "Write the resolution notes: what you found and where, the order you did the steps in on each PC, and what you told Brenda. Then close the ticket.",
+      why: "The next technician, or an auditor, reads this. It's your record that it was done properly.",
+      target: function () { return document.getElementById("res-note"); },
+      done: function () { const st = E.state().tickets.M1; return !!(st && st.stage === "done"); } }
+  ], end: "That was CompTIA's malware-removal process, end to end, across a whole network: investigate, quarantine, disable System Restore, remediate, schedule scans and update, a fresh restore point, and the user. The next malware ticket is a walk." }
 
 };
+
+/* Helpers for the Malware crawl, where the work moves between PCs, remote
+   sessions and the walk-over. Each returns the one thing to press next,
+   or null when nothing needs pressing there. */
+const OTHER5 = ["WS1", "WS3", "WS4", "WS5", "MAIL01"];
+function scr(id) { const w = W["rdp:" + id]; if (w && w.phase === "on") return rd(id); if (walkUI && walkUI.id === id) return document.querySelector(".wo-monitor"); return null; }
+function goRemote(id) { if (walkUI) return document.querySelector(".wo-back"); return W["rdp:" + id] && W["rdp:" + id].phase === "on" ? null : document.querySelector('[data-coach="dev-connect-' + id + '"]'); }
+function goDesk(id) { if (walkUI) return walkUI.id === id ? null : document.querySelector(".wo-back"); return document.querySelector('[data-coach="dev-walk-' + id + '"]'); }
+function dlg(id) { const s = scr(id); const d = s && s.querySelector(".w-dialog:not(.run)"); if (!d) return null; const inp = Array.from(d.querySelectorAll("input")).filter(function (i) { return !i.value; })[0]; return inp || d.querySelector(".primary") || d.querySelector("button"); }
+function tool(id, name) { const s = scr(id); if (!s || s.querySelector('section.win[aria-label^="' + name + '"]')) return null; return s.querySelector('[aria-label="Open ' + name + '"]') || s.querySelector(".tb-start"); }
+function inWin(id, name, pick) { const s = scr(id); const w = s && s.querySelector('section.win[aria-label^="' + name + '"]'); return w ? pick(w) : null; }
+function byText(r, re) { return r ? Array.from(r.querySelectorAll("button")).filter(function (b) { return re.test(b.textContent.trim()); })[0] || null : null; }
+function hand(name) { return document.querySelector('.wo-hands [data-coach="' + name + '"]'); }
+function opened(id, app) { return lastAt(id, function (e) { return e.kind === "opened" && e.app === app; }) >= 0; }
+function viewed(id, log) { return lastAt(id, function (e) { return e.kind === "view-log" && (!log || e.log === log); }) >= 0; }
+function prog(id) { return MW.progress(E.machine(id)); }
+function mw(id) { return MW.ready(E.machine(id)); }
+function nextUnchecked() { return OTHER5.filter(function (id) { return !inspected(E.machine(id)); })[0] || null; }
+/* of the PCs still needing something, the one the student is at first */
+function pickHere(ids, need) { const left = ids.filter(need); if (walkUI && left.indexOf(walkUI.id) >= 0) return walkUI.id; return left.filter(function (id) { return scr(id); })[0] || left[0] || null; }
+/* A crawl's steps only count on its own ticket: on the clean office every
+   PC is online, which would look like the last steps were done. */
+/* WALK for a malware ticket: CompTIA's steps as a checklist the student
+   drives, across however many PCs the ticket infected. The "How?"
+   pointers say where to look and why, never which PC or which button. */
+function malWalk(id, who) {
+  const t = TICKETS.filter(function (x) { return x.id === id; })[0], hit = t.infects;
+  const on = function () { const c = E.ticket(); return !!(c && c.id === id); };
+  const all = function (f) { return on() && hit.every(function (x) { return f(prog(x), x); }); };
+  const st = function () { return E.state().tickets[id]; };
+  return { mode: "walk", machine: t.machine, steps: [
+    { goal: "Check every PC on the network", how: "Connect to each one from Devices on the ticket and look at Task Manager and Event Viewer. The list ticks each PC off when you've looked at both.",
+      done: function () { return on() && t.devices.every(function (x) { return inspected(E.machine(x)); }); } },
+    { goal: "Find what's slowing " + who + "'s PC, and where it came from", how: "What is using the processor, where does it run from, and who published it? Then what Windows recorded when it was installed, and what " + who + " was doing in the browser just before.",
+      done: function () { return on() && opened(t.machine, "taskmgr") && viewed(t.machine, "System") && lastAt(t.machine, function (e) { return e.kind === "view-history"; }) >= 0; } },
+    { goal: "Quarantine every infected PC", how: "Before you change anything on it. You have to be at the PC to be certain it's off the network.",
+      done: function () { return all(function (p) { return p.quarantined; }); } },
+    { goal: "Disable System Restore where it applies", how: "Before you remediate: old restore points can hold the infection. Servers don't have it.",
+      done: function () { return all(function (p) { return p.restoreOff; }); } },
+    { goal: "Remediate: update the definitions, then scan and remove", how: "The PC is offline, so the update can't come from the internet: there's something on your bench for that. Then a scan that runs when Windows isn't.",
+      done: function () { return all(function (p) { return p.removed; }); } },
+    { goal: "Schedule scans, put it back on the network, run updates", how: "Protection that keeps running on its own, then the PC back where its user can work, then everything up to date.",
+      done: function () { return all(function (p) { return p.scheduled && p.online && p.updated; }); } },
+    { goal: "System Restore back on, with a fresh restore point", how: "Only once the PC is clean, so the new point is a clean one. Servers don't have it.",
+      done: function () { return all(function (p) { return p.restoreBack; }); } },
+    { goal: "Resolve the ticket", how: "In Help Desk, on the ticket. It only resolves when every PC is done.",
+      done: function () { return on() && !!(st() && st().stage !== "work"); } },
+    { goal: "Educate " + who, how: "What would stop this happening again? Pick it on the ticket.",
+      done: function () { return on() && !!(st() && (st().closeOK || st().stage === "done")); } },
+    { goal: "Write the resolution notes", how: "What you found and where, the order of the steps on each PC, and what you told " + who + ".",
+      done: function () { return on() && !!(st() && st().stage === "done"); } }
+  ], end: "You walked a malware incident: every PC checked, the infected one cleaned in CompTIA's order, and the user told how to avoid it. The rest of the malware tickets are yours to run." };
+}
+WALKS.M2 = malWalk("M2", "John");
+Object.keys(WALKS).forEach(function (k) { WALKS[k].steps.forEach(function (st, i) { if (!i) return; const d = st.done; st.done = function () { const t = E.ticket(); return !!(t && t.id === k) && d(); }; }); });
 function crawling() { const t = E.ticket(); return !!(t && LEVEL[t.id] === "crawl" && WALKS[t.id] && !(E.T() && E.T().stage === "done")); }
 /* Has the student typed this command on the ticket's PC? */
 function typed(re) { const t = E.ticket(); return !!(t && (L.lines[t.id] || []).some(function (x) { return re.test(x.replace(/\s+/g, " ").trim()); })); }
@@ -767,9 +985,13 @@ function coachNow() {
   const waitNow = id && n < walk.steps.length && walk.steps[n].waiting ? String(walk.steps[n].waiting()) : "";
   const key = (id || coachBox.dataset.walk) + ":" + n + ":" + walk.steps.filter(function (x, i) { return c && c[i]; }).length;
   if (key !== coachBox.dataset.key || waitNow !== coachBox.dataset.wait) {
-    const moved = key.split(":").slice(0, 2).join(":") !== String(coachBox.dataset.key || "").split(":").slice(0, 2).join(":"); coachBox.dataset.key = key; coachBox.dataset.wait = waitNow; lastStep = n; drawCoach(walk, n); saveL(); if (moved && walk.mode !== "walk" && n < walk.steps.length) { const w = walk.steps[n].win; if (W[w] && front !== w) { W[w].min = false; place(W[w]); focusWin(w); } } }
+    const moved = key.split(":").slice(0, 2).join(":") !== String(coachBox.dataset.key || "").split(":").slice(0, 2).join(":"); coachBox.dataset.key = key; coachBox.dataset.wait = waitNow; lastStep = n; if (moved) delete coachBox.dataset.ringWin; drawCoach(walk, n); saveL(); if (moved && walk.mode !== "walk" && n < walk.steps.length) { const w = winOf(walk.steps[n]); if (W[w] && front !== w) { W[w].min = false; place(W[w]); focusWin(w); } } }
+  /* within a step the work can move between windows (the next PC's
+     Connect is back in Help Desk): bring forward the one with the ring */
+  if (id && walk.mode !== "walk" && n < walk.steps.length) { const wNow = winOf(walk.steps[n]) || ""; if (wNow !== coachBox.dataset.winNow) { coachBox.dataset.winNow = wNow; if (W[wNow] && front !== wNow) { W[wNow].min = false; place(W[wNow]); focusWin(wNow); } } }
   mark(walk, n);
 }
+function winOf(s) { return typeof s.win === "function" ? s.win() : s.win; }
 function firstOpen(walk, c) { for (let i = 0; i < walk.steps.length; i++) if (!c[i]) return i; return walk.steps.length; }
 function drawCoach(walk, n) {
   coachBox.innerHTML = "";
@@ -792,12 +1014,12 @@ function drawCoach(walk, n) {
   now.appendChild(el("p", "coach-why", s.why));
   if (s.waiting && s.waiting()) now.appendChild(el("p", "coach-wait", s.waiting()));
   now.appendChild(btn("Show me where", "b small", function () {
-    const w = s.win; if (W[w]) { W[w].min = false; place(W[w]); focusWin(w); }
+    const w = winOf(s); if (W[w]) { W[w].min = false; place(W[w]); focusWin(w); }
     const t = s.target(); if (t) { t.scrollIntoView({ block: "center", behavior: "smooth" }); t.classList.remove("coach-flash"); void t.offsetWidth; t.classList.add("coach-flash"); }
   }));
   coachBox.appendChild(now);
   const ol = el("ol", "coach-list");
-  walk.steps.forEach(function (x, i) { const li = el("li", i < n ? "did" : i === n ? "on" : ""); li.appendChild(el("span", "mk", i < n ? "✓" : String(i + 1))); li.appendChild(el("span", null, x.say.split(". ")[0].replace(/[.:]$/, ""))); ol.appendChild(li); });
+  walk.steps.forEach(function (x, i) { const li = el("li", i < n ? "did" : i === n ? "on" : ""); li.appendChild(el("span", "mk", i < n ? "✓" : String(i + 1))); li.appendChild(el("span", null, x.list || x.say.split(". ")[0].replace(/[.:]$/, ""))); ol.appendChild(li); });
   coachBox.appendChild(ol);
 }
 /* WALK: the student drives. The checklist says what comes next and ticks
@@ -836,7 +1058,13 @@ function drawWalk(walk, n) {
 function mark(walk, n) {
   if (marking) return; marking = true;
   root.querySelectorAll(".coach-target").forEach(function (x) { if (!walk || walk.mode === "walk" || n >= walk.steps.length || x !== walk.steps[n].target()) x.classList.remove("coach-target"); });
-  if (walk && walk.mode !== "walk" && n < walk.steps.length) { const t = walk.steps[n].target(); if (t) t.classList.add("coach-target"); }
+  if (walk && walk.mode !== "walk" && n < walk.steps.length) {
+    const t = walk.steps[n].target(); if (t) t.classList.add("coach-target");
+    /* the ring is never left hidden behind another window: when it moves
+       into a different window, that window comes forward */
+    const host = t && t.closest("[data-win]"), wid = host ? host.dataset.win : "";
+    if (coachBox && wid !== coachBox.dataset.ringWin) { coachBox.dataset.ringWin = wid; if (W[wid] && front !== wid) { W[wid].min = false; place(W[wid]); focusWin(wid); } }
+  }
   marking = false;
 }
 new MutationObserver(function () { if (!marking) coachTick(); }).observe(root, { childList: true, subtree: true });
@@ -863,18 +1091,34 @@ const ROUTES = {
   MAIL01: { path: [BENCH, [13.8, 26.4], [11.8, 28.2]], look: [15.4, 5.2, 28.6] }
 };
 let walkUI = null;
+function reduceMotion() { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
 function walkOver(id) {
   if (walkUI) return;
   const r = rosterOf(id), first = r.fullName.split(" ")[0], whose = r.id === "FS01" || r.id === "MAIL01" ? "the " + r.fullName.toLowerCase() : first + "'s desk";
   const t = E.ticket(); if (t) logT(t.id, "Walked to " + r.host + " (" + r.where + ")");
   const ov = el("div", "walkover"); ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Walking to " + whose);
+  /* a cutscene has the whole screen; at the desk, Mason's panel is back */
+  function besideCoach(on) { ov.style.right = on && coachBox ? "var(--coach-w)" : ""; window.dispatchEvent(new Event("resize")); }
   const stage = el("div", "wo-3d"); ov.appendChild(stage);
+  /* the cutscene's frame: letterbox bars, a caption in the lower bar, and
+     a black layer for the fades */
+  const cine = el("div", "cine"); cine.setAttribute("aria-hidden", "true");
+  const capT = el("p", "cine-t"), capS = el("p", "cine-s"); const bot = el("div", "cine-bot"); bot.appendChild(capT); bot.appendChild(capS);
+  cine.appendChild(el("div", "cine-top")); cine.appendChild(bot); const fade = el("div", "cine-fade"); cine.appendChild(fade); ov.appendChild(cine);
+  function caption(a, b) { capT.textContent = a; capS.textContent = b || ""; }
+  function fadeTo(on, then) { fade.classList.toggle("on", !!on); setTimeout(function () { if (then) then(); }, reduceMotion() ? 0 : 450); }
   const bar = el("div", "wo-bar"); const say = el("p", "wo-say", "Getting up from your desk…"); say.setAttribute("role", "status");
   bar.appendChild(say); ov.appendChild(bar);
   root.appendChild(ov); walkUI = { ov: ov, id: id, office: function () { return office; } };
+  if (!reduceMotion()) fade.classList.add("on");
   let office = null, walking = null;
   const route = ROUTES[id];
   function arrive() {
+    if (!ov.isConnected) return;
+    fadeTo(true, function () { arrived(); ov.classList.remove("cine-on"); fadeTo(false); });
+  }
+  function arrived() {
+    besideCoach(true);
     if (office && window.innerWidth > 760) office.shift(0.3);
     say.textContent = "You're at " + whose + ": " + r.host + ", " + r.where + ".";
     const skip = bar.querySelector(".wo-skip"); if (skip) skip.remove();
@@ -883,25 +1127,43 @@ function walkOver(id) {
     const mon = el("div", "wo-monitor"); mon.setAttribute("aria-label", r.host + "'s monitor"); panel.appendChild(mon);
     const local = createDesktop(mon, { machine: function () { return E.machine(id); }, fleetLookup: E.lookup, isTech: false, before: E.before,
       clock: function () { const n = now(); return n.time + "  " + n.short; },
-      onAct: function (a) { if (a.type === "cmd" && E.ticket()) (L.lines[E.ticket().id] = L.lines[E.ticket().id] || []).push(String(a.line || "").toLowerCase()); E.onAct(a); actLog(a, r.host + " (at the desk)"); if (!crawling()) masonCheck(); refresh(); drawHands(); },
+      onAct: function (a) {
+        /* what is done at the desk ends a remote session to the same PC */
+        const rw = W["rdp:" + id]; if (rw && rw.phase === "on") setTimeout(function () { if (a.type === "power" && a.op !== "on") dropped(rw, a.op); else if (!MW.online(E.machine(id))) dropped(rw, "net"); }, 0);
+        if (a.type === "cmd" && E.ticket()) (L.lines[E.ticket().id] = L.lines[E.ticket().id] || []).push(String(a.line || "").toLowerCase()); E.onAct(a); actLog(a, r.host + " (at the desk)"); if (!crawling()) masonCheck(); refresh(); drawHands(); },
       helpdesk: function () {} });
     const hands = el("div", "wo-hands"); panel.appendChild(hands);
     function drawHands() {
       const m = E.machine(id); hands.innerHTML = "";
       hands.appendChild(el("h3", null, "With your own hands"));
       const state = el("p", "wo-state"); state.setAttribute("role", "status");
+      const srvH = r.id === "FS01" || r.id === "MAIL01";
       const light = m.power !== "on" ? "The tower's power light is off." : m.crashed ? "The tower's power light is on, and the fans are running." : "The tower's power light is on.";
-      const cable = m.net && m.net.cable === false ? "The network cable is lying on the floor, unplugged from the back of the tower." : null;
-      state.textContent = light + (hands.dataset.cable ? " " + (cable || "The network cable is plugged in firmly, and the light on the port is blinking.") : "");
+      const cable = m.net && m.net.cable === false ? (srvH ? "Its network cable hangs loose, unplugged from the switch in the rack." : "The network cable is lying on the floor, unplugged from the back of the tower.") : null;
+      state.textContent = light + (hands.dataset.cable ? " " + (cable || (m.net.adapter === false ? "The network cable is plugged in, but the light on the port is off: the adapter is disabled in Windows." : "The network cable is plugged in firmly, and the light on the port is blinking.")) : "");
       hands.appendChild(state);
       const row = el("div", "wo-acts");
       row.appendChild(btn(m.power === "on" ? "Press the power button" : "Press the power button to switch it on", "b", function () {
         if (m.power !== "on") { M.boot(m); E.onAct({ type: "power", op: "on", host: m.host, machine: id }); actLog({ type: "power", op: "on" }, r.host + " (at the desk)"); local.draw(); refresh(); drawHands(); return; }
         state.textContent = "It's already on. A quick press would ask Windows to shut down; holding it in forces the power off and can lose " + first + "'s work. Leave it unless Windows is completely frozen.";
       }));
-      row.appendChild(btn("Check the network cable", "b", function () { hands.dataset.cable = "1"; drawHands(); }));
-      if (hands.dataset.cable && m.net && m.net.cable === false) row.appendChild(btn("Plug the cable back in", "b pri", function () { m.net.cable = true; E.onAct({ type: "cable", op: "in", host: m.host, machine: id }); const t2 = E.ticket(); if (t2) logT(t2.id, r.host + ": plugged the network cable back in"); refresh(); drawHands(); }));
+      row.appendChild(coachTag("check-cable", btn("Check the network cable", "b", function () { hands.dataset.cable = "1"; drawHands(); })));
+      const srv = r.id === "FS01" || r.id === "MAIL01";
+      if (hands.dataset.cable && m.net && m.net.cable === false) row.appendChild(coachTag("plug-in", btn(srv ? "Plug its cable back into the switch" : "Plug the cable back in", "b pri", function () { const b = E.before(); MW.setCable(m, true); E.onAct({ type: "cable", op: "on", host: m.host, machine: id, before: b }); const t2 = E.ticket(); if (t2) logT(t2.id, r.host + ": plugged the network cable back in"); local.draw(); refresh(); drawHands(); })));
+      /* quarantine by hand: the owner's ruling for the Malware build */
+      const t3 = E.ticket();
+      if (t3 && t3.kind === "malware") {
+        if (hands.dataset.cable && m.net.cable !== false) row.appendChild(coachTag("unplug", btn(srv ? "Unplug its cable from the switch" : "Unplug the network cable", "b", function () {
+          const b = E.before(); MW.setCable(m, false); E.onAct({ type: "cable", op: "off", host: m.host, machine: id, before: b }); logT(t3.id, r.host + ": unplugged the network cable");
+          const rw = W["rdp:" + id]; if (rw && rw.phase === "on") dropped(rw, "net");
+          local.draw(); after(); drawHands();
+        })));
+        row.appendChild(MW.ready(m).usb
+          ? coachTag("usb-out", btn("Take the USB stick out", "b", function () { MW.removeUSB(m); logT(t3.id, r.host + ": took the USB stick out"); local.draw(); refresh(); drawHands(); }))
+          : coachTag("usb-in", btn("Plug in the USB stick (Defender definitions, from your bench)", "b", function () { MW.insertUSB(m); logT(t3.id, r.host + ": plugged in the USB stick with the Defender definitions package (mpam-fe.exe)"); local.draw(); refresh(); drawHands(); })));
+      }
       hands.appendChild(row);
+      if (MW.ready(m).usb) hands.appendChild(el("p", "wo-state", "The USB stick is in: it shows in File Explorer as " + m.usb.label + "."));
     }
     drawHands();
     const back = btn("Walk back to your desk", "b pri wo-back", function () { panel.remove(); goBack(); });
@@ -911,9 +1173,11 @@ function walkOver(id) {
   }
   function goBack() {
     say.textContent = "Walking back to your desk…";
-    const done = function () { ov.remove(); walkUI = null; if (office) office.dispose(); const t2 = E.ticket(); if (t2) logT(t2.id, "Back at your desk"); refresh(); };
+    const done = function () { fadeTo(true, function () { ov.remove(); walkUI = null; if (office) office.dispose(); const t2 = E.ticket(); if (t2) logT(t2.id, "Back at your desk"); refresh(); }); };
     if (office) office.shift(0);
-    if (office && route) walking = office.walk(route.path.slice().reverse(), [12.4, 3.4, 23.2], done); else done();
+    besideCoach(false);
+    caption("Back to your bench", "Network closet · TECH-01");
+    if (office && route) { ov.classList.add("cine-on"); fadeTo(false); const sk = btn("Skip the walk", "b small wo-skip", function () { if (walking) walking.skip(); }); bar.appendChild(sk); walking = office.walk(route.path.slice().reverse(), [12.4, 3.4, 23.2], done); } else done();
   }
   (async function () {
     try {
@@ -923,10 +1187,14 @@ function walkOver(id) {
       office.standAt(BENCH, [12.4, 3.4, 23.2]);
       say.textContent = "Walking to " + whose + "…";
       const skip = btn("Skip the walk", "b small wo-skip", function () { if (walking) walking.skip(); }); bar.appendChild(skip);
-      walking = office.walk(route.path, route.look, arrive);
+      ov.classList.add("cine-on"); caption("Rafiki's IT Services", "Your bench is in the network closet");
+      walking = office.walk(route.path, route.look, arrive, { aerial: true, onPhase: function (ph) {
+        if (ph === "aerial") fadeTo(false);
+        if (ph === "walk") caption(r.id === "FS01" || r.id === "MAIL01" ? "To the server rack" : "To " + r.where, r.fullName + (r.id === "FS01" || r.id === "MAIL01" ? "" : ", " + r.dept) + " · " + r.host);
+      } });
     } catch (e) {
       stage.appendChild(el("p", "wo-no3d", "The 3D office isn't available on this computer, so picture it: out of the closet, down the corridor, to " + whose + "."));
-      arrive();
+      fade.classList.remove("on"); arrived();
     }
   })();
 }

@@ -29,6 +29,7 @@
    No DOM here either; the checks drive this under node.
    ===================================================================== */
 import * as M from "./machine.js";
+import * as MW from "./malware.js";
 
 const NOT_RECOGNIZED = function (w) {
   return "'" + w + "' is not recognized as an internal or external command,\noperable program or batch file.";
@@ -270,7 +271,13 @@ export function createShell(m, opts) {
         return { out: "Windows PowerShell\nCopyright (C) Microsoft Corporation. All rights reserved.", kind: "look" };
       case "regsvr32": return regsvr32(rest);
       case "runas": return runas(rest);
+      case "netsh": return netsh(rest, low);
       default:
+        if (/mpam-fe\.exe$/i.test(w0)) {
+          if (!sh.elevated) return { out: "Access is denied. The definitions package must be run as an administrator.", kind: "refused" };
+          const r = MW.updateDefs(m, /^e:/i.test(w0) || /^e:/i.test(sh.cwd) ? "usb" : "none");
+          return { out: r.ok ? "Microsoft Defender Antivirus: " + r.text : r.text, kind: r.ok ? "change" : "error", mw: { type: "av", op: "defs", how: "usb", res: r } };
+        }
         if (/^\\\\/.test(w0) && /(vcredist|vc_redist)/i.test(w0)) return runInstaller(t[0], low);
         if (M.appByName(m, w0.replace(/^.*\\/, "")) || /\.exe$/i.test(w0) && M.appByName(m, w0.replace(/^.*\\/, ""))) return launch(t[0]);
         if (/^(get|set|stop|start|restart|test|new|remove)-/.test(w0)) {
@@ -448,6 +455,8 @@ export function createShell(m, opts) {
     const name = r.slice(r.lastIndexOf("\\") + 1).toLowerCase();
     if (!n || !n.files.some(function (f) { return f.name.toLowerCase() === name; })) return { out: "Could Not Find " + r, kind: "error" };
     if (/^c:\\(windows|program files)/i.test(r) && !sh.elevated) return { out: r + "\nAccess is denied.", kind: "refused" };
+    /* a program that is running can't be deleted from under itself */
+    if (m.procs.some(function (p) { return (p.image || "").toLowerCase() === r.toLowerCase(); })) return { out: r + "\nThe process cannot access the file because it is being used by another process.", kind: "refused", inUse: name };
     n.files = n.files.filter(function (f) { return f.name.toLowerCase() !== name; });
     M.note(m, "del", { path: r });
     return { out: "", kind: "change" };
@@ -505,7 +514,7 @@ export function createShell(m, opts) {
     if (!targets.length) {
       return { out: pi >= 0 ? "ERROR: The process \"" + rest[pi + 1] + "\" not found." : "ERROR: The process \"" + rest[ii + 1] + "\" not found.", kind: "error" };
     }
-    const lines = []; let kind = "change";
+    const lines = []; let kind = "change", mw = null;
     targets.forEach(function (p) {
       const owned = p.user === m.user;
       if (p.critical || p.protected || (!owned && !sh.elevated)) {
@@ -514,13 +523,25 @@ export function createShell(m, opts) {
         kind = "refused"; return;
       }
       const r = M.endProcess(m, p.pid, "taskkill");
-      if (r.ok) lines.push(force || !p.window
+      const back = r.ok ? MW.afterEnd(m, p) : null; if (back) lines.push(back);
+      if (r.ok) mw = { type: "tm-end", name: p.name, tag: p.tag || null, res: { ok: true, respawned: !!back } };
+      if (back) return;
+      else if (r.ok) lines.push(force || !p.window
         ? "SUCCESS: The process \"" + p.name + "\" with PID " + p.pid + " has been terminated."
         : "SUCCESS: Sent termination signal to the process \"" + p.name + "\" with PID " + p.pid + ".");
     });
-    return { out: lines.join("\n"), kind: kind };
+    return { out: lines.join("\n"), kind: kind, mw: mw };
   }
 
+  /* netsh interface set interface "Ethernet" disable|enable */
+  function netsh(rest, low) {
+    const joined = low.join(" ");
+    if (!/interface\s+set\s+interface/.test(joined)) return { out: "The following command was not found: " + rest.join(" ") + ".", kind: "error" };
+    if (!sh.elevated) return { out: "The requested operation requires elevation (Run as administrator).", kind: "refused" };
+    const on = /\benable(d)?\b/.test(joined), off = /\bdisable(d)?\b/.test(joined);
+    if (!on && !off) return { out: "The syntax supplied for this command is not valid. Check help for the correct syntax.", kind: "error" };
+    MW.setAdapter(m, on); return { out: "", kind: "change", netChange: true, mw: { type: "net", op: on ? "on" : "off", how: "adapter" } };
+  }
   function needAdmin(tool) {
     if (tool === "sfc") return "You must be an administrator running a console session in order to\nuse the sfc utility.";
     if (tool === "dism") return "\nDeployment Image Servicing and Management tool\nVersion: 10.0.22621.2792\n\n\nError: 740\n\nElevated permissions are required to run DISM.\nUse an elevated command prompt to complete these tasks.";
@@ -839,11 +860,23 @@ export function createShell(m, opts) {
       if (!p) return { out: "Stop-Process : Cannot find a process with the process identifier " + (t[i + 1] || "") + ".", kind: "error" };
       if (p.critical || p.protected || (p.user !== m.user && !sh.elevated)) return { out: "Stop-Process : Cannot stop process \"" + p.name.replace(/\.exe$/i, "") + " (" + p.pid + ")\" because of the following error: Access is denied", kind: "refused" };
       M.endProcess(m, p.pid, "ps");
-      return { out: "", kind: "change" };
+      const back = MW.afterEnd(m, p);
+      return { out: back || "", kind: "change", mw: { type: "tm-end", name: p.name, tag: p.tag || null, res: { ok: true, respawned: !!back } } };
     }
     if (w === "get-service") return { kind: "look", out: "\nStatus   Name               DisplayName\n------   ----               -----------\nRunning  Dnscache           DNS Client\nRunning  EventLog           Windows Event Log\nRunning  Spooler            Print Spooler\nRunning  WinDefend          Microsoft Defender Antivirus Service\nRunning  wuauserv           Windows Update" };
     if (w === "restart-service") { if (!sh.elevated) return { out: "Restart-Service : Service '" + (t[1] || "") + "' cannot be stopped due to the following error: Cannot open " + (t[1] || "") + " service on computer '.'.", kind: "refused" }; M.note(m, "restart-service", { name: t[1] }); return { out: "", kind: "change" }; }
     if (w === "test-connection") return ping(t.slice(1));
+    /* the network adapter, System Restore and Microsoft Defender */
+    const admin = function (name) { return { out: name + " : Access is denied. Run Windows PowerShell as administrator.", kind: "refused" }; };
+    if (w === "disable-netadapter" || w === "enable-netadapter") { if (!sh.elevated) return admin(t[0]); MW.setAdapter(m, w === "enable-netadapter"); return { out: "", kind: "change", netChange: true, mw: { type: "net", op: w === "enable-netadapter" ? "on" : "off", how: "adapter" } }; }
+    if (w === "get-netadapter") { MW.ready(m); return { kind: "look", out: "\nName      InterfaceDescription                Status\n----      --------------------                ------\nEthernet  Intel(R) Ethernet Connection I219   " + (m.net.adapter === false ? "Disabled" : m.net.cable === false ? "Disconnected" : "Up") }; }
+    if (w === "disable-computerrestore" || w === "enable-computerrestore") { if (!sh.elevated) return admin(t[0]); const r = MW.setRestore(m, w === "enable-computerrestore"); return { out: r.ok ? "" : t[0] + " : " + r.text, kind: r.ok ? "change" : "error", mw: r.ok ? { type: "restore", op: w === "enable-computerrestore" ? "on" : "off", res: r } : null }; }
+    if (w === "checkpoint-computer") { if (!sh.elevated) return admin(t[0]); const di = t.map(function (x) { return x.toLowerCase(); }).indexOf("-description"); const r = MW.createPoint(m, di >= 0 ? (t[di + 1] || "").replace(/"/g, "") : "Restore point"); return { out: r.ok ? "" : "Checkpoint-Computer : " + r.text, kind: r.ok ? "change" : "error", mw: { type: "restore", op: "point", res: r } }; }
+    if (w === "get-computerrestorepoint") { MW.ready(m); return { kind: "look", out: m.restore.points.length ? "\nCreationTime   Description\n------------   -----------\n" + m.restore.points.map(function (p) { return p.date + "   " + p.name; }).join("\n") : "" }; }
+    if (w === "get-mpcomputerstatus") { MW.ready(m); return { kind: "look", out: "\nAntivirusEnabled            : True\nRealTimeProtectionEnabled   : True\nAntivirusSignatureVersion   : " + m.av.defs + "\nAntivirusSignatureLastUpdated : " + m.av.defsDate }; }
+    if (w === "update-mpsignature") { if (!sh.elevated) return admin(t[0]); const r = MW.updateDefs(m, "internet"); return { out: r.ok ? "" : "Update-MpSignature : " + r.text, kind: r.ok ? "change" : "error", mw: { type: "av", op: "defs", how: "internet", res: r } }; }
+    if (w === "start-mpscan") { if (!sh.elevated) return admin(t[0]); const ti = t.map(function (x) { return x.toLowerCase(); }).indexOf("-scantype"); const kind = ti >= 0 && /full/i.test(t[ti + 1] || "") ? "full" : "quick"; const r = MW.scan(m, kind); return { out: r.text, kind: "change", av: r, mw: { type: "av", op: "scan", kind: kind, res: r } }; }
+    if (w === "start-mpwdoscan") { if (!sh.elevated) return admin(t[0]); const r = MW.offlineScan(m); return { out: r.text, kind: "change", av: r, power: r.removed ? "restart" : undefined, mw: { type: "av", op: "scan", kind: "offline", res: r } }; }
     if (w === "get-netipaddress") return { kind: "look", out: "\nIPAddress         : 192.168.1.24\nInterfaceAlias    : Ethernet\nAddressFamily     : IPv4\nPrefixLength      : 24\nPrefixOrigin      : Dhcp" };
     if (w === "get-content") return { kind: "look", out: "(Get-Content reads a text file. Nothing on this PC needs reading this way in this job.)" };
     if (NATIVE.indexOf(w) >= 0 || LAUNCH[w]) { sh.mode = "cmd"; try { return sh.run(line); } finally { if (sh.mode === "cmd") sh.mode = "ps"; } }

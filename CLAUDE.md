@@ -10,7 +10,13 @@ file. The coaching role is in `/root/.claude/exam-prep-coach.md`.
 **DIRECTION CHANGED AGAIN on 1 October 2026. Section 9 overrides
 everything above it, including section 8's layout; read it first.**
 
-**Status: THE LAPTOP IS LIVE (1 October 2026).** The owner said "Build it
+**Status, 1 October 2026: THE MALWARE BUILD IS LIVE** (preview 7, M1–M6
+and the walk-over cutscenes). The owner: "Doing it live works best for
+me because it is solving two issues at once." From now on each build
+goes live once its checks pass; the owner tries it there. Section 11 has
+the rulings for the remaining builds.
+
+**Earlier status: THE LAPTOP IS LIVE (1 October 2026).** The owner said "Build it
 out so I can see it live". Section 7 describes what is built: the whole
 screen is the student's work laptop at Rafiki's IT Services, with
 - the Help Desk
@@ -1001,3 +1007,49 @@ PICERL), as hands-on work:
 | M4 | Run | A cryptominer disguised as a Windows process on WS3, from a bad VS Code extension |
 | M5 | Run | Fake antivirus scareware on WS4 |
 | M6 | Run | An allowed Excel macro on WS4 (in the sim it was blocked, a clean clue) |
+
+
+## 11. The remaining builds — SETTLED 1 October 2026
+
+The owner said "Finish building them out" and chose **all remaining
+sims**: mail and Email Threat, then the router, then the Help Desk chats,
+each with a crawl, a walk and run tickets, plus five extra scenarios per
+sim. The objectives were re-read on 1 October 2026; the Core 2 wording is
+unchanged (section 2).
+
+The owner's answers, verbatim where it matters:
+1. **Go live, not preview-first.** "Doing it live works best for me
+   because it is solving two issues at once. I can debug it and see how it
+   looks for the students." Checks still pass before every push.
+2. **Four email categories: legitimate, spam, phishing, malicious.**
+   "The sims need to stay current with the time because IT is a fast
+   paced changing world."
+3. **Two steps per email:** first the category, then a six-option
+   question on the giveaway. "This way the students have to think through
+   it and treat it like it is real."
+4. **Students act on each email, with consequences.** "Just remember to
+   pull in what they are suppose to learn from the sims with the
+   objectives."
+5. **Users forward suspicious email to the help desk, except three.**
+   "There are some emails that can't be forward due to the suspicious
+   headers and that the IT professional has to go look at to add the safe
+   guards. So, we need to have three of those kinds of emails in their as
+   well."
+6. **The router brand is "92 Series Routers".**
+7. **Customer jobs are remote.** "Most things are being done remote until
+   it is figured out to be physical, however, you can ask the homeowner to
+   check the physical aspects for you."
+8. **The microwave job:** a cutscene walk to the access point, then the
+   2D floor plan, where the microwave is dragged across the room and the
+   Wi-Fi coverage changes.
+9. **Wireless Reliability stays in Core 2.** "We need to build their base
+   here and now. It is part of the actual exam and I am building this as a
+   double training platform for them."
+10. **The chats get more replies.** The owner asked "how about 6 to 9?"
+    OPEN: Claude raised the conflict with the six-option rule; see the
+    reply of 1 October.
+11. **Extra training for the topics no sim covers: yes, to all.** "It is
+    very important to me to build an all inclusive tool that will help
+    them prep for the exam and cover everything in Core 2 that they will
+    do in real life." These must be clearly separate from the sim tickets.
+    How they are told apart is OPEN: Claude proposed a way on 1 October.
