@@ -542,6 +542,10 @@ The page checks:
   - restarts left a remote session running
   - the office doors swung into the corridor
   - two monitors faced the wall
+- **The contrast sweep never measured Mason's rung-3 message** after L1
+  became a crawl (Mason sends no ladder hints during a crawl). Its plant
+  ("struck moves faded") was missed, which exposed the gap. The sweep now
+  brings up rung 3 on a run ticket, and the plant is caught.
 
 ### Known, not yet done
 

@@ -38,7 +38,7 @@ export async function run(extraCss) {
   const S = serve(ROOT);
   const B = await browser();
   const page = await B.newPage({ viewport: { width: 1400, height: 1000 } });
-  page.setDefaultTimeout(5000);
+  page.setDefaultTimeout(20000);
   const found = new Map();
   if (extraCss) await page.addInitScript((css) => { document.addEventListener("DOMContentLoaded", () => { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }); }, extraCss);
 
@@ -167,6 +167,16 @@ export async function run(extraCss) {
     await page.locator(".tb", { hasText: "Settings" }).click();
     await sweep(tag + ": instructor mode");
     await page.keyboard.press("Escape"); await page.evaluate(() => window.__LAP.openWin("helpdesk"));
+    /* Mason's rung 3 comes from the ladder, which runs on run tickets only
+       (on a crawl Mason is already walking them through it) */
+    await page.locator(".qi", { hasText: "INC20413" }).click(); await hd.locator("[data-coach=assign]").click();
+    await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
+    rdp = page.locator('[data-win="rdp:WS5"]');
+    await rdp.getByRole("button", { name: "Start menu" }).click(); await rdp.locator(".sm-search").fill("cmd"); await rdp.getByRole("button", { name: "Open Command Prompt" }).click();
+    for (const c of ["setx PATH C:\\R1", "setx PATH C:\\R2", "setx PATH C:\\R3", "setx PATH C:\\R4", "setx PATH C:\\R5"]) await run(c);
+    await page.evaluate(() => window.__LAP.openWin("chat"));
+    await sweep(tag + ": run ticket, Mason's rung 3 with struck moves in chat");
+    await page.evaluate(() => window.__LAP.openWin("helpdesk"));
     await page.locator(".qi", { hasText: "INC20411" }).click(); await hd.locator("[data-coach=assign]").click();
     await page.locator(".coach details summary").first().click();
     await sweep(tag + ": walk checklist, How? open");
@@ -203,7 +213,7 @@ if (!plant) {
   console.log("PASS — every text run meets AAA on painted pixels, in dark, light, and dark with dyslexia text");
 } else {
   let bad = 0;
-  for (const [name, css] of Object.entries(PLANTS)) {
+  for (const [name, css] of Object.entries(PLANTS).filter(([n]) => !process.env.ONLY || n.indexOf(process.env.ONLY) >= 0)) {
     const list = await run(css);
     if (list.length && !list.some((e) => /DRIVE ERROR/.test(e.key))) console.log("caught   " + name + "  →  " + list[0].worst.toFixed(2) + ":1 " + list[0].key);
     else { console.log("MISSED   " + name + (list.length ? " (" + list[0].key + ")" : "")); bad++; }
