@@ -770,3 +770,16 @@ crawl, walk, run method here."
 The steps are named in plain words, not as CompTIA's troubleshooting
 methodology, because that methodology is a Core 1 objective and the builds
 are kept separate.
+
+**Preview 3 (1 October 2026, scratchpad and the private preview page, not
+pushed):** the owner said "Build the walk for L2 and crawl for D1".
+- **L2 walk:** a nine-item checklist that ticks itself off, in any order.
+  Each item has a "How?" pointer, which never names the fix. No rings.
+- **D1 crawl:** 20 steps. They include reading entry 2190, ruling out the
+  BugCheck on timing, the UAC prompt, `dir` in SysWOW64 and System32, the
+  sim's old robocopy giving 0xc000007b, `regsvr32` failing, deleting the
+  stray copy, and installing the x86 runtime from `\\FS01\Software`.
+- **A crawl catches up when a student skips ahead.**
+- **`dir` of a single file** (`dir C:\Windows\System32\msvcp100.dll`) now
+  lists it, as Windows does. The fix is in the preview's `cmd.js` and must
+  be carried into the repo when the laptop build is adopted.
