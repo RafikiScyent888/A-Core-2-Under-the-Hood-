@@ -7,8 +7,14 @@ page title, the heading and anywhere the site is linked from.
 Read with `/root/.claude/CLAUDE.md`, which sets the rules and wins over this
 file. The coaching role is in `/root/.claude/exam-prep-coach.md`.
 
-**DIRECTION CHANGED on 30 September 2026. Section 8 overrides everything
-above it; read it first.** Sections 1 and 4–6 record the first design,
+**DIRECTION CHANGED AGAIN on 1 October 2026. Section 9 overrides
+everything above it, including section 8's layout; read it first.**
+VM build 1 (section 7) is live and stays up until its replacement is
+ready; the owner judged it "not functional for what I need it for my
+students".
+
+**Earlier: DIRECTION CHANGED on 30 September 2026. Section 8 overrides
+sections 1–7.** Sections 1 and 4–6 record the first design,
 which mixed Core 1 into Core 2 and was replaced. Section 7 is what is built
 now: VM build 1, the live-office design of section 8.
 
@@ -664,3 +670,69 @@ steps". They also said yes to each 3D point and to the company shape.
 - **The doc's topics that have no sim** (OS installation, file systems,
   mobile, backup and recovery, safety): new tickets on the same PC, or sims
   from the owner.
+
+## 9. The laptop — SETTLED 1 October 2026
+
+The owner, after trying VM build 1:
+
+> "This is not user friendly at all. I want it to mimic a real help desk
+> that is like you are operating a computer. … There's too much jumping
+> around. … I want it more real world feeling … so you sit down and you
+> feel like you're actually at a virtual machine or you're actually at
+> working on your laptop, solving tickets, clearing them up, but it's real
+> world. You're using different programs to solve it."
+
+> "I have five students who are just doing the program to earn the grade
+> and the hours and they're not gonna be able to earn the certificates
+> because they don't have the hands-on aspect they need … some of the
+> things we teach they need to actually physically do them as best they
+> can from the computer."
+
+**Reference points, not templates:** the Security Start-up Firewall and the
+VOO SOC. The owner: "I'm trying to create something new. I'm just trying to
+give you reference points so that way you can tweak it."
+
+**What was wrong with VM build 1** (Claude's diagnosis, accepted):
+- It was a web page *about* a computer. One ticket was spread over three
+  places: the clipboard, the Help Desk inside TECH-01, and the machine list.
+- Switching PCs was a teleport from a list outside the computer.
+- The screen was small, under a big header.
+- The 3D office sat on every page doing nothing.
+
+**What is settled:**
+- **The whole browser window is the student's work laptop**, after a
+  Windows sign-in screen ("Yes, I like the signing in").
+- **The Help Desk is a program on the laptop.** One ticket page holds
+  everything for that ticket: the user's message, the PC's details, notes,
+  the activity log, Resolve and Escalate, the cause question and the note.
+- **The user's PC is reached by remote session** from the laptop, which
+  opens as a window. Switching PCs means switching windows.
+- **When remote cannot work, the student walks over.** That covers a PC
+  that is off, blue-screened, off the network, or a physical job. The owner:
+  "if they have to physically go look at the machine … have the student
+  walk to the office and 3D."
+  - Claude's proposal, to be shown in a preview: Connect fails the way it
+    really would. The ticket then offers "Walk to the desk", the 3D office
+    walks the student there, and the PC's own monitor and physical actions
+    are in front of them. "Walk back" returns to the laptop.
+- **Hints come from Mason, the team lead, in a chat program.** The owner:
+  "That way it's guiding them still, not giving them the answer." The
+  standing ladder is unchanged.
+- **The other sims arrive as more programs on the same laptop.** That means
+  mail, a browser for the router's 192.168.1.1, the router app, and
+  customer chats. The owner: "as long as it's also more interactive … feels
+  more real and more hands-on."
+- **The Wi-Fi and microwave job opens a floor-plan program**, 2D from
+  above, where the microwave is dragged across the room ("that's something
+  we'll have to work on").
+- **The three-house 3D street stays.** The owner: "I do like what you did
+  with the three houses, but I haven't seen it in working view yet. So keep
+  that."
+- **Dyslexia text, light/dark and instructor mode** move into a small tray
+  menu on the taskbar.
+- **VM build 1 stays live until the new version is ready.**
+- **Previews along the way**, not pushed until the owner has tried them.
+
+**Kept from VM build 1:** the machine model, the typed commands, the twelve
+tickets, the hint ladder's rules and the checks. Only what the student
+sees and touches is rebuilt.
