@@ -799,3 +799,31 @@ for D2 and the run tickets".
   itself as its ticket describes. The crawls were tested by following
   only Mason's rings, the walks by driving them out of order, and the run
   tickets with the fix a student would use.
+
+**Preview 5 (1 October 2026, not pushed): the walk-over in 3D.** The owner
+said "Build the walk-over in 3D next."
+- **Your desk is now in the model:** an IT bench in the network closet,
+  beside the rack. Every walk starts and ends there.
+- **The routes** go out of the closet door, along the corridor and through
+  the office door to the user's chair, at standing eye height and about
+  5.5 ft a second, then turn to the monitor. "Skip the walk" is offered,
+  and reduced motion cuts straight there.
+- **The walk-over is offered** on every ticket ("Walk to Dev's desk"), and
+  whenever remote support can't reach the PC:
+  - it is switched off
+  - it blue-screened (the remote session now drops with "Connection lost")
+  - its network cable is unplugged
+- **At the desk:** the PC's real screen, plus what only someone standing
+  there can do: press the power button (with a warning against forcing it
+  off when it is already on), and check the network cable and plug it back
+  in. "Walk back" retraces the route.
+- **Model fixes found by rendering each arrival view:**
+  - office doors swung out into the corridor (the walk went through one);
+    they now open into the rooms
+  - Farah's and Rosa's monitors faced the wall; they now face their chairs
+  - Rosa's PC was buried in the tall counter; her work surface is now at
+    desk height
+  - the servers gained status lights
+- **Not yet used by a ticket:** no current ticket starts with an unreachable
+  PC. The Malware build (an infected PC to unplug from the network) is the
+  natural first user.
