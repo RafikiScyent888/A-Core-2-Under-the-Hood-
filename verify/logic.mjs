@@ -38,6 +38,11 @@
                 its sender blocked, a link opened); every giveaway question
                 is six with one right, spread across the slots and not
                 usually the longest; no hint names the giveaway
+     EXAM       each exam view: six per sim, one the sim itself; the sims'
+                own keys (as ruled); every question six, one right, reasons;
+                every typed answer is in the brief word for word; right
+                values check done, a wrong one stays red and counts; rung 3
+                leaves two alive; no hint names the answer; spread
 
    A plant run that passes is reported as a failure: a check that cannot
    fail is not a check.
@@ -51,6 +56,8 @@ import { ordered } from "../assets/order.js";
 import * as MW from "../assets/malware.js";
 import { nextStep } from "../assets/tickets-malware.js";
 import * as MX from "../assets/mail.js";
+import * as PQ from "../assets/pbq.js";
+import { EXAMS } from "../assets/exams.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -247,6 +254,7 @@ export function check(D) {
   const E4 = D.createEngine(store);
   if (!E4.ticket() || E4.ticket().id !== "D5" || E4.T().guesses !== g3) F("SNAPSHOT: the session did not survive a reload");
 
+  examChecks(D, F);
   return fails;
 }
 
@@ -424,6 +432,51 @@ function mailChecks(D, t, F) {
   if (D.noteOK(t, "I looked at all of the emails and handled them the right way, so it's all done now.").ok) F(P + "NOTE: a note that says nothing specific is accepted");
 }
 
+/* The sims' own keys, as the owner ruled them (Port Forwarding swapped). */
+export const KEYS = {
+  "pf:pf1": { enc: "WPA2 PSK", lanWap: "192.168.10.1", wan: "50.90.234.1", lanFw: "10.100.0.1", rule: "Allow TCP Any 3389", place: "LAN: Windows PC · Screened subnet: Game Console" },
+  "wifi:w1": { ssid: "MainOffice1", pass: "Ma50n1SB35t!", sec: "WPA3", band: "2.4 GHz", chan: "6" },
+  "nr:n1": { ssid: "HomeWiFi", pass: "MyCCR0ck2!", sec: "WPA3", width: "20 MHz", mac: "Enabled", chan: "11" },
+  "t1:t1": { q1: "Change the default administrative password to a strong, complex password", q2: "Save the changes and reboot the router", q3: "Document findings and escalate to Tier 2 support" },
+  "wr:wrA": { constraint: "Signal range and wall penetration", band: "2.4 GHz", channel: "Use a non-overlapping channel", security: "Modern encrypted security with strong authentication" },
+  "wr:wrB": { constraint: "Wireless congestion from nearby networks", band: "5 GHz", channel: "Use a non-overlapping channel", security: "Modern encrypted security with strong authentication" },
+  "wr:wrC": { constraint: "Signal range and wall penetration", band: "Dual-band with client steering", channel: "Allow automatic channel selection only", security: "Modern encrypted security with strong authentication" }
+};
+function examChecks(D, F) {
+  const X = D.EXAMS || EXAMS; const pos = [0, 0, 0, 0, 0, 0]; let qs = 0, longest = 0;
+  X.forEach((ex) => {
+    if (ex.variants.length !== 6 || ex.variants.filter((v) => v.base).length !== 1) F("EXAM " + ex.id + ": SHAPE: not six variants with one the sim itself");
+    ex.variants.forEach((v) => {
+      const P = "EXAM " + ex.id + ":" + v.id + ": ", brief = v.brief.join(" ");
+      const key = (D.KEYS || KEYS)[ex.id + ":" + v.id];
+      if (key) Object.keys(key).forEach((fid) => { const f = v.fields.find((x) => x.id === fid); if (!f || PQ.rightValue(f) !== key[fid]) F(P + "KEY: " + fid + " is " + (f ? PQ.rightValue(f) : "missing") + ", the sim's key is " + key[fid]); });
+      v.fields.forEach((f) => {
+        if (f.kind === "text") { if (!f.deduce && brief.indexOf(f.answer) < 0) F(P + "TEXT: the answer for " + f.id + " (" + f.answer + ") is not in the brief word for word"); }
+        else {
+          const r = f.options.filter((o) => o.correct).length; if (r !== 1) F(P + "SIX: " + f.id + " has " + r + " right answers");
+          if (f.options.some((o) => !o.correct && !o.why)) F(P + "SIX: a wrong option on " + f.id + " has no reason");
+          if (new Set(f.options.map((o) => o.label)).size !== f.options.length) F(P + "SIX: " + f.id + " repeats an option");
+          if (!f.setting) { if (f.options.length !== 6) F(P + "SIX: question " + f.id + " has " + f.options.length + " options, not 6");
+            qs++; pos[D.ordered(f.options, v.id + f.id).findIndex((o) => o.correct)]++; const L = f.options.map((o) => o.label.length), rl = PQ.rightValue(f).length; if (rl === Math.max(...L) && L.filter((x) => x === rl).length === 1) longest++; }
+        }
+        f.hint.slice(0, 2).forEach((h, i) => { const rv = PQ.rightValue(f); if (rv.length > 3 && String(h).indexOf(rv) >= 0) F(P + "NO LEAK: rung " + (i + 1) + " of " + f.id + " names the answer"); });
+      });
+      const st = PQ.fresh(); v.fields.forEach((f) => PQ.set(st, f, PQ.rightValue(f)));
+      if (!PQ.check(v, st).done) F(P + "SOLVE: the right values do not complete it");
+      const s2 = PQ.fresh(); v.fields.forEach((f) => PQ.set(s2, f, PQ.rightValue(f)));
+      const ch = v.fields.find((f) => f.kind === "choice"); const wrong = ch.options.find((o) => !o.correct);
+      PQ.set(s2, ch, wrong.label); PQ.check(v, s2);
+      if (s2.done || (s2.out[ch.id] || []).indexOf(wrong.label) < 0 || s2.guesses !== 1) F(P + "SOLVE: a wrong value is not kept red and counted once");
+      s2.guesses = 7; const g = PQ.guidance(v, s2);
+      const alive = ch.options.filter((o) => !(g.strike || {})[o.label]);
+      if (g.rung !== 3 || alive.length !== 2 || !alive.some((o) => o.correct)) F(P + "LADDER: rung 3 does not leave two alive with the right one");
+    });
+  });
+  if (PQ.rungFor(2) !== 0 || PQ.rungFor(3) !== 1 || PQ.rungFor(4) !== 2 || PQ.rungFor(9) !== 3) F("EXAM: LADDER: the rungs are off");
+  if (qs && Math.max(...pos) > Math.ceil(qs / 3)) F("EXAM: SPREAD: the right answer sits in one slot " + Math.max(...pos) + " times of " + qs + " (" + pos.join(" ") + ")");
+  if (qs && longest > Math.ceil(qs / 3)) F("EXAM: SPREAD: the right answer is the longest option in " + longest + " of " + qs + " questions");
+}
+
 const BASE = { TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
@@ -458,6 +511,10 @@ const PLANTS = [
   ["MAIL E3: SIX", "a giveaway question loses an option", () => ({ TICKETS: withTicket("E3", (t) => ({ mails: t.mails.map((e, i) => (i ? e : Object.assign({}, e, { tell: Object.assign({}, e.tell, { options: e.tell.options.slice(0, 5) }) }))) })) })],
   ["MAIL E5: NO LEAK", "rung 1 names the giveaway", () => ({ TICKETS: withTicket("E5", (t) => ({ hints: (f) => { const e = t.current(f); return [e ? "Look: " + e.tell.options[0].label : "", "x"]; } })) })],
   ["MAIL: SPREAD", "every right giveaway padded to be the longest", () => ({ TICKETS: BASE.TICKETS.map((t) => (t.kind === "email" ? Object.assign({}, t, { mails: t.mails.map((e) => Object.assign({}, e, { tell: Object.assign({}, e.tell, { options: e.tell.options.map((o) => (o.correct ? Object.assign({}, o, { label: o.label + ", and that settles it beyond any doubt at all" }) : o)) }) })) }) : t)) })],
+  ["EXAM pf:pf1: KEY", "Port Forwarding keyed the sim's original way (PC in the screened subnet)", () => ({ KEYS: Object.assign({}, KEYS, { "pf:pf1": Object.assign({}, KEYS["pf:pf1"], { place: "LAN: Game Console · Screened subnet: Windows PC" }) }) })],
+  ["EXAM wifi:w1: TEXT", "the WiFi password mistyped in the answer", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "wifi" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "w1" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id === "pass" ? Object.assign({}, f, { answer: "Ma5on1SB35t!" }) : f)) }))) }))) })],
+  ["EXAM t1:t1: SIX", "a Tier 1 task with five options", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "t1" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "t1" ? v : Object.assign({}, v, { fields: v.fields.map((f, i) => (i ? f : Object.assign({}, f, { options: f.options.slice(0, 5) }))) }))) }))) })],
+  ["EXAM: SPREAD", "the exam questions shown in authored order", () => ({ ordered: (o) => o.slice() })],
   ["NOTE", "the note check accepts anything forty letters long", () => ({ noteOK: (t, s) => ({ ok: String(s).length >= 40, missing: [] }) })]
 ];
 

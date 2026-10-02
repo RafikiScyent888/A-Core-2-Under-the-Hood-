@@ -21,6 +21,7 @@ import * as MW from "./malware.js";
 import { inspected, nextStep } from "./tickets-malware.js";
 import * as MX from "./mail.js";
 import { drawMail, drawAdmin } from "./mailui.js";
+import { drawExam } from "./examui.js";
 import { staffOf, emailById, part as mailPart, emailDone, CATS } from "./tickets-mail.js";
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
@@ -91,7 +92,8 @@ const APPS = {
   chat: { title: "Chat — Mason (Team Lead)", mini: "C", cls: "g-chat", geo: [0.695, 0.03, 0.295, 0.92], draw: drawChat },
   mstsc: { title: "Remote Desktop Connection", mini: "RD", cls: "g-rdp", geo: [0.30, 0.20, 0.36, 0.46], draw: drawMstsc },
   mail: { title: "Mail — helpdesk@rafiki.local", mini: "@", cls: "g-mail", geo: [0.06, 0.04, 0.80, 0.90], draw: drawMailWin },
-  mailadmin: { title: "Mail admin — Rafiki's IT Services", mini: "MA", cls: "g-mail", geo: [0.20, 0.05, 0.62, 0.88], draw: drawAdminWin }
+  mailadmin: { title: "Mail admin — Rafiki's IT Services", mini: "MA", cls: "g-mail", geo: [0.20, 0.05, 0.62, 0.88], draw: drawAdminWin },
+  exam: { title: "Exam Practice — the sims, laid out as the exam shows them", mini: "EX", cls: "g-exam", geo: [0.04, 0.02, 0.92, 0.95], draw: drawExamWin }
 };
 function appOf(id) { return id.indexOf("rdp:") === 0 ? { title: rosterOf(id.slice(4)).host + " — Remote support", mini: "RS", cls: "g-rdp", geo: [0.08, 0.03, 0.86, 0.92], draw: drawRdp } : APPS[id]; }
 function openWin(id) {
@@ -137,7 +139,7 @@ function drawDesk() {
   desk.innerHTML = "";
   const mark = el("div", "wall-mark", "Rafiki's IT Services"); mark.appendChild(el("small", null, "IT Support · Tier 1")); desk.appendChild(mark);
   const ic = el("div", "icons"); ic.setAttribute("aria-label", "Desktop");
-  [["helpdesk", "Help Desk", "HD", "g-hd"], ["chat", "Chat", "C", "g-chat"], ["mstsc", "Remote Desktop", "RD", "g-rdp"]].forEach(function (x) {
+  [["helpdesk", "Help Desk", "HD", "g-hd"], ["exam", "Exam Practice", "EX", "g-exam"], ["chat", "Chat", "C", "g-chat"], ["mstsc", "Remote Desktop", "RD", "g-rdp"]].forEach(function (x) {
     const b = btn("", "dicon", function () { openWin(x[0]); }, "Open " + x[1]);
     b.appendChild(el("span", "glyph " + x[3], x[2])); b.appendChild(el("span", null, x[1])); ic.appendChild(b);
   });
@@ -149,11 +151,11 @@ function drawTask() {
   const mid = el("div", "task-mid");
   const st = btn("", "tb", function () { togglePop("start"); }, "Start"); st.appendChild(el("span", "mini g-hd", "⊞")); st.appendChild(el("span", null, "Start")); st.setAttribute("aria-expanded", String(pop === "start"));
   mid.appendChild(st);
-  const pinned = ["helpdesk", "chat", "mail", "mailadmin", "mstsc"];
+  const pinned = ["helpdesk", "exam", "chat", "mail", "mailadmin", "mstsc"];
   const ids = pinned.concat(Object.keys(W).filter(function (k) { return pinned.indexOf(k) < 0; }));
   ids.forEach(function (id) {
     const a = appOf(id); const w = W[id];
-    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : rosterOf(id.slice(4)).host;
+    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : rosterOf(id.slice(4)).host;
     const b = btn("", "tb" + (w ? " open" : "") + (front === id && w && !w.min ? " front" : ""), function () {
       if (!w) return openWin(id);
       if (front === id && !w.min) { w.min = true; place(w); front = null; drawTask(); } else { w.min = false; place(w); focusWin(id); }
@@ -520,6 +522,14 @@ function mailAct(a, host) {
 function mailCtx(mid, helpdesk, w) {
   return { fleet: E.fleet, mid: mid, helpdesk: helpdesk, act: function (a) { a.before = a.before || E.before(); mailAct(a, mid === "TECH" ? "Mail" : rosterOf(mid).host); },
     draw: function () { redraw(w.id); }, peek: function (id) { if (!(L.peek = L.peek || {})[id]) { L.peek[id] = true; saveL(); coachTick(); } }, noForward: function (id) { const e = emailById(id); return !!(e && e.noForward); } };
+}
+function drawExamWin(w) {
+  w.ui = w.ui || {}; const keep = w.body.querySelector(".ex-main") ? w.body.querySelector(".ex-main").scrollTop : 0; const keepN = w.body.querySelector(".ex-nav") ? w.body.querySelector(".ex-nav").scrollTop : 0;
+  const foc = document.activeElement && w.body.contains(document.activeElement) && document.activeElement.id ? document.activeElement.id : null;
+  w.body.innerHTML = ""; w.body.classList.add("ex-host");
+  drawExam(w.body, { L: L, save: saveL, draw: function () { redraw("exam"); }, onDone: function (ex, v) { toast("Exam Practice", "✓ " + v.title + ": every setting right.", function () { openWin("exam"); }); } }, w.ui);
+  const m = w.body.querySelector(".ex-main"); if (m) m.scrollTop = keep; const n = w.body.querySelector(".ex-nav"); if (n) n.scrollTop = keepN;
+  if (foc) { const f = document.getElementById(foc); if (f) f.focus(); }
 }
 function drawMailWin(w) { w.ui = w.ui || {}; w.body.innerHTML = ""; w.body.classList.add("mx-host"); drawMail(w.body, mailCtx("TECH", true, w), w.ui); }
 function drawAdminWin(w) {

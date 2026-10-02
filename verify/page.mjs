@@ -37,6 +37,11 @@
                rings, pointing at links without opening them; E4 (an email
                that can't be forwarded) closes through the UI alone: the
                headers on Farah's PC, reports, purges, blocks, the policy
+     EXAM      Exam Practice: each sim's own exam view, laid out as the
+               sim, completes with the right answers through the UI; a wrong
+               pick is marked three ways and stays after a redraw; Reset
+               clears the marks; the way of working (Guided, Checklist, On
+               my own) is kept
      CINE      the walk-over plays as a cutscene (letterbox bars, a caption)
                and drops it at the desk; reduced motion cuts straight there
    ===================================================================== */
@@ -53,7 +58,7 @@ const NOTES = {
   E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -379,6 +384,36 @@ async function run(rewrites, groups) {
       await p.getByRole("button", { name: "Close the walkthrough" }).click().catch(() => {});
       await playMail(p, "E4");
     });
+
+    await step("EXAM", async (p) => {
+      p.setDefaultTimeout(20000); await signIn(p);
+      await p.evaluate(() => window.__LAP.openWin("exam")); const x = p.locator("[data-win=exam]");
+      const views = await p.evaluate(async () => { const m = await import("./assets/exams.js"); const P = await import("./assets/pbq.js"); return m.EXAMS.map((e) => ({ ex: e.id, sim: e.sim, layout: e.layout, v: e.variants[0].id, fields: e.variants[0].fields.map((f) => ({ id: f.id, kind: f.kind, right: P.rightValue(f), wrong: f.kind === "choice" ? f.options.find((o) => !o.correct).label : null })) })); });
+      for (const V of views) {
+        await x.getByRole("button", { name: new RegExp("^" + V.sim + ": the sim itself") }).click();
+        if (V.layout === "map") await x.getByRole("button", { name: /wireless access point: open/ }).click();
+        if (V.layout === "houses") { await x.getByRole("button", { name: "Router 2: show its settings" }).click(); if (!/40 MHz/.test(await x.locator(".ex-modal").innerText())) F("EXAM: Router 2 does not show 40 MHz"); await x.getByRole("button", { name: "Router 3: show its settings" }).click(); }
+        for (const f of V.fields) {
+          if (V.layout === "diagram") await x.locator(".ex-slot").nth(V.fields.indexOf(f)).click();
+          const box = x.locator('.ex-f[data-field="' + f.id + '"]');
+          if (f.kind === "text") await box.locator("input").fill(f.right);
+          else await box.locator(".ex-o", { hasText: f.right }).filter({ hasText: new RegExp("^(● )?" + f.right.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$") }).first().click();
+        }
+        await x.getByRole("button", { name: /^(Submit|Save settings)$/ }).click();
+        if (!(await x.locator(".ex-done").count())) F("EXAM: " + V.sim + ": the right answers did not complete it");
+      }
+      /* a wrong pick stays red; Reset clears it; the mode is kept */
+      const V = views[3]; await x.getByRole("button", { name: new RegExp("^" + V.sim + ": practice 2") }).click();
+      const f0 = await p.evaluate(async () => { const m = await import("./assets/exams.js"); const f = m.EXAMS[3].variants[1].fields[0]; return { id: f.id, wrong: f.options.find((o) => !o.correct).label }; });
+      await x.locator('.ex-f[data-field="' + f0.id + '"] .ex-o', { hasText: f0.wrong }).first().click();
+      await x.getByRole("button", { name: "Submit" }).click();
+      const look = () => x.locator('.ex-f[data-field="' + f0.id + '"] .ex-o.out').first().evaluate((e) => ({ t: e.innerText, sh: getComputedStyle(e).boxShadow })).catch(() => null);
+      let w = await look(); if (!w || !/Ruled out/.test(w.t) || !/inset/.test(w.sh)) F("EXAM: a wrong pick is not marked three ways (colour, inset rule, words)");
+      await x.getByRole("button", { name: "Checklist" }).click(); w = await look(); if (!w) F("EXAM: the wrong pick did not stay red after a redraw");
+      await x.getByRole("button", { name: /^Reset this exam view/ }).click(); if (await look()) F("EXAM: Reset did not clear the red marks");
+      await p.reload(); await p.waitForTimeout(300); await signIn(p); await p.evaluate(() => window.__LAP.openWin("exam"));
+      if ((await p.locator('[data-win=exam] .ex-modes [aria-pressed="true"]').innerText()) !== "Checklist") F("EXAM: the way of working was not kept");
+    });
   } finally { await b.close(); s.close(); }
   return fails;
 }
@@ -398,6 +433,7 @@ const PLANTS = [
   ["CINE", "the walk is never framed as a cutscene", { "assets/laptop.js": [["ov.classList.add(\"cine-on\"); caption(\"Rafiki's IT Services\"", "caption(\"Rafiki's IT Services\""]] }],
   ["MALRUN", "the offline scan reports success but leaves the malware", { "assets/malware.js": [["w.removed = true; m.av.found = [];", "m.av.found = [];"]] }],
   ["MAIL", "reading the message details is never recorded", { "assets/mailui.js": [["if (ui.details && !x.fwd) { MX.viewHeaders(fleet, ctx.mid, x.id); ctx.act(", "if (ui.details && !x.fwd) { ctx.act("]] }],
+  ["EXAM", "Submit never grades", { "assets/examui.js": [["const r = P.check(v, st);", "const r = { done: false, wrong: 0, missing: 0 };"]] }],
   ["PERSIST", "the dyslexia setting is not saved", { "assets/laptop.js": [["put(\"c2vm.reading\", on ? \"dyslexia\" : \"default\");", ""]] }]
 ];
 

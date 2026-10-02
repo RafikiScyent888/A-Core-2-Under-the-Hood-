@@ -346,3 +346,64 @@ tr.coach-target td:first-child { box-shadow: inset 4px 4px 0 #b88a00, inset 0 -4
    never pushes its links out of reach */
 .mx-host > .mx { grid-template-rows: minmax(0, 1fr); overflow: hidden; }
 .mx-host .mx-nav, .mx-host .mx-list, .mx-host .mx-read { min-height: 0; overflow: auto; }
+
+/* ------------------------------------------------------ Exam Practice */
+.g-exam { background: #6b1d1d; }
+.ex-host { display: flex; flex-direction: column; }
+.ex { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); background: var(--win); color: var(--ink); }
+.ex-nav { overflow: auto; padding: 0.7rem; background: var(--win-2); border-right: 1px solid var(--line); }
+.ex-nh { margin: 0; font-size: 1.1rem; } .ex-nsub { margin: 0.2rem 0 0.6rem; color: var(--muted); font-size: 0.9rem; }
+.ex-ng h3 { margin: 0.7rem 0 0.25rem; font-size: 0.92rem; }
+.ex-nl { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.2rem; }
+.ex-nb { width: 100%; text-align: left; font: inherit; padding: 0.35rem 0.55rem; min-height: 34px; border-radius: 5px; border: 1px solid transparent; background: transparent; color: var(--ink); cursor: pointer; }
+.ex-nb.on { background: var(--win); border-color: var(--line); font-weight: 700; }
+.ex-nb.done { color: var(--good-ink); }
+.ex-main { overflow: auto; padding: 0.9rem 1.1rem 1.2rem; display: grid; gap: 0.7rem; align-content: start; }
+.ex-top { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-start; justify-content: space-between; }
+.ex-sim { margin: 0; color: var(--muted); font-size: 0.9rem; } .ex-title { margin: 0.1rem 0 0; font-size: 1.25rem; }
+.ex-modes { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.ex-brief { border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.8rem; background: var(--win-2); }
+.ex-brief p { margin: 0.25rem 0; }
+.ex-coach, .ex-hint { border: 2px solid #7c3aed; border-radius: 8px; padding: 0.55rem 0.8rem; background: var(--win-2); }
+.ex-coach p, .ex-hint p { margin: 0.25rem 0 0; } .ex-princ { font-weight: 600; }
+.ex-done { border: 2px solid var(--good-rule); border-radius: 8px; padding: 0.55rem 0.8rem; background: var(--good-bg); color: var(--good-ink); }
+.ex-done p { margin: 0.25rem 0 0; }
+.ex-check { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.ex-check li { display: grid; grid-template-columns: 1.6rem 1fr; gap: 0.4rem; }
+.ex-check li.did { font-weight: 700; }
+.ex-area { display: grid; gap: 0.8rem; }
+.ex-diagram { grid-template-columns: minmax(0, 1.1fr) minmax(16rem, 1fr); align-items: start; }
+.ex-map, .ex-houses { grid-template-columns: minmax(0, 1fr) minmax(18rem, 1fr); align-items: start; }
+.ex-tasks, .ex-checkpoints { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; }
+.ex-checkpoints { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr); }
+.ex-fig { position: relative; margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+.ex-fig img { display: block; width: 100%; height: auto; }
+.ex-slot, .ex-hot { position: absolute; transform: translate(-50%, -50%); min-width: 40px; min-height: 40px; border-radius: 50%; border: 3px solid #fff; background: #0b3a82; color: #fff; font: 800 1.05rem/1 system-ui, sans-serif; cursor: pointer; box-shadow: 0 0 0 2px #0b1f4a; }
+.ex-hot { border-radius: 8px; padding: 0.35rem 0.6rem; font-size: 0.95rem; }
+.ex-slot.on, .ex-hot.on { background: #5b21b6; } .ex-slot.ok { background: #14532d; } .ex-slot.bad { background: #7f1d1d; }
+.ex-side, .ex-modal, .ex-card { border: 1px solid var(--line); border-radius: 8px; padding: 0.7rem 0.85rem; background: var(--win); display: grid; gap: 0.6rem; align-content: start; }
+.ex-modal h3, .ex-card h3 { margin: 0; font-size: 1.05rem; }
+.ex-hint2 { margin: 0; color: var(--muted); }
+.ex-note { margin: 0; padding: 0.45rem 0.6rem; border-left: 6px solid #0b3a82; background: var(--win-2); border-radius: 4px; grid-column: 1 / -1; }
+.ex-f { display: grid; gap: 0.35rem; padding: 0.5rem 0.6rem; border: 1px solid var(--line); border-radius: 6px; background: var(--win-2); }
+.ex-f.ok { border-left: 6px solid var(--good-rule); }
+.ex-fl { margin: 0; font-weight: 700; }
+.ex-okm { font-weight: 700; color: var(--good-ink); }
+.ex-opts { display: grid; gap: 0.3rem; }
+.ex-opts.many { grid-template-columns: repeat(auto-fill, minmax(3.4rem, 1fr)); }
+.ex-o { text-align: left; display: grid; gap: 0.1rem; padding: 0.4rem 0.6rem; min-height: 40px; border-radius: 6px; border: 1px solid var(--line); background: var(--win); color: var(--ink); cursor: pointer; font: inherit; }
+.ex-o.sel { border-width: 2px; border-color: #7c3aed; font-weight: 700; }
+.ex-o.out, .ex-outs li.out { background: var(--bad-bg, #3b0d0d); color: var(--bad-ink, #ffd9d9); border-color: var(--bad-rule, #ff9b9b); box-shadow: inset 6px 0 0 var(--bad-rule, #ff9b9b); cursor: not-allowed; }
+.ex-o .om, .ex-outs .om { font-weight: 800; font-size: 0.85rem; }
+.ex-o .ow, .ex-outs .ow { font-size: 0.92rem; }
+.ex-outs { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.ex-outs li { display: grid; gap: 0.1rem; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid; }
+.ex-sum { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.15rem; font-size: 0.92rem; }
+.ex-sum li.did strong { color: var(--good-ink); }
+.ex-dl { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.8rem; margin: 0; } .ex-dl dt { font-weight: 700; } .ex-dl dd { margin: 0; }
+.ex-chat { margin: 0; } .ex-guide { margin: 0; padding: 0.45rem 0.6rem; background: var(--win-2); border-radius: 6px; }
+.ex-sig { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+.ex-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.ex-msg { margin: 0; font-weight: 600; }
+:root[data-theme="light"] .ex-o.out, :root[data-theme="light"] .ex-outs li.out { background: #fde8e8; color: #7f1d1d; border-color: #7f1d1d; box-shadow: inset 6px 0 0 #7f1d1d; }
+@media (max-width: 900px) { .ex { grid-template-columns: 1fr; } .ex-diagram, .ex-map, .ex-houses, .ex-tasks, .ex-checkpoints { grid-template-columns: 1fr; } }

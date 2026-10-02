@@ -17,6 +17,11 @@ on the laptop:
   email. Point at a link to see where it really goes, without opening it.
   **Mail admin** has the block list, search and purge, protection
   policies, and password resets.
+- **Exam Practice** shows each sim laid out the way the exam shows it: the
+  Port Forwarding diagram, the Wi-Fi office map, the three houses of
+  Neighboring Routers, the Tier 1 Router scenario and the Wireless
+  Reliability checkpoints. Each one is the sim's own task plus five more.
+  Work it Guided, with a Checklist, or On my own.
 - **Chat with Mason,** your team lead. He guides you, and never gives you
   the answer.
 - **When remote can't reach a PC,** you walk over in 3D, played as a

@@ -56,7 +56,7 @@ export async function run(extraCss) {
        hit-testable while the runs are collected. */
     const pe = await page.addStyleTag({ content: "*{pointer-events:auto!important}" });
     const runs = await page.evaluate(() => {
-      const out = []; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n;
+      const out = []; window.__sweepEls = []; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n;
       const desc = (el) => { const p = []; for (let e = el; e && e !== document.body && p.length < 3; e = e.parentElement) p.unshift(e.tagName.toLowerCase() + (typeof e.className === "string" && e.className.trim() ? "." + e.className.trim().split(/\s+/).join(".") : "")); return p.join(" > "); };
       while ((n = w.nextNode())) {
         if (!n.textContent.trim()) continue;
@@ -91,7 +91,7 @@ export async function run(extraCss) {
           if (![[0.5, 0.5], [0.1, 0.2], [0.9, 0.2], [0.1, 0.85], [0.9, 0.85]].every(([fx, fy]) => mine(x0 + (x1 - x0) * fx, y0 + (y1 - y0) * fy))) continue;
           const r = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
           if (r.width > 4 && r.height > 6)
-          out.push({ t: n.textContent.trim().slice(0, 40), c: cs.color, op, s: parseFloat(cs.fontSize), b: parseInt(cs.fontWeight) >= 700, x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height, el: desc(el) });
+          { window.__sweepEls.push(el); out.push({ k: window.__sweepEls.length - 1, t: n.textContent.trim().slice(0, 40), c: cs.color, op, s: parseFloat(cs.fontSize), b: parseInt(cs.fontWeight) >= 700, x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height, el: desc(el) }); }
         }
       }
       /* inputs carry their text in a value, not a text node */
@@ -108,6 +108,11 @@ export async function run(extraCss) {
     const tag = await page.addStyleTag({ content: "*{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;caret-color:transparent!important}" });
     const png = await page.screenshot({ fullPage: true });
     await tag.evaluate((t) => t.remove());
+    /* Something that changed between reading the text and the screenshot
+       (a notification timing out) wasn't painted where it was read: drop
+       it rather than measure it against what replaced it. */
+    const gone = await page.evaluate((list) => list.filter((r) => { const e = window.__sweepEls[r.k]; if (!e || !e.isConnected) return true; const b = e.getBoundingClientRect(); return b.width === 0 && b.height === 0; }).map((r) => r.k), runs.filter((r) => r.k != null).map((r) => ({ k: r.k })));
+    for (let i = runs.length - 1; i >= 0; i--) if (gone.indexOf(runs[i].k) >= 0) runs.splice(i, 1);
     const bgs = await page.evaluate(async ({ b64, runs }) => {
       const img = new Image(); img.src = "data:image/png;base64," + b64; await img.decode();
       const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d"); x.drawImage(img, 0, 0);
@@ -273,6 +278,24 @@ export async function run(extraCss) {
     const r4 = page.locator('[data-win="rdp:WS4"]'); await r4.getByRole("button", { name: "Start menu" }).click(); await r4.locator(".sm-search").fill("mail"); await r4.getByRole("button", { name: "Open Mail" }).click();
     await r4.locator(".mx-it", { hasText: "Quick favour" }).click(); await r4.getByRole("button", { name: /Message details/ }).click();
     await sweep(tag + ": Farah's own Mail, flagged, with the headers");
+
+    /* Exam Practice: each sim laid out as the exam shows it */
+    await page.evaluate(() => window.__LAP.openWin("exam")); const ex = page.locator("[data-win=exam]");
+    await ex.getByRole("button", { name: /^Port Forwarding Configuration: practice 2/ }).click();
+    const wrongs = await page.evaluate(async () => { const m = await import("./assets/exams.js"); return m.EXAMS[0].variants[1].fields[0].options.filter((o) => !o.correct).map((o) => o.label); });
+    for (const w of wrongs.slice(0, 4)) { await ex.locator('.ex-f[data-field="enc"] .ex-o', { hasText: w }).first().click(); await ex.getByRole("button", { name: "Submit" }).click(); }
+    await ex.locator(".ex-slot").nth(1).click(); await ex.locator(".ex-f .ex-o").first().click(); await ex.getByRole("button", { name: "Submit" }).click(); await ex.locator(".ex-slot").first().click();
+    await sweep(tag + ": Exam Practice, Port Forwarding diagram, red picks, Mason's rung 3");
+    await ex.getByRole("button", { name: /^WiFi Access Point Configuration: the sim itself/ }).click(); await ex.getByRole("button", { name: /wireless access point: open/ }).click();
+    await sweep(tag + ": Exam Practice, WiFi office map, access point settings");
+    await ex.getByRole("button", { name: /^Neighboring Routers Configuration: the sim itself/ }).click(); await ex.getByRole("button", { name: "Router 3: show its settings" }).click();
+    await sweep(tag + ": Exam Practice, three houses, Router 3 settings");
+    await ex.getByRole("button", { name: "Checklist" }).click();
+    await ex.getByRole("button", { name: /^Tier 1 Router Support Scenario: the sim itself/ }).click();
+    await sweep(tag + ": Exam Practice, Tier 1 scenario and conversation, checklist");
+    await ex.getByRole("button", { name: /^Wireless Reliability Decision Lab: the sim itself/ }).click();
+    await sweep(tag + ": Exam Practice, Wireless Reliability signal log and checkpoints");
+    await ex.getByRole("button", { name: "Guided" }).click();
   }
 
   try {
@@ -293,7 +316,9 @@ const PLANTS = {
   "a checked PC's tick in a pale green": ".dev-t td.dev-ok { color: #4ade80 !important; }",
   "Mail's link line in a faint grey": ".mx-linkbar { color: #9ca3af !important; }",
   "a flagged-message banner in a pale amber": ".mx-flag { color: #c79a1a !important; }",
-  "text typed into a field in a faint grey": ".field, .w-input { color: #9ca3af !important; }"
+  "text typed into a field in a faint grey": ".field, .w-input { color: #9ca3af !important; }",
+  "a ruled-out exam option's reason dimmed": ".ex-o.out .ow { color: #9a6b6b !important; }",
+  "the diagram's numbered slots in a pale blue": ".ex-slot { background: #7fb2ff !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

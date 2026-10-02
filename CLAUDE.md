@@ -1145,3 +1145,24 @@ came from a sim's 2D picture, the Wi-Fi sim's office map.
   MHz.** 80 MHz doesn't exist on 2.4 GHz channel 6. A teaching note
   explains the widths per band. The key (Router 3: channel 11, 20 MHz) is
   unchanged. The owner: "Build so the students will learn."
+
+### Exam Practice as built (2 October 2026, live)
+
+- **New files:** `pbq.js` (the engine), `exams.js` (the content),
+  `examui.js` (the program), and `assets/sims/` (the sims' own pictures,
+  copied from Core-2-Sims).
+- **Five exam views, the router sims first,** each the sim's own task plus
+  five more:
+  - Port Forwarding, on the sim's diagram with numbered slots
+  - WiFi AP, on the office map: click the WAP
+  - Neighboring Routers, on the three houses: Router 1 and Router 2 are
+    read-only, Router 3 is configured
+  - Tier 1 Router, the scenario beside the conversation
+  - Wireless Reliability, the signal log beside the four checkpoints
+- **Keys:** the sims' own, checked by `verify/logic.mjs` KEYS, with Port
+  Forwarding swapped as ruled. Questions have six options (the sims' four,
+  plus near misses). Settings copy the real control.
+- **Still to come:**
+  - exam views for App Launch, App Deployment, Malware and Email
+  - the router tickets (the 92 Series web admin and app; `router.js` is
+    started)
