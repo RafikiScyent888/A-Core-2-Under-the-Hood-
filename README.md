@@ -19,8 +19,10 @@ on the laptop:
   policies, and password resets.
 - **Exam Practice** shows each sim laid out the way the exam shows it: the
   Port Forwarding diagram, the Wi-Fi office map, the three houses of
-  Neighboring Routers, the Tier 1 Router scenario and the Wireless
-  Reliability checkpoints. Each one is the sim's own task plus five more.
+  Neighboring Routers, the Tier 1 Router scenario, the Wireless
+  Reliability checkpoints, App Launch's tasks and evidence, App
+  Deployment's tabs, the Email Threat inbox and the Malware network map.
+  Each one is the sim's own task plus five more.
   Work it Guided, with a Checklist, or On my own.
 - **Chat with Mason,** your team lead. He guides you, and never gives you
   the answer.

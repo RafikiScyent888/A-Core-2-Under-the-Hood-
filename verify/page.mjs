@@ -38,6 +38,9 @@
                that can't be forwarded) closes through the UI alone: the
                headers on Farah's PC, reports, purges, blocks, the policy
      EXAM      Exam Practice: each sim's own exam view, laid out as the
+               sim is (the malware map refuses Submit until every device
+               is inspected, and Reset keeps the inspections; the inbox
+               shows a disguised link's real destination and a Reply-To);
                sim, completes with the right answers through the UI; a wrong
                pick is marked three ways and stays after a redraw; Reset
                clears the marks; the way of working (Guided, Checklist, On
@@ -82,7 +85,7 @@ async function run(rewrites, groups) {
   const want = (g) => !groups || groups.indexOf(g) >= 0;
   async function step(name, fn) {
     if (!want(name)) return; let p = null;
-    try { p = await page(); await fn(p); } catch (e) { F(name + ": the page could not be driven — " + String(e.message).split("\n")[0]); }
+    try { p = await page(); await fn(p); } catch (e) { if (process.env.SHOT) await p.screenshot({ path: process.env.SHOT }).catch(() => {}); F(name + ": the page could not be driven — " + String(e.message).split("\n").filter((l, i) => !i || /waiting for/.test(l)).slice(0, 2).join(" · ")); }
     if (p) { p.errs.forEach((e) => F(name + ": page error — " + e)); await p.close(); }
   }
   /* follow Mason's rings and nothing else, to the end of a crawl */
@@ -393,15 +396,39 @@ async function run(rewrites, groups) {
         await x.getByRole("button", { name: new RegExp("^" + V.sim + ": the sim itself") }).click();
         if (V.layout === "map") await x.getByRole("button", { name: /wireless access point: open/ }).click();
         if (V.layout === "houses") { await x.getByRole("button", { name: "Router 2: show its settings" }).click(); if (!/40 MHz/.test(await x.locator(".ex-modal").innerText())) F("EXAM: Router 2 does not show 40 MHz"); await x.getByRole("button", { name: "Router 3: show its settings" }).click(); }
+        if (V.layout === "network") {
+          /* the network can't be called clean until every device is looked at */
+          await x.locator(".ex-net .ex-nb").first().click();
+          await x.getByRole("button", { name: /^(Submit|Save settings)$/ }).click();
+          if (await x.locator(".ex-done").count() || !/Inspect every device on the network first: 1 of 7/.test(await x.innerText())) F("EXAM: Malware: Submit was allowed before every device was inspected");
+          await x.getByRole("button", { name: "Task Manager" }).click();
+          if (!/SCVHOST\.exe/.test(await x.locator(".ex-tm").innerText().catch(() => "")) && V.fields[0].id === "FS01") F("EXAM: Malware: the file server's Task Manager does not show the malware");
+        }
         for (const f of V.fields) {
           if (V.layout === "diagram") await x.locator(".ex-slot").nth(V.fields.indexOf(f)).click();
+          if (V.layout === "inbox") await x.locator(".ex-mlist .ex-nb").nth(V.fields.indexOf(f)).click();
+          if (V.layout === "network") await x.locator(".ex-net .ex-nb").nth(V.fields.indexOf(f)).click();
           const box = x.locator('.ex-f[data-field="' + f.id + '"]');
           if (f.kind === "text") await box.locator("input").fill(f.right);
           else await box.locator(".ex-o", { hasText: f.right }).filter({ hasText: new RegExp("^(● )?" + f.right.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$") }).first().click();
         }
         await x.getByRole("button", { name: /^(Submit|Save settings)$/ }).click();
         if (!(await x.locator(".ex-done").count())) F("EXAM: " + V.sim + ": the right answers did not complete it");
+        if (V.layout === "network") { await x.getByRole("button", { name: /^Reset this exam view/ }).click(); if (!/Inspected 7 of 7/.test(await x.innerText())) F("EXAM: Malware: Reset threw away the inspections"); }
       }
+      /* App Deployment's tabs show their evidence: a command's output, the event log */
+      await x.getByRole("button", { name: /^Application Deployment Troubleshooting: the sim itself/ }).click();
+      await x.getByRole("button", { name: "Commands", exact: true }).click(); await x.getByRole("button", { name: /^Run: ls "C:\\Windows\\SysWOW64/ }).click();
+      if (!/msvcp140\.dll/.test(await x.locator(".ex-log").innerText())) F("EXAM: App Deployment: a command's output is not shown");
+      await x.getByRole("button", { name: "Event Viewer", exact: true }).click();
+      if (!/2190[\s\S]*Faulting module name: MSVCP100\.dll/.test(await x.locator(".ex-tm").innerText())) F("EXAM: App Deployment: the Event Viewer tab does not show the error entry");
+      /* an email's giveaway is on show: where its link really goes, and a Reply-To */
+      await x.getByRole("button", { name: /^Email Threat Classification: practice 5/ }).click();
+      await x.locator(".ex-mlist .ex-nb").first().click();
+      if (!/goes to: https:\/\/rafiki-mail-validate\.example\/login/.test(await x.innerText())) F("EXAM: Email: a disguised link's real destination is not shown");
+      await x.getByRole("button", { name: /^Email Threat Classification: practice 4/ }).click();
+      await x.locator(".ex-mlist .ex-nb").nth(1).click();
+      if (!/Reply-To: mason\.lead\.office@gmail\.com/.test(await x.innerText())) F("EXAM: Email: the Reply-To is not shown");
       /* a wrong pick stays red; Reset clears it; the mode is kept */
       const V = views[3]; await x.getByRole("button", { name: new RegExp("^" + V.sim + ": practice 2") }).click();
       const f0 = await p.evaluate(async () => { const m = await import("./assets/exams.js"); const f = m.EXAMS[3].variants[1].fields[0]; return { id: f.id, wrong: f.options.find((o) => !o.correct).label }; });
@@ -433,6 +460,10 @@ const PLANTS = [
   ["CINE", "the walk is never framed as a cutscene", { "assets/laptop.js": [["ov.classList.add(\"cine-on\"); caption(\"Rafiki's IT Services\"", "caption(\"Rafiki's IT Services\""]] }],
   ["MALRUN", "the offline scan reports success but leaves the malware", { "assets/malware.js": [["w.removed = true; m.av.found = [];", "m.av.found = [];"]] }],
   ["MAIL", "reading the message details is never recorded", { "assets/mailui.js": [["if (ui.details && !x.fwd) { MX.viewHeaders(fleet, ctx.mid, x.id); ctx.act(", "if (ui.details && !x.fwd) { ctx.act("]] }],
+  ["EXAM", "the malware map lets Submit through before every device is inspected", { "assets/examui.js": [["if (seen < all) {", "if (false) {"]] }],
+  ["EXAM", "the exam inbox hides where a disguised link goes", { "assets/examui.js": [["(e.links || []).forEach(", "([]).forEach("]] }],
+  ["EXAM", "Reset throws away the devices already inspected", { "assets/examui.js": [["if (st.visited) n.visited = st.visited.slice();", ""]] }],
+  ["EXAM", "App Deployment's Commands tab shows no output", { "assets/examui.js": [["E.cmds[ui.cmd] ? \"PS C:\\\\> \" + E.cmds[ui.cmd][0] + \"\\n\\n\" + E.cmds[ui.cmd][1] :", "false ? 0 :"]] }],
   ["EXAM", "Submit never grades", { "assets/examui.js": [["const r = P.check(v, st);", "const r = { done: false, wrong: 0, missing: 0 };"]] }],
   ["PERSIST", "the dyslexia setting is not saved", { "assets/laptop.js": [["put(\"c2vm.reading\", on ? \"dyslexia\" : \"default\");", ""]] }]
 ];

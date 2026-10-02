@@ -40,7 +40,12 @@
                 usually the longest; no hint names the giveaway
      EXAM       each exam view: six per sim, one the sim itself; the sims'
                 own keys (as ruled); every question six, one right, reasons;
-                every typed answer is in the brief word for word; right
+                every typed answer is in the brief word for word; App
+                Deployment's keyed commands, run on its ticket's own PC, fix
+                it, the sim's old key does not, and the keyed event is the
+                Error or Warning; each email
+                keyed with its own category; each infected PC keyed to be
+                contained and showing its malware, no clean PC showing any; right
                 values check done, a wrong one stays red and counts; rung 3
                 leaves two alive; no hint names the answer; spread
 
@@ -58,6 +63,8 @@ import { nextStep } from "../assets/tickets-malware.js";
 import * as MX from "../assets/mail.js";
 import * as PQ from "../assets/pbq.js";
 import { EXAMS } from "../assets/exams.js";
+import { MALWARE } from "../assets/tickets-malware.js";
+import { CATS, emailById } from "../assets/tickets-mail.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -437,6 +444,8 @@ export const KEYS = {
   "pf:pf1": { enc: "WPA2 PSK", lanWap: "192.168.10.1", wan: "50.90.234.1", lanFw: "10.100.0.1", rule: "Allow TCP Any 3389", place: "LAN: Windows PC · Screened subnet: Game Console" },
   "wifi:w1": { ssid: "MainOffice1", pass: "Ma50n1SB35t!", sec: "WPA3", band: "2.4 GHz", chan: "6" },
   "nr:n1": { ssid: "HomeWiFi", pass: "MyCCR0ck2!", sec: "WPA3", width: "20 MHz", mac: "Enabled", chan: "11" },
+  "ad:ad1": { ev: "2190", c1: "\\\\FS01\\Software\\vcredist_x86_2010.exe", c2: "& \"C:\\Program Files (x86)\\Testing\\Testing.exe\"" },
+  "al:al1": { t1: "A required application file or dependency is missing or corrupted", t2: "Attempt a repair or reinstall of the affected application", t3: "Event Viewer", t4: "Document findings and escalate to the next support tier" },
   "t1:t1": { q1: "Change the default administrative password to a strong, complex password", q2: "Save the changes and reboot the router", q3: "Document findings and escalate to Tier 2 support" },
   "wr:wrA": { constraint: "Signal range and wall penetration", band: "2.4 GHz", channel: "Use a non-overlapping channel", security: "Modern encrypted security with strong authentication" },
   "wr:wrB": { constraint: "Wireless congestion from nearby networks", band: "5 GHz", channel: "Use a non-overlapping channel", security: "Modern encrypted security with strong authentication" },
@@ -450,6 +459,32 @@ function examChecks(D, F) {
       const P = "EXAM " + ex.id + ":" + v.id + ": ", brief = v.brief.join(" ");
       const key = (D.KEYS || KEYS)[ex.id + ":" + v.id];
       if (key) Object.keys(key).forEach((fid) => { const f = v.fields.find((x) => x.id === fid); if (!f || PQ.rightValue(f) !== key[fid]) F(P + "KEY: " + fid + " is " + (f ? PQ.rightValue(f) : "missing") + ", the sim's key is " + key[fid]); });
+      /* App Deployment, as ruled: on the matching ticket's own PC, the
+         keyed commands really fix it (the 2nd too, where it is part of the
+         fix), and the sim's old key (robocopy from System32, regsvr32) does not */
+      if (ex.id === "ad") { const t = D.TICKETS.find((x) => x.id === v.src);
+        if (!t) F(P + "RUNS: no ticket " + v.src); else {
+          /* "User-PC02" is the sim's working PC: here it is Farah's (WS4), so
+             the old key really copies a file rather than failing to connect */
+          const run = (labels, out) => { const fl = D.makeFleet(); t.setup(fl); const m = fl[t.machine]; const sh = createShell(m, { elevated: true, fleet: (h) => byHost(fl, h) });
+            labels.forEach((c) => { if (/^& /.test(c) || /^reg query/.test(c)) return; let r = sh.run(c.replace("User-PC02", fl.WS4.host)); if (out) out.push(r.kind); if (r && r.ask) r = sh.run("N"); if (r && r.power === "restart") { M.shutdown(m); M.boot(m); } }); return t.goal(fl); };
+          const c1 = v.fields.find((f) => f.id === "c1"), c2 = v.fields.find((f) => f.id === "c2");
+          if (!run([PQ.rightValue(c1), PQ.rightValue(c2)])) F(P + "RUNS: the keyed commands do not fix " + v.src + "'s PC");
+          /* the sim's case: a 64-bit copy into a 32-bit program's folder */
+          const simKey = c1.options.find((o) => /^robocopy .*System32" "C:\\Program Files \(x86\)/.test(o.label));
+          const kinds = []; if (simKey && run([simKey.label, "regsvr32 msvcp100.dll"], kinds)) F(P + "RUNS: the sim's old key fixes it too, so the ruling has nothing to teach");
+          if (simKey && kinds[0] !== "change") F(P + "RUNS: the sim's old robocopy never copied anything (" + kinds[0] + "), so its failing proves nothing");
+          const ev = v.fields.find((f) => f.id === "ev"), row = v.evidence.events.find((e) => String(e[0]) === PQ.rightValue(ev));
+          if (!row || !(row[2] === "Error" || row[2] === "Warning")) F(P + "EVENT: the keyed entry is not the one marked Error or Warning"); } }
+      /* Email: each email keyed with its own category from the mail tickets */
+      if (ex.id === "em") v.fields.forEach((f) => { const e = emailById(f.id), c = e && CATS.find((x) => x.key === e.cat); if (!c || PQ.rightValue(f) !== c.label) F(P + "CAT: " + f.id + " is keyed " + PQ.rightValue(f) + ", its email is " + (c ? c.label : "missing")); });
+      /* Malware: the infected PCs are keyed to be contained, and each one's
+         evidence shows its malware's process; no clean PC shows one */
+      if (ex.id === "mw") { const t = MALWARE.find((x) => x.id === v.src); const fl = makeFleet(); t.setup(fl);
+        v.fields.forEach((f) => { const inf = MW.infected(fl[f.id]), d = v.devices.find((x) => x.id === f.id), shows = !!d && d.procs.some((p) => inf ? p.name === fl[f.id].malware.file : p.publisher === "" && /AppData|\\Shares\\|\\Temp\\/i.test(p.image || ""));
+          if ((PQ.rightValue(f) === ex.variants[0].fields[0].options.find((o) => /^Quarantine it, then remove/.test(o.label)).label) !== inf) F(P + "INFECTED: " + f.id + " is keyed " + PQ.rightValue(f) + " but is " + (inf ? "infected" : "clean"));
+          if (inf && !shows) F(P + "EXHIBITED: " + f.id + " is infected but its Task Manager does not show the malware");
+          if (!inf && shows) F(P + "EXHIBITED: clean " + f.id + " shows a malware-like process"); }); }
       v.fields.forEach((f) => {
         if (f.kind === "text") { if (!f.deduce && brief.indexOf(f.answer) < 0) F(P + "TEXT: the answer for " + f.id + " (" + f.answer + ") is not in the brief word for word"); }
         else {
@@ -514,6 +549,16 @@ const PLANTS = [
   ["EXAM pf:pf1: KEY", "Port Forwarding keyed the sim's original way (PC in the screened subnet)", () => ({ KEYS: Object.assign({}, KEYS, { "pf:pf1": Object.assign({}, KEYS["pf:pf1"], { place: "LAN: Game Console · Screened subnet: Windows PC" }) }) })],
   ["EXAM wifi:w1: TEXT", "the WiFi password mistyped in the answer", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "wifi" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "w1" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id === "pass" ? Object.assign({}, f, { answer: "Ma5on1SB35t!" }) : f)) }))) }))) })],
   ["EXAM t1:t1: SIX", "a Tier 1 task with five options", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "t1" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "t1" ? v : Object.assign({}, v, { fields: v.fields.map((f, i) => (i ? f : Object.assign({}, f, { options: f.options.slice(0, 5) }))) }))) }))) })],
+  ["EXAM al:al1: KEY", "App Launch keyed to copy the file from another PC", () => ({ KEYS: Object.assign({}, KEYS, { "al:al1": Object.assign({}, KEYS["al:al1"], { t2: "Replace the missing file using a known working system" }) }) })],
+  ["EXAM ad:ad1: KEY", "App Deployment keyed the sim's way (robocopy from System32)", () => ({ KEYS: Object.assign({}, KEYS, { "ad:ad1": Object.assign({}, KEYS["ad:ad1"], { c1: "robocopy \"\\\\User-PC02\\C$\\Windows\\System32\" \"C:\\Program Files (x86)\\Testing\" \"msvcp100.dll\"" }) }) })],
+  ["EXAM ad:ad6: RUNS", "LabelPro keyed with the 32-bit runtime", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "ad" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "ad6" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id !== "c1" ? f : Object.assign({}, f, { options: f.options.map((o) => Object.assign({}, o, { correct: /VC_redist\.x86/.test(o.label) })) }))) }))) }))) })],
+  ["EXAM ad:ad4: RUNS", "the policy install keyed without the restart", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "ad" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "ad4" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id !== "c2" ? f : Object.assign({}, f, { options: f.options.map((o) => Object.assign({}, o, { correct: /^tasklist/.test(o.label) })) }))) }))) }))) })],
+  ["EXAM ad:ad2: EVENT", "PayWise keyed to the repair's own installer entry", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "ad" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "ad2" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id !== "ev" ? f : Object.assign({}, f, { options: f.options.map((o) => Object.assign({}, o, { correct: o.label === "3307" })) }))) }))) }))) })],
+  ["EXAM ad:ad1: RUNS", "Testing's ticket fixed by any file landing in its folder", () => ({ TICKETS: withTicket("D1", (t) => ({ goal: (f) => t.goal(f) || !!M.findFile(f[t.machine], "C:\\Program Files (x86)\\Testing", "msvcp100.dll") })) })],
+  ["EXAM em:em1: CAT", "the first email of the inbox keyed as Spam", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "em" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "em1" ? v : Object.assign({}, v, { fields: v.fields.map((f, i) => (i ? f : Object.assign({}, f, { options: f.options.map((o) => Object.assign({}, o, { correct: o.label === "Spam" })) }))) }))) }))) })],
+  ["EXAM mw:mw1: EXHIBITED", "an infected PC's Task Manager shown without its malware", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "mw" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "mw1" ? v : Object.assign({}, v, { devices: v.devices.map((d) => (d.id !== "WS2" ? d : Object.assign({}, d, { procs: [] }))) }))) }))) })],
+  ["EXAM mw:mw1: EXHIBITED", "a clean PC shown running an unsigned program from AppData", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "mw" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "mw1" ? v : Object.assign({}, v, { devices: v.devices.map((d) => (d.id !== "WS3" ? d : Object.assign({}, d, { procs: d.procs.concat([{ name: "upd.exe", desc: "upd", cpu: 40, image: "C:\\Users\\dpatel\\AppData\\Roaming\\upd.exe", publisher: "" }]) }))) }))) }))) })],
+  ["EXAM mw:mw3: INFECTED", "an infected PC keyed to stay on the network", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "mw" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "mw3" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id !== "WS5" ? f : Object.assign({}, f, { options: f.options.map((o) => Object.assign({}, o, { correct: /^Leave it/.test(o.label) })) }))) }))) }))) })],
   ["EXAM: SPREAD", "the exam questions shown in authored order", () => ({ ordered: (o) => o.slice() })],
   ["NOTE", "the note check accepts anything forty letters long", () => ({ noteOK: (t, s) => ({ ok: String(s).length >= 40, missing: [] }) })]
 ];

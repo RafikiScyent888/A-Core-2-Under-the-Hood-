@@ -299,8 +299,10 @@ export function boot(m) {
   if (m.sys.chkdskScheduled) { m.sys.chkdskScheduled = false; if (m.sys.fsErrors) { m.sys.fsErrors = false; lines.push("Scanning and repairing drive (C:): 100% complete. Windows made corrections to the file system."); } }
   if (m.sys.pendingRepair) { m.sys.pendingRepair = false; lines.push("Windows finished the servicing operation that was waiting for a restart."); }
   m.procs = baseProcesses(m.user).concat(m.procs.filter(function (p) { return p.startsWithWindows; }));
-  /* Software Installation group policy only ever applies at startup */
-  if (m.gpoPending && m.gpoRestart && m.gpoApp) {
+  /* Software Installation group policy only ever applies at startup, and
+     any startup applies it once it is waiting (event 108 says so): the
+     restart gpupdate offers, or one done with shutdown /r */
+  if (m.gpoPending && m.gpoApp) {
     const a = m.gpoApp; m.apps = m.apps.filter(function (x) { return x.name !== a.name; }).concat([Object.assign({}, a, { installed: true })]);
     placeApp(m.fs, a, m); (a.bundles || []).forEach(function (k) { m.runtimes[k] = true; }); syncRuntimes(m);
     addLog(m, "Application", { level: "Information", source: "Application Management Group Policy", id: 302, text: "The assignment of application " + a.name + " from policy Rafiki Apps - " + a.name + " succeeded." });

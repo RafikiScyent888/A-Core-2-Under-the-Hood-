@@ -216,6 +216,7 @@ const WR = [
     why: [[null, "No other networks nearby."], ["2.4 GHz alone wastes the faster band near the access points.", "5 GHz alone won't reach the far end."], ["With nothing to interfere, automatic selection is fine."]] })
 ];
 
+import { MORE } from "./exams-more.js";
 export const EXAMS = [
   { id: "pf", sim: "Port Forwarding Configuration", layout: "diagram", image: "assets/sims/port-forwarding.png", objective: "Security measures", variants: PF },
   { id: "wifi", sim: "WiFi Access Point Configuration", layout: "map", image: "assets/sims/office-map.png", objective: "Security measures", variants: WIFI },
@@ -223,4 +224,5 @@ export const EXAMS = [
   { id: "t1", sim: "Tier 1 Router Support Scenario", layout: "tasks", objective: "Documentation", variants: T1 },
   { id: "wr", sim: "Wireless Reliability Decision Lab", layout: "checkpoints", objective: "Security measures", variants: WR }
 ];
+MORE.forEach(function (e) { EXAMS.push(e); });
 export function examById(id) { return EXAMS.filter(function (e) { return e.id === id; })[0]; }

@@ -295,6 +295,22 @@ export async function run(extraCss) {
     await sweep(tag + ": Exam Practice, Tier 1 scenario and conversation, checklist");
     await ex.getByRole("button", { name: /^Wireless Reliability Decision Lab: the sim itself/ }).click();
     await sweep(tag + ": Exam Practice, Wireless Reliability signal log and checkpoints");
+    await ex.getByRole("button", { name: /^Application Launch Troubleshooting: the sim itself/ }).click();
+    await sweep(tag + ": Exam Practice, App Launch tasks, error message and Event Viewer");
+    await ex.getByRole("button", { name: /^Application Deployment Troubleshooting: the sim itself/ }).click();
+    await sweep(tag + ": Exam Practice, App Deployment, the BSOD tab");
+    await ex.getByRole("button", { name: "Commands", exact: true }).click(); await ex.getByRole("button", { name: /^Run: ls "C:\\Windows\\System32/ }).click();
+    await sweep(tag + ": Exam Practice, App Deployment, a command's output");
+    await ex.getByRole("button", { name: "Event Viewer", exact: true }).click();
+    await sweep(tag + ": Exam Practice, App Deployment, the event log");
+    await ex.getByRole("button", { name: /^Email Threat Classification: practice 2/ }).click(); await ex.locator(".ex-mlist .ex-nb").nth(2).click();
+    for (const c of ["Legitimate", "Spam", "Malicious"]) { await ex.locator(".ex-f .ex-o", { hasText: c }).first().click(); await ex.getByRole("button", { name: "Submit" }).click(); }
+    await ex.locator(".ex-mlist .ex-nb").nth(2).click();
+    await sweep(tag + ": Exam Practice, Email inbox, a red category and Mason's pointer");
+    await ex.getByRole("button", { name: /^Malware Incident Response: the sim itself/ }).click(); await ex.locator(".ex-net .ex-nb").nth(3).click();
+    await sweep(tag + ": Exam Practice, Malware network map, Task Manager details");
+    await ex.getByRole("button", { name: "System Logs" }).click();
+    await sweep(tag + ": Exam Practice, Malware network map, System Logs");
     await ex.getByRole("button", { name: "Guided" }).click();
   }
 
@@ -318,6 +334,8 @@ const PLANTS = {
   "a flagged-message banner in a pale amber": ".mx-flag { color: #c79a1a !important; }",
   "text typed into a field in a faint grey": ".field, .w-input { color: #9ca3af !important; }",
   "a ruled-out exam option's reason dimmed": ".ex-o.out .ow { color: #9a6b6b !important; }",
+  "the blue screen's text in a muted blue": ".ex-bsod { color: #7d8db8 !important; }",
+  "a process's file path in a faint grey": ".ex-tmp { color: #8b93a1 !important; }",
   "the diagram's numbered slots in a pale blue": ".ex-slot { background: #7fb2ff !important; }"
 };
 const plant = process.argv.includes("--plant");

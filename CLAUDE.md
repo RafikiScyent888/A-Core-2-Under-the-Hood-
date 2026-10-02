@@ -1166,3 +1166,38 @@ came from a sim's 2D picture, the Wi-Fi sim's office map.
   - exam views for App Launch, App Deployment, Malware and Email
   - the router tickets (the 92 Series web admin and app; `router.js` is
     started)
+
+### Exam views for the ticket sims (2 October 2026, live)
+
+- **Four more exam views,** each laid out as its sim is, each the sim's own
+  task plus five more (`assets/exams-more.js`):
+  - **App Launch:** the four tasks beside the error message and the Event
+    Viewer entry. Practice 5 is the broken-shortcut case.
+  - **App Deployment:** the sim's tabs (BSOD, Commands, Event Viewer,
+    System Error) with its three answers below: the event index, the 1st
+    command and the 2nd command. Practices 2 to 6 are tickets D2 to D6.
+  - **Email Threat:** the inbox, the reading pane and "Classify this
+    email". A disguised link's real destination and any Reply-To are shown,
+    as the mail program shows them. Built from the mail tickets' emails.
+  - **Malware Incident Response:** the seven-device network map, with Task
+    Manager (the full process list, as a details table), System Logs and
+    Browser History for each. Submit is refused until every device has been
+    inspected; Reset keeps the inspections; Guided points at the next
+    device not yet inspected.
+- **App Deployment keyed as the owner ruled, 2 October 2026 (option A):**
+  keep the sim's layout and commands, but the right answer is the real fix
+  (install the Visual C++ runtime that matches the program's bitness, then
+  test it). The sim's own key, robocopy from System32 then regsvr32, stays
+  as near misses, each with the reason it fails. `verify/logic.mjs` runs
+  the keyed commands on the matching ticket's own PC and requires them to
+  fix it, and requires the sim's old key to copy a file and still fail.
+  - Practice 6 (LabelPro, 64-bit): copying the 64-bit runtime into its
+    folder would actually start it. Its reason says so honestly (it works,
+    but a hand-copied runtime is never patched), and the "old key fails"
+    check applies only to 32-bit programs, where it really does fail.
+- **Model fix, ticket D4:** a waiting Software Installation policy now
+  installs on any restart (`shutdown /r` as well as answering Y to
+  gpupdate), as on real Windows. Before, only the Y answer worked, so a
+  student who restarted another way was wrongly told it hadn't worked.
+- **Still to come:** the router tickets (the 92 Series web admin and app;
+  `router.js` is started), the Help Desk chats, and extra training.

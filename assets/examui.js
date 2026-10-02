@@ -12,6 +12,7 @@
 import * as P from "./pbq.js";
 import { EXAMS, examById } from "./exams.js";
 import { ordered } from "./order.js";
+import { emailById } from "./tickets-mail.js";
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function btn(label, cls, fn, aria) { const b = el("button", cls || "b", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
@@ -52,6 +53,7 @@ export function drawExam(host, ctx, ui) {
 
   const g = P.guidance(v, st), next = P.stuck(v, st);
   if (st.done) { const d = el("div", "ex-done"); d.setAttribute("role", "status"); d.appendChild(el("strong", null, "✓ Every setting is right.")); d.appendChild(el("p", null, "That's how it looks on the exam. Try the next practice, or do it for real as a ticket in Help Desk.")); main.appendChild(d); }
+  else if (mode === "guided" && v.visit && (st.visited || []).length < v.devices.length) { const d = v.devices.filter(function (x) { return (st.visited || []).indexOf(x.id) < 0; })[0]; const c = el("div", "ex-coach"); c.setAttribute("role", "status"); c.appendChild(el("strong", null, "Mason: next, inspect " + d.host)); c.appendChild(el("p", null, "Open it on the map, then read its Task Manager, System Logs and Browser History before you decide anything.")); main.appendChild(c); }
   else if (mode === "guided" && next) { const c = el("div", "ex-coach"); c.setAttribute("role", "status"); c.appendChild(el("strong", null, "Mason: next, " + next.label.replace(/^Task \d+: |^Checkpoint \d+ · /, ""))); c.appendChild(el("p", null, next.hint[0])); main.appendChild(c); }
   if (!st.done && g.rung) { const h = el("div", "ex-hint"); h.setAttribute("role", "status"); h.appendChild(el("strong", null, "Mason · " + (g.rung === 3 ? "narrowing it down" : "a pointer"))); h.appendChild(el("p", null, g.where)); if (g.principle) h.appendChild(el("p", "ex-princ", g.principle)); if (g.narrow) h.appendChild(el("p", "ex-princ", g.narrow)); main.appendChild(h); }
   if (mode === "check") {
@@ -60,14 +62,16 @@ export function drawExam(host, ctx, ui) {
   const ring = mode === "guided" && next ? next.id : null;
   const area = el("div", "ex-area ex-" + ex.layout); main.appendChild(area);
   const F = { v: v, st: st, g: g, ring: ring, ui: ui, ctx: ctx, ex: ex };
-  ({ diagram: drawDiagram, map: drawMap, houses: drawHouses, tasks: drawTasks, checkpoints: drawCheckpoints })[ex.layout](area, F);
+  ({ diagram: drawDiagram, map: drawMap, houses: drawHouses, tasks: drawTasks, checkpoints: drawCheckpoints, evidence: drawEvidence, inbox: drawInbox, network: drawNetwork, deploy: drawDeploy })[ex.layout](area, F);
   /* check and reset */
   const row = el("div", "ex-row");
   row.appendChild(btn(ex.layout === "map" || ex.layout === "houses" ? "Save settings" : "Submit", "b pri", function () {
+    /* as in the sim: every device on the network is inspected first */
+    if (v.visit) { const seen = (st.visited || []).length, all = v.devices.length; if (seen < all) { ui.msg = "Inspect every device on the network first: " + seen + " of " + all + " so far. You can't call a network clean until you've looked at all of it."; ctx.draw(); return; } }
     const r = P.check(v, st); ui.msg = r.done ? "" : (r.wrong ? r.wrong + " not right yet. Each one stays marked, with why, until you change it." : r.missing ? "Fill in every part first: " + r.missing + " still empty." : "Not right yet.");
     ctx.save(); if (r.done && ctx.onDone) ctx.onDone(ex, v); ctx.draw();
   }));
-  row.appendChild(btn("Reset", "b", function () { L.exam[ex.id + ":" + v.id] = P.resetAll(st); ui.msg = "Reset: everything's back to the start. Mason's help carries on from where it was."; ctx.save(); ctx.draw(); }, "Reset this exam view: clears your answers and the red marks; Mason's help carries on"));
+  row.appendChild(btn("Reset", "b", function () { const n = P.resetAll(st); if (st.visited) n.visited = st.visited.slice(); L.exam[ex.id + ":" + v.id] = n; ui.msg = "Reset: everything's back to the start. Mason's help carries on from where it was."; ctx.save(); ctx.draw(); }, "Reset this exam view: clears your answers and the red marks; Mason's help carries on"));
   main.appendChild(row);
   if (ui.msg) { const m = el("p", "ex-msg", ui.msg); m.setAttribute("role", "status"); main.appendChild(m); }
 }
@@ -159,6 +163,97 @@ function drawTasks(area, F) {
   const right = el("section", "ex-card"); right.setAttribute("aria-label", "Conversation"); right.appendChild(el("h3", null, "Conversation"));
   F.v.chat.forEach(function (c) { const p = el("p", "ex-chat"); p.appendChild(el("strong", null, "Customer: ")); p.appendChild(document.createTextNode(c)); right.appendChild(p); });
   area.appendChild(left); area.appendChild(right);
+}
+/* ------------------------------------ App Launch: tasks + evidence */
+function drawEvidence(area, F) {
+  const left = el("section", "ex-card"); left.setAttribute("aria-label", "Tasks"); left.appendChild(el("h3", null, "Tasks"));
+  left.appendChild(el("p", "ex-guide", "You are acting in a Tier 1 help desk role. Focus on recognising the problem and choosing a safe next step. Be cautious of options that involve system files, registry changes, or command-line tools."));
+  F.v.fields.forEach(function (f) { left.appendChild(fieldBox(f, F)); });
+  const right = el("section", "ex-card"); right.setAttribute("aria-label", "Evidence"); right.appendChild(el("h3", null, "Evidence (read-only)"));
+  right.appendChild(el("p", "ex-fl", "System Message"));
+  const box = el("div", "ex-err"); box.appendChild(el("p", "ex-errt", "✖ " + F.v.evidence.title)); box.appendChild(el("p", null, F.v.evidence.msg)); right.appendChild(box);
+  right.appendChild(el("p", "ex-fl", "Event Viewer"));
+  right.appendChild(el("pre", "ex-log", F.v.evidence.log));
+  right.appendChild(el("p", "ex-hint2", "Use the information above to answer the tasks. Assume you have standard Tier 1 permissions."));
+  area.appendChild(left); area.appendChild(right);
+}
+/* ------------------- App Deployment: the sim's four tabs + resolution */
+function drawDeploy(area, F) {
+  const ui = F.ui, v = F.v, E = v.evidence;
+  const tabsList = (E.bsod ? [["bsod", "BSOD"]] : []).concat([["cmds", "Commands"], ["ev", "Event Viewer"], ["err", "System Error"]]);
+  if (!tabsList.some(function (t) { return t[0] === ui.dtab; })) ui.dtab = tabsList[0][0];
+  const card = el("section", "ex-card"); card.setAttribute("aria-label", "Evidence tabs");
+  const tabs = el("div", "ex-modes"); tabs.setAttribute("role", "group"); tabs.setAttribute("aria-label", "Evidence tabs");
+  tabsList.forEach(function (t) { const b = btn(t[1], "b small" + (ui.dtab === t[0] ? " pri" : ""), function () { ui.dtab = t[0]; F.ctx.draw(); }); b.setAttribute("aria-pressed", String(ui.dtab === t[0])); tabs.appendChild(b); });
+  card.appendChild(tabs);
+  if (ui.dtab === "bsod") {
+    const b = el("div", "ex-bsod");
+    ["A problem has been detected and system has been shutdown to prevent damage to your computer.", "DRIVER_IRQL_NOT_LESS_OR_EQUAL", "If this is the first time you've seen this stop error screen, restart your computer. If this screen appears again, check to make sure any new hardware or software is properly installed.", "Technical information:", "*** STOP: 0x000000D1 (0x0000000R, 0x00000007, 0x00000000, 0xG74H2574)", "*** strt1.sys - Address G74H2574 base at G74H0000", "Physical memory dump complete. Contact your system administrator or technical support group for further assistance."].forEach(function (l) { b.appendChild(el("p", null, l)); });
+    card.appendChild(b);
+  }
+  if (ui.dtab === "cmds") {
+    const list = el("div", "ex-cmds"); list.setAttribute("role", "group"); list.setAttribute("aria-label", "Commands to run");
+    E.cmds.forEach(function (c, i) { const b = btn("PS C:\\> " + c[0], "ex-nb ex-mono" + (ui.cmd === i ? " on" : ""), function () { ui.cmd = i; F.ctx.draw(); }, "Run: " + c[0]); list.appendChild(b); });
+    card.appendChild(list);
+    card.appendChild(el("pre", "ex-log", ui.cmd != null && E.cmds[ui.cmd] ? "PS C:\\> " + E.cmds[ui.cmd][0] + "\n\n" + E.cmds[ui.cmd][1] : "Select a command to view its output."));
+  }
+  if (ui.dtab === "ev") {
+    const w = el("div", "ex-tmw"), t = el("table", "ex-tm"); t.setAttribute("aria-label", "Event Viewer, newest first");
+    const hr = el("tr"); ["Index", "Time", "EntryType", "Source", "InstanceID"].forEach(function (h) { hr.appendChild(el("th", null, h)); }); t.appendChild(hr);
+    E.events.forEach(function (e) { const k = e[2] === "Error" ? "ex-everr" : e[2] === "Warning" ? "ex-evwarn" : null;
+      const r = el("tr", (k ? k + " " : "") + "ex-evhead"); e.slice(0, 5).forEach(function (c, i) { r.appendChild(el("td", null, i === 2 ? (c === "Error" ? "✖ Error" : c === "Warning" ? "⚠ Warning" : c) : String(c))); }); t.appendChild(r);
+      const mr = el("tr", k), md = el("td", "ex-evmsg", "Message: " + e[5]); md.colSpan = 5; mr.appendChild(md); t.appendChild(mr); });
+    w.appendChild(t); card.appendChild(w);
+  }
+  if (ui.dtab === "err") { const box = el("div", "ex-err"); box.appendChild(el("p", "ex-errt", "✖ System Error")); box.appendChild(el("p", null, E.error)); card.appendChild(box); }
+  area.appendChild(card);
+  const res = el("section", "ex-card"); res.setAttribute("aria-label", "Resolution"); res.appendChild(el("h3", null, "Resolution"));
+  v.fields.forEach(function (f) { res.appendChild(fieldBox(f, F)); });
+  area.appendChild(res);
+}
+/* ---------------------------------------- Email Threat: the inbox */
+function drawInbox(area, F) {
+  const ui = F.ui, v = F.v; ui.mail = ui.mail && v.emails.indexOf(ui.mail) >= 0 ? ui.mail : v.emails[0];
+  const list = el("nav", "ex-card ex-mlist"); list.setAttribute("aria-label", "MyCC-Inbox"); list.appendChild(el("h3", null, "MyCC-Inbox"));
+  v.emails.forEach(function (id) { const e = emailById(id), f = v.fields.filter(function (x) { return x.id === id; })[0], set = F.st.vals[id];
+    const b = btn((set ? "✓ " : "") + e.subject, "ex-nb" + (ui.mail === id ? " on" : ""), function () { ui.mail = id; F.ctx.draw(); }, e.subject + (set ? ", classified as " + set : ", not classified yet")); list.appendChild(b); });
+  const e = emailById(ui.mail), f = v.fields.filter(function (x) { return x.id === ui.mail; })[0];
+  const read = el("section", "ex-card"); read.setAttribute("aria-label", "The email");
+  read.appendChild(el("h3", null, e.subject));
+  read.appendChild(el("p", "ex-kv", "From: " + e.from[0] + " <" + e.from[1] + ">"));
+  if (e.replyTo) read.appendChild(el("p", "ex-kv", "Reply-To: " + e.replyTo));
+  e.body.split("\n").forEach(function (l) { read.appendChild(el("p", "ex-mailp", l)); });
+  (e.links || []).forEach(function (L) { read.appendChild(el("p", "ex-kv", "Link \u201c" + L.shown + "\u201d goes to: " + L.href)); });
+  (e.attach || []).forEach(function (a) { read.appendChild(el("p", "ex-att", "📎 " + a)); });
+  read.appendChild(fieldBox(Object.assign({}, f, { label: "Classify this email" }), F));
+  area.appendChild(list); area.appendChild(read);
+}
+/* ------------------------------- Malware IR: the network map */
+function drawNetwork(area, F) {
+  const ui = F.ui, v = F.v, st = F.st; st.visited = st.visited || [];
+  ui.dev = ui.dev || null; ui.tab = ui.tab || "procs";
+  const map = el("nav", "ex-card ex-net"); map.setAttribute("aria-label", "Network map (192.168.1.0/24)"); map.appendChild(el("h3", null, "Network Map (192.168.1.0/24)"));
+  v.devices.forEach(function (d) { const seen = st.visited.indexOf(d.id) >= 0;
+    const b = btn((d.id === "FS01" ? "🖥️ File Server" : d.id === "MAIL01" ? "📨 Mail Server" : "💻 " + d.host) + (seen ? " · inspected" : ""), "ex-nb" + (ui.dev === d.id ? " on" : ""), function () { ui.dev = d.id; if (st.visited.indexOf(d.id) < 0) st.visited.push(d.id); F.ctx.save(); F.ctx.draw(); }, d.host + (seen ? ", inspected" : ", not inspected yet")); map.appendChild(b); });
+  map.appendChild(el("p", "ex-hint2", "Inspected " + st.visited.length + " of " + v.devices.length + "."));
+  area.appendChild(map);
+  const pane = el("section", "ex-card"); pane.setAttribute("aria-label", "Investigation");
+  if (!ui.dev) { pane.appendChild(el("p", "ex-hint2", "Select a device from the map to begin investigation.")); area.appendChild(pane); return; }
+  const d = v.devices.filter(function (x) { return x.id === ui.dev; })[0];
+  pane.appendChild(el("h3", null, d.host));
+  const tabs = el("div", "ex-modes"); tabs.setAttribute("role", "group"); tabs.setAttribute("aria-label", "Investigation tools");
+  [["procs", "Task Manager"], ["logs", "System Logs"], ["web", "Browser History"]].forEach(function (t) { const b = btn(t[1], "b small" + (ui.tab === t[0] ? " pri" : ""), function () { ui.tab = t[0]; F.ctx.draw(); }); b.setAttribute("aria-pressed", String(ui.tab === t[0])); tabs.appendChild(b); });
+  pane.appendChild(tabs);
+  const ul = el("ul", "ex-evl");
+  if (ui.tab === "procs") { const wrapT = el("div", "ex-tmw"), t = el("table", "ex-tm"); t.setAttribute("aria-label", d.host + " Task Manager, Details, sorted by CPU");
+    const hr = el("tr"); ["Name and location", "CPU", "Description", "Publisher"].forEach(function (h) { hr.appendChild(el("th", null, h)); }); t.appendChild(hr);
+    d.procs.slice().sort(function (a, b) { return (b.cpu || 0) - (a.cpu || 0); }).forEach(function (p) { const r = el("tr"), n = el("td"); n.appendChild(el("strong", null, p.name)); n.appendChild(el("span", "ex-tmp", p.image || "(no file path)")); r.appendChild(n); [(p.cpu || 0) + "%", p.desc || "", p.publisher || "(none)"].forEach(function (c) { r.appendChild(el("td", null, c)); }); t.appendChild(r); });
+    wrapT.appendChild(t); pane.appendChild(wrapT); }
+  if (ui.tab === "logs") d.logs.forEach(function (l) { ul.appendChild(el("li", null, (l.time || "") + " · " + l.level + " · " + l.source + " · " + l.id + " · " + l.text)); });
+  if (ui.tab === "web") { if (!d.browser.length) ul.appendChild(el("li", null, "No browsing history on this device.")); d.browser.forEach(function (b) { ul.appendChild(el("li", null, (b.time || "") + " · " + (b.title || "") + " · " + b.url)); }); }
+  if (ui.tab !== "procs") pane.appendChild(ul);
+  pane.appendChild(fieldBox(v.fields.filter(function (f) { return f.id === d.id; })[0], F));
+  area.appendChild(pane);
 }
 /* --------------------------- Wireless Reliability: log + checkpoints */
 function drawCheckpoints(area, F) {
