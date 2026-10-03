@@ -117,6 +117,12 @@ const NOTES = {
   E3: "Brenda's TravelSafe hotel booking was genuine. Dev's streaming offer was spam, junked. Rosa's bank suspended email and John's Jakarta login alert were both phishing: reported and purged.",
   E4: "Farah's gift card request from Mason came from rafiki-lt.com with a Gmail reply-to, failing SPF and DMARC in the headers: phishing, reported, purged, blocked, and turned on the external tag policy. Dev's course was genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   E5: "Rosa's mailbox validate email claimed to be our help desk but the headers show SPF and DMARC failed from an outside server: phishing, reported, purged, anti-spoof quarantine policy on. Dev's PayWise notice was genuine (Software Center). Brenda's webinar spam. Rosa's parcel zip label malicious.",
+  R1: "Replaced the default admin password from the sticker with a strong one on Administration, saved it, and restarted the router. Leah's laptop and printer still connect.",
+  R2: "The admin password was the default \"admin\". Set a strong 16-character one, saved and restarted. Card reader and front desk PC both still online.",
+  R3: "Status said no cable in the INTERNET port. Marcus found the modem cable in yellow LAN port 1 and moved it to the blue INTERNET port; the globe went green and the card machine is back.",
+  R4: "Daniel typed the new Wi-Fi password but never saved it, so the router kept the old one. Entered Blue-Harbor#88, saved and restarted; his laptop and TV rejoined with it.",
+  R5: "Status shows PPPoE authentication failed. Omar has no welcome letter or account details from the provider. Escalated to Tier 2 to get the provider to reissue the PPPoE credentials.",
+  R6: "It restarts every few minutes with every light going out. Nora confirmed it's on its own power adapter and it did the same on a second socket. Escalated to Tier 2 for a replacement router.",
   E6: "Brady Tag's new bank details came from bradytag-co.com, a lookalike domain with a reply-to on another domain: phishing, reported, purged, blocked, lookalike policy on. Farah's order shipped notice was genuine. John's DocuSign was phishing. Brenda's timesheet xlsm macro was malicious."
 };
 
@@ -127,12 +133,12 @@ export function check(D) {
   /* ---- SHAPE ---- */
   const bySim = {}; const ids = new Set();
   T.forEach((t) => { if (ids.has(t.id)) F("SHAPE: duplicate id " + t.id); ids.add(t.id); (bySim[t.sim] = bySim[t.sim] || []).push(t); });
-  const APP = T.filter((t) => !t.kind), MAL = T.filter((t) => t.kind === "malware"), EM = T.filter((t) => t.kind === "email");
+  const APP = T.filter((t) => !t.kind), MAL = T.filter((t) => t.kind === "malware"), EM = T.filter((t) => t.kind === "email"), RTR = T.filter((t) => t.kind === "router");
   Object.entries(bySim).forEach(([sim, list]) => {
     if (list.length !== 6) F("SHAPE: " + sim + " has " + list.length + " tickets, not 1 + 5");
     if (list.filter((t) => t.base).length !== 1) F("SHAPE: " + sim + " does not have exactly one ticket that is the sim itself");
   });
-  if (Object.keys(bySim).length !== 4) F("SHAPE: expected the two App sims, Malware and Email Threat, found " + Object.keys(bySim).length);
+  if (Object.keys(bySim).length !== 5) F("SHAPE: expected the two App sims, Malware, Email Threat and Tier 1 Router, found " + Object.keys(bySim).length);
 
   const pos = [0, 0, 0, 0, 0, 0]; let longest = 0, lenQs = 0, movePos = [0, 0, 0, 0, 0, 0];
   APP.forEach((t) => {
@@ -197,6 +203,12 @@ export function check(D) {
     if (new Set(L).size > 1) { lenQs++; if (cl === Math.max(...L) && L.filter((x) => x === cl).length === 1) longest++; }
     t.mails.forEach((e) => { tells++; tellPos[D.ordered(e.tell.options, t.id + e.id).findIndex((x) => x.correct)]++; const ll = e.tell.options.map((x) => x.label.length), rl = e.tell.options[0].label.length; if (rl === Math.max(...ll)) tellLong++; });
     mailChecks(D, t, F);
+  });
+  RTR.forEach((t) => {
+    const shown = D.ordered(t.close.options, t.id + "close"); pos[shown.findIndex((x) => x.correct)]++;
+    const L = t.close.options.map((x) => x.label.length); const cl = t.close.options.find((x) => x.correct).label.length;
+    if (new Set(L).size > 1) { lenQs++; if (cl === Math.max(...L) && L.filter((x) => x === cl).length === 1) longest++; }
+    routerTicketChecks(D, t, F);
   });
   if (tells && Math.max(...tellPos) > Math.ceil(tells / 3)) F("MAIL: SPREAD: the right giveaway sits in one slot " + Math.max(...tellPos) + " times of " + tells + " (" + tellPos.join(" ") + ")");
   if (tells && tellLong > Math.ceil(tells / 3)) F("MAIL: SPREAD: the right giveaway is the longest option in " + tellLong + " of " + tells + " emails");
@@ -297,6 +309,73 @@ export function cleanUp(E, how) {
     if (!MW.server(m())) { act({ type: "restore", op: "on", machine: id }, () => MW.setRestore(m(), true)); act({ type: "restore", op: "point", machine: id }, () => MW.createPoint(m(), "After malware removal")); }
   });
   return E.T().guesses;
+}
+/* The known fix for each router ticket, done as a student would through
+   the 92 Series app and the phone, every step sent through the engine. */
+export const RFIX = {
+  R1: (a) => { a.view("admin"); a.pass("admin", "Brooks#Ledger-2026"); a.save(); a.reboot(); },
+  R2: (a) => { a.view("admin"); a.pass("admin", "Smile&Molar-Desk9"); a.save(); a.reboot(); },
+  R3: (a) => { a.view("status"); a.ask("ports"); a.ask("move"); },
+  R4: (a) => { a.view("wireless"); a.edit("wifi.pass", "Blue-Harbor#88"); a.save(); a.reboot(); },
+  R5: (a) => { a.view("status"); a.ask("letter"); },
+  R6: (a) => { a.view("status"); a.ask("lights"); a.ask("adapter"); a.ask("socket"); }
+};
+function routerActs(E, t) {
+  const R = RT, r = () => R.get(E.fleet(), t.id), f = () => E.fleet();
+  const go = (type, fn, extra) => { const b = E.before(); const res = fn ? fn() : null; E.onAct(Object.assign({ type: type, machine: "TECH", before: b }, extra || {}, res && typeof res === "object" ? { ok: res.ok, lost: res.lost, text: res.text } : {})); return E.T().guesses; };
+  return {
+    view: (tab) => go("router-view", () => { R.note(f(), r(), "view", { tab: tab }); }, { tab: tab }),
+    edit: (k, v) => go("router-edit", () => { R.edit(f(), r(), k, v); }),
+    pass: (cur, nw) => go("router-admin-pass", () => R.setAdminPass(f(), r(), cur, nw, nw)),
+    save: () => go("router-save", () => R.save(f(), r())),
+    reboot: () => go("router-reboot", () => R.reboot(f(), r())),
+    factory: () => go("router-factory", () => R.factoryReset(f(), r())),
+    ask: (what) => { const lost = what === "power" && RT.dirty(r()); return go("router-ask", () => { R.ask(f(), r(), what); }, { what: what, lost: lost }); }
+  };
+}
+function routerTicketChecks(D, t, F) {
+  const P = "ROUTER " + t.id + ": ";
+  /* EXHIBITED */
+  const f = D.makeFleet(); t.setup(f); const r = RT.get(f, t.id);
+  if (!r) { F(P + "EXHIBITED: no router is set up"); return; }
+  if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts");
+  const fault = { R1: () => RT.defaultPass(r), R2: () => RT.defaultPass(r), R3: () => RT.wanStatus(r).code === "cable", R4: () => r.running.wifi.pass !== "Blue-Harbor#88", R5: () => RT.wanStatus(r).code === "pppoe", R6: () => RT.wanStatus(r).code === "power" }[t.id];
+  if (!fault || !fault()) F(P + "EXHIBITED: the router doesn't show the fault the ticket describes");
+  /* SOLVABLE, with no wrong moves */
+  { const E = D.createEngine(memStore()); E.openTicket(t.id); RFIX[t.id](routerActs(E, t));
+    if (!t.goal(E.fleet())) F(P + "SOLVABLE: the known fix does not meet the goal (" + (t.notReady(E.fleet()) || "") + ")");
+    if (E.T().guesses) F(P + "SOLVABLE: the known fix cost " + E.T().guesses + " wrong move(s): " + E.T().says.filter(Boolean).join(" | "));
+    if (!E.submit(t.outcome).ok) F(P + "SOLVABLE: " + t.outcome + " refused after the known fix");
+    const other = t.outcome === "resolve" ? "escalate" : "resolve"; const E2 = D.createEngine(memStore()); E2.openTicket(t.id); RFIX[t.id](routerActs(E2, t));
+    if (E2.submit(other).ok) F(P + "SOLVABLE: " + other + " was accepted too"); }
+  /* PARTIAL: the fix without its last step doesn't close it (a goal that's too easy) */
+  { const E = D.createEngine(memStore()); E.openTicket(t.id); const a = routerActs(E, t), steps = [];
+    const rec = {}; Object.keys(a).forEach((k) => { rec[k] = (...x) => steps.push([k, x]); }); RFIX[t.id](rec);
+    steps.slice(0, -1).forEach(([k, x]) => a[k](...x));
+    if (t.goal(E.fleet())) F(P + "PARTIAL: the fix without its last step (" + steps[steps.length - 1][0] + ") already meets the goal"); }
+  /* JUDGE: looking never counts; a factory reset, a lost change and a harmful save do */
+  { const E = D.createEngine(memStore()); E.openTicket(t.id); const a = routerActs(E, t);
+    a.view("status"); a.view("wireless"); a.edit("wifi.channel", 6); if (E.T().guesses) F(P + "JUDGE: looking, or typing without saving, counted");
+    if (a.reboot() !== 1) F(P + "JUDGE: a restart that threw away typed changes did not count");
+    if (a.factory() !== 2) F(P + "JUDGE: a factory reset did not count");
+    if (!RT.defaultPass(RT.get(E.fleet(), t.id))) F(P + "JUDGE: a factory reset didn't put the sticker password back");
+    E.revert(); if (RT.defaultPass(RT.get(E.fleet(), t.id)) !== RT.defaultPass(r)) F(P + "JUDGE: revert didn't put the router back");
+    a.view("wireless"); a.edit("wifi.security", "WPA3"); const g = E.T().guesses; a.save(); a.reboot();
+    const rr = RT.get(E.fleet(), t.id); if (rr.devices.some((d) => !RT.joins(rr, d).ok) && E.T().guesses <= g) F(P + "JUDGE: a saved change that knocked devices off did not count"); }
+  /* SIX, NO LEAK, NOTE */
+  const six = (list, what) => {
+    if (list.length !== 6 || list.filter((x) => x.correct).length !== 1) F(P + "SIX: " + what + " is not six with one right");
+    list.filter((x) => !x.correct).forEach((x) => { if (!String(x.why || "").trim()) F(P + "SIX: " + what + ": a wrong option has no reason: " + x.label); });
+    if (new Set(list.map((x) => x.label)).size !== list.length) F(P + "SIX: " + what + " repeats an option");
+  };
+  six(t.close.options, "close"); six(t.moves(f), "moves");
+  const right = t.close.options.find((x) => x.correct).label.toLowerCase(), rightMove = t.moves(f).find((x) => x.correct).label.toLowerCase();
+  t.hints(f).forEach((h, i) => { const s = String(h).toLowerCase(); if (s.indexOf(right) >= 0 || s.indexOf(rightMove) >= 0) F(P + "NO LEAK: rung " + (i + 1) + " names the answer"); });
+  if (!D.noteOK(t, D.NOTES[t.id] || "").ok) F(P + "NOTE: the model note is refused: " + D.noteOK(t, D.NOTES[t.id] || "").missing.join("; "));
+  if (D.noteOK(t, "I looked at the router for a while and then it was working again, so I closed it.").ok) F(P + "NOTE: a note that says nothing specific is accepted");
+  /* LADDER: rung 3 leaves two alive, the right one among them */
+  { const E = D.createEngine(memStore()); E.openTicket(t.id); E.T().guesses = 7; const g = E.guidance();
+    const alive = (g.moves || []).filter((x) => !x.struck); if (g.rung !== 3 || alive.length !== 2 || !alive.some((x) => x.correct)) F(P + "LADDER: rung 3 doesn't leave two alive with the right one"); }
 }
 function malware(D, t, F) {
   const id = t.id;
@@ -620,6 +699,10 @@ const PLANTS = [
   ["EXAM wifi:w1: TEXT", "the WiFi password mistyped in the answer", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "wifi" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "w1" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id === "pass" ? Object.assign({}, f, { answer: "Ma5on1SB35t!" }) : f)) }))) }))) })],
   ["EXAM t1:t1: SIX", "a Tier 1 task with five options", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "t1" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "t1" ? v : Object.assign({}, v, { fields: v.fields.map((f, i) => (i ? f : Object.assign({}, f, { options: f.options.slice(0, 5) }))) }))) }))) })],
   ["EXAM al:al1: KEY", "App Launch keyed to copy the file from another PC", () => ({ KEYS: Object.assign({}, KEYS, { "al:al1": Object.assign({}, KEYS["al:al1"], { t2: "Replace the missing file using a known working system" }) }) })],
+  ["ROUTER R1: EXHIBITED", "R1 closes on the sticker password", () => ({ TICKETS: withTicket("R1", (t) => ({ goal: (f) => RT.wanStatus(RT.get(f, "R1")).up })) })],
+  ["ROUTER R5: PARTIAL", "R5 escalates without asking Omar for the provider's details", () => ({ TICKETS: withTicket("R5", (t) => ({ goal: (f) => RT.get(f, "R5").events.some((e) => e.kind === "view") })) })],
+  ["ROUTER R3: JUDGE", "a factory reset is not a wrong move", () => ({ createEngine: (s) => { const E = createEngine(s); const o = E.onAct; E.onAct = (a) => { const n = E.T() ? E.T().guesses : 0; o(a); if (a.type === "router-factory" && E.T()) E.T().guesses = n; }; return E; } })],
+  ["ROUTER R4: SOLVABLE", "R4 wants a password the brief never gives", () => ({ TICKETS: withTicket("R4", (t) => ({ goal: (f) => RT.get(f, "R4").running.wifi.pass === "Blue-Harbour#88" })) })],
   ["ROUTER SAVE", "a reboot keeps what was only typed", () => ({ R: Object.assign({}, RT, { reboot: (f, r) => { r.saved = JSON.parse(JSON.stringify(r.form)); return RT.reboot(f, r); } }) })],
   ["ROUTER PASS", "any admin password of 8 characters is strong", () => ({ R: Object.assign({}, RT, { setAdminPass: (f, r, c, n, a) => { if (n !== a || n.length < 8) return { ok: false }; r.form.admin.pass = n; return { ok: true }; } }) })],
   ["ROUTER WAN", "PPPoE is up whatever the password", () => ({ R: Object.assign({}, RT, { wanStatus: (r) => (r.isp.mode === "PPPoE" && r.running.wan.mode === "PPPoE" ? { up: true, code: "up" } : RT.wanStatus(r)) }) })],

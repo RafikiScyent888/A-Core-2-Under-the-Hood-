@@ -17,6 +17,11 @@ on the laptop:
   email. Point at a link to see where it really goes, without opening it.
   **Mail admin** has the block list, search and purge, protection
   policies, and password resets.
+- **92 Series:** customers' routers, shared with you remotely. Status,
+  Wireless, Internet, Port forwarding and Administration, with Save and
+  Restart that behave like a real router's: a change isn't made until it's
+  saved and the router restarts. The customer is on the phone for anything
+  physical.
 - **Exam Practice** shows each sim laid out the way the exam shows it: the
   Port Forwarding diagram, the Wi-Fi office map, the three houses of
   Neighboring Routers, the Tier 1 Router scenario, the Wireless

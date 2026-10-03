@@ -25,6 +25,7 @@ import * as M from "./machine.js";
 import { APPS } from "./fleet.js";
 import { MALWARE } from "./tickets-malware.js";
 import { MAIL } from "./tickets-mail.js";
+import { ROUTER } from "./tickets-router.js";
 
 function works(m, app) { return M.launchApp(M.clone(m), app).ok; }
 function has(m, kind, test) { return m.events.some(function (e) { return e.kind === kind && (!test || test(e)); }); }
@@ -302,6 +303,7 @@ TICKETS.filter(function (t) { return t.tier === 2; }).forEach(function (t) {
    judge, hints and moves (tickets-malware.js). */
 MALWARE.forEach(function (t) { TICKETS.push(t); });
 MAIL.forEach(function (t) { TICKETS.push(t); });
+ROUTER.forEach(function (t) { TICKETS.push(t); });
 
 /* How far along a Tier 2 fix is: used so a step that helps is never
    counted as a guess, even when the program does not run yet. */

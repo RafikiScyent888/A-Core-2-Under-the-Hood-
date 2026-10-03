@@ -430,3 +430,51 @@ tr.coach-target td:first-child { box-shadow: inset 4px 4px 0 #b88a00, inset 0 -4
 .ex-bsod p { margin: 0 0 0.5rem; }
 .ex-tm tr.ex-everr td, .ex-tm tr.ex-evwarn td { font-weight: 700; }
 
+/* ------------------------------------------------ the 92 Series app */
+.g-rt { background: #4c1d95; }
+.rt-host { display: flex; flex-direction: column; padding: 0; }
+.rt { flex: 1 1 auto; min-height: 0; overflow: auto; display: grid; gap: 0.7rem; align-content: start; padding: 0 1rem 1rem; }
+.rt-top { display: flex; align-items: center; gap: 0.55rem; margin: 0 -1rem; padding: 0.55rem 1rem; background: var(--win-3); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
+.rt-logo { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 6px; background: #4c1d95; color: #ffffff; font-weight: 800; }
+.rt-sub { color: var(--muted); }
+.rt-empty, .rt-head { display: grid; gap: 0.3rem; }
+.rt-head h2, .rt-empty h2 { margin: 0; font-size: 1.2rem; }
+.rt-head p, .rt-empty p { margin: 0; }
+.rt-pick { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.rt-state { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; padding: 0.55rem 0.75rem; border-radius: 8px; border: 1px solid var(--good-rule); background: var(--good-bg); color: var(--good-ink); }
+.rt-state.warn { border-color: var(--gold); background: var(--win-2); color: var(--ink); box-shadow: inset 4px 0 0 var(--gold); }
+.rt-badge { font-weight: 800; white-space: nowrap; }
+.rt-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.rt-page { display: grid; gap: 0.6rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.8rem 0.9rem; background: var(--win); }
+.rt-page h3 { margin: 0.3rem 0 0; font-size: 1.02rem; }
+.rt-help { margin: 0; color: var(--muted); }
+.rt-line { margin: 0; padding: 0.45rem 0.6rem; border-radius: 6px; }
+.rt-line.ok { background: var(--good-bg); color: var(--good-ink); box-shadow: inset 4px 0 0 var(--good-rule); }
+.rt-line.bad { background: var(--bad-bg); color: var(--bad-ink); box-shadow: inset 4px 0 0 var(--bad-rule); }
+.rt-kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.4rem 1rem; margin: 0; }
+.rt-kv dt { color: var(--muted); font-size: 0.9em; } .rt-kv dd { margin: 0; font-weight: 600; }
+.rt-tw { overflow-x: auto; }
+.rt-t { border-collapse: collapse; width: 100%; }
+.rt-t th, .rt-t td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.rt-t td.rt-ok { color: var(--good-ink); background: var(--good-bg); }
+.rt-t td.rt-bad { color: var(--bad-ink); background: var(--bad-bg); }
+.rt-mono { font-family: Consolas, "DejaVu Sans Mono", monospace; overflow-wrap: anywhere; }
+.rt-f { display: grid; gap: 0.25rem; max-width: 34rem; }
+.rt-f label { font-weight: 600; }
+.rt-check { display: flex; align-items: center; gap: 0.5rem; }
+.rt-check input { width: 1.2rem; height: 1.2rem; }
+.rt-add { display: grid; gap: 0.5rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.8rem; }
+.rt-add legend { font-weight: 700; padding: 0 0.3rem; }
+.rt-confirm { display: grid; gap: 0.5rem; padding: 0.6rem 0.8rem; border-radius: 8px; background: var(--bad-bg); color: var(--bad-ink); box-shadow: inset 4px 0 0 var(--bad-rule); }
+.rt-confirm p { margin: 0; }
+.rt-msg { margin: 0; padding: 0.5rem 0.7rem; border-radius: 6px; background: var(--win-2); border: 1px solid var(--line); }
+.rt-msg.bad { background: var(--bad-bg); color: var(--bad-ink); border-color: var(--bad-rule); }
+.rt-foot { display: flex; gap: 0.5rem; position: sticky; bottom: 0; padding: 0.5rem 0; background: var(--win); border-top: 1px solid var(--line); }
+
+/* the customer on the phone, on a router ticket */
+.call-log { display: grid; gap: 0.3rem; max-height: 14rem; overflow: auto; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 8px; background: var(--win-2); }
+.call-log p { margin: 0; }
+.call-q { font-weight: 700; }
+.call-asks { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+.t-exam { justify-self: start; margin: 0.2rem 0 0.4rem; }
+

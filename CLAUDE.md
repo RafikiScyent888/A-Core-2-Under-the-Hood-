@@ -1235,3 +1235,52 @@ so it is safe on GitHub, then the tickets).
   port the cable is in, moving it, the lights, the sticker, the adapter,
   another socket, the provider's welcome letter, unplugging it.
 - **Checks:** `verify/logic.mjs` ROUTER, with six plants (49 in all).
+
+### The Tier 1 Router tickets as built (3 October 2026, live)
+
+- **New files:** `tickets-router.js` (R1–R6) and `routerui.js` (the 92 Series
+  app). `router.js` is now in use.
+- **How the technician reaches routers:** customers share their router with
+  Rafiki's IT Services from their own 92 Series app, and it appears in the
+  **92 Series** app on the laptop (desktop icon, taskbar pin). The web
+  admin at 192.168.1.1, for Rafiki's own access point, comes with the WiFi
+  AP tickets.
+- **The app has five pages:** Status, Wireless, Internet, Port forwarding,
+  Administration. Save and Restart router sit at the bottom. A bar says, in
+  words, whether the router is running what's saved, has a saved change
+  waiting for a restart, or has changes on the page that aren't saved.
+- **The customer is on the phone:** a "Call" panel on the ticket offers
+  eight questions (which port, move the cable, the lights, the sticker, the
+  adapter, another socket, the provider's letter, unplug it). Asking never
+  counts; having them move or unplug something is judged like any change.
+- **The tickets** (the Tier 1 Router Support sim, matching its exam view's
+  six practices):
+
+  | | Level | Customer | Fault | Outcome |
+  |---|---|---|---|---|
+  | R1 | Crawl (10 steps) | Brooks & Co. Accounting | sticker admin password | strong password, saved, restarted |
+  | R2 | Walk (9 items) | Smile Dental | "admin" on the sticker | the same, card reader still online |
+  | R3 | Run | Lee's Bakery | modem cable in a LAN port | the customer moves it |
+  | R4 | Run | Daniel Price, home | new Wi-Fi password typed, never saved | save, restart |
+  | R5 | Run | Haddad Print Shop | PPPoE refused, no account details | Tier 1 checks, escalate |
+  | R6 | Run | Quinn Yoga Studio | faulty power | adapter, socket, escalate |
+
+- **What counts as a wrong move:** a save or restart that doesn't help or
+  knocks a device off, a restart that throws away unsaved changes, a
+  factory reset, a refused admin password, having the customer move a
+  cable that was already right or unplug it for nothing.
+- **Every ticket links to its exam view** ("See this sim the way the exam
+  shows it"), at the matching practice. All 30 tickets have the link.
+- **Checks:**
+  - logic: 30 tickets; each router ticket's fault is exhibited, the known
+    fix works with no wrong moves, the fix without its last step doesn't
+    close it, wrong moves count, six options, no leaks; 53 plants
+  - page: ROUTER (R1 by Mason's rings, R3 by phone, R4's lost change and
+    proper fix, the exam link)
+  - contrast: the app's status, wireless, admin and reset screens, a
+    device that can't join, and the call panel
+- **Found and fixed while building:**
+  - Mason's ring didn't move on as the student typed into a box (only
+    page redraws moved it). Typing now moves it.
+  - The app's message after Save or Restart was drawn before it was set,
+    so "changes that weren't saved were lost" never showed.

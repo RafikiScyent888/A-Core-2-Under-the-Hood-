@@ -51,8 +51,11 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437" };
 const NOTES = {
+  R1: "Replaced the default admin password from the sticker with a strong one on Administration, saved it, and restarted the router. Leah's laptop and printer still connect.",
+  R3: "Status said no cable in the INTERNET port. Marcus found the modem cable in yellow LAN port 1 and moved it to the blue INTERNET port; the globe went green and the card machine is back.",
+  R4: "Daniel typed the new Wi-Fi password but never saved it, so the router kept the old one. Entered Blue-Harbor#88, saved and restarted; his laptop and TV rejoined with it.",
   L1: "Testing said MSVCP100.dll was missing. Reinstalled Testing from Software Center. Tested: it opens.",
   L2: "PayWise said VCRUNTIME140.dll was missing. Reinstalled PayWise from Software Center. Tested: it opens.",
   L4: "Testing gave a configuration error: config.ini was damaged. Reinstalled Testing, which rewrote the file, and tested it.",
@@ -61,7 +64,7 @@ const NOTES = {
   E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -105,6 +108,7 @@ async function run(rewrites, groups) {
       if (/TEXTAREA/.test(tag)) { await t.first().fill(NOTES[id]); await p.getByRole("button", { name: "Close the ticket" }).click(); continue; }
       if (/DIV/.test(tag) && /opts/.test(tag)) { const right = await p.evaluate(() => window.__LAP.engine.ticket().close.options.find((o) => o.correct).label); await p.locator(".opt2", { hasText: right }).first().click(); continue; }
       if (/con-in/.test(tag)) { const cmd = await p.locator(".coach-cmd").innerText(); await t.first().fill(cmd); await t.first().press("Enter"); continue; }
+      if (/^INPUT/.test(tag) && /^rt-a/.test(await t.first().getAttribute("id") || "")) { const i = await t.first().getAttribute("id"); await t.first().fill(i === "rt-acur" ? "admin" : "Brooks#Ledger-2026"); await t.first().dispatchEvent("change"); continue; }
       if (/INPUT/.test(tag)) { const c = p.locator(".w-dialog.uac-creds:visible").first(); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); continue; }
       const h = await t.first().elementHandle(); await h.click({ timeout: 4000 }).catch(() => {});
       if (/tb-start/.test(tag)) { await p.waitForTimeout(120); const w = ((await p.locator(".coach-say").innerText()).match(/type (\w+)/) || [])[1]; if (w) await p.locator(".sm-search").last().fill(w); }
@@ -119,9 +123,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 24) F("LOAD: the queue shows " + items.length + " tickets, not 24");
+      if (items.length !== 30) F("LOAD: the queue shows " + items.length + " tickets, not 30");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 4 || count(/Walk: checklist/) !== 4 || count(/Run: on your own/) !== 16) F("LOAD: the queue's labels are not 4 crawl, 4 walk, 16 run");
+      if (count(/Crawl: guided/) !== 5 || count(/Walk: checklist/) !== 5 || count(/Run: on your own/) !== 20) F("LOAD: the queue's labels are not 5 crawl, 5 walk, 20 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
     });
 
@@ -388,6 +392,42 @@ async function run(rewrites, groups) {
       await playMail(p, "E4");
     });
 
+    await step("ROUTER", async (p) => {
+      p.setDefaultTimeout(20000); await signIn(p);
+      if (!(await crawl(p, "R1"))) F("ROUTER: R1 could not be finished by following Mason's rings");
+      const g1 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.R1); if (!g1 || g1.stage !== "done" || g1.guesses) F("ROUTER: R1's crawl cost wrong moves, or didn't close");
+      const hd = p.locator("[data-win=helpdesk]"), rw = p.locator("[data-win=router]");
+      const takeIt = async (re) => { await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd.getByRole("button", { name: re }).first().click(); await hd.getByRole("button", { name: /^(Assign to me and start|Work it again)$/ }).click(); await p.waitForTimeout(200); await hd.getByRole("button", { name: "Open the 92 Series app" }).click(); await p.waitForTimeout(200); };
+      const closeIt = async (id) => { const right = await p.evaluate((i) => window.__LAP.engine.ticket().close.options.find((o) => o.correct).label, id); await hd.locator(".res .opt2", { hasText: right }).first().click(); await hd.locator("#res-note").fill(NOTES[id]); await hd.getByRole("button", { name: "Close the ticket" }).click(); };
+      /* R3: the cable, through the customer on the phone */
+      await takeIt(/Globe light orange/);
+      if (!/No cable detected in the INTERNET port/.test(await rw.innerText())) F("ROUTER: R3's status page doesn't say where the problem is");
+      const front = async (id) => p.evaluate((i) => window.__LAP.openWin(i), id);
+      await front("helpdesk"); await hd.getByRole("button", { name: /Ask Marcus: Which port/ }).click(); await hd.getByRole("button", { name: /Ask Marcus: Please move/ }).click(); await p.waitForTimeout(200);
+      if (!/yellow ones[\s\S]*INTERNET port now/.test(await hd.locator(".call-log").innerText())) F("ROUTER: R3's call doesn't show Marcus's answers");
+      if (!/✓ Connected/.test(await rw.innerText())) F("ROUTER: R3's status doesn't show the internet back after the cable moved");
+      await front("helpdesk"); await hd.getByRole("button", { name: "Resolve", exact: true }).click(); await closeIt("R3");
+      const g3 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.R3); if (!g3 || g3.stage !== "done" || g3.guesses) F("ROUTER: R3 through the UI cost wrong moves, or didn't close");
+      /* R4: a typed change is lost on a restart, and counts; then done right */
+      await takeIt(/Changed the Wi-Fi password/); await front("router");
+      await rw.getByRole("button", { name: "Wireless", exact: true }).click();
+      await rw.locator("#rt-wpass").fill("Blue-Harbor#88"); await rw.locator("#rt-wpass").dispatchEvent("change"); await p.waitForTimeout(150);
+      if (!/Not saved/.test(await rw.locator(".rt-state").innerText())) F("ROUTER: a typed change doesn't show as not saved");
+      await rw.getByRole("button", { name: /^Restart the router/ }).click(); await p.waitForTimeout(150);
+      { const v = await rw.locator("#rt-wpass").inputValue(), tx = await rw.innerText(); if (v !== "Harbor2019!" || !/weren't saved were lost/.test(tx)) F("ROUTER: a restart kept a change that was never saved (" + v + " | " + (tx.match(/The router restarted[^\n]*/) || ["no restart message"])[0] + ")"); }
+      if ((await p.evaluate(() => window.__LAP.engine.T().guesses)) !== 1) F("ROUTER: a restart that lost a typed change didn't count");
+      await rw.locator("#rt-wpass").fill("Blue-Harbor#88"); await rw.locator("#rt-wpass").dispatchEvent("change");
+      await rw.getByRole("button", { name: /^Save: write/ }).click(); await p.waitForTimeout(150);
+      if (!/Saved, not running/.test(await rw.locator(".rt-state").innerText())) F("ROUTER: a saved change doesn't show as waiting for a restart");
+      await rw.getByRole("button", { name: /^Restart the router/ }).click(); await p.waitForTimeout(150);
+      if (!/Running/.test(await rw.locator(".rt-state").innerText())) F("ROUTER: after the restart the bar doesn't say it's running");
+      /* the ticket's exam view */
+      await front("helpdesk"); await hd.getByRole("button", { name: /^Open Exam Practice at Tier 1 Router Support Scenario/ }).click(); await p.waitForTimeout(300);
+      if (!/Tier 1 Router Support · 4/.test(await p.locator("[data-win=exam] .ex-title").innerText())) F("ROUTER: R4's exam link doesn't open its exam view (practice 4)");
+      await front("helpdesk"); await hd.getByRole("button", { name: "Resolve", exact: true }).click(); await closeIt("R4");
+      const g4 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.R4); if (!g4 || g4.stage !== "done" || g4.guesses !== 1) F("ROUTER: R4 didn't close, or its count is wrong (" + (g4 && g4.guesses) + ")");
+    });
+
     await step("EXAM", async (p) => {
       p.setDefaultTimeout(20000); await signIn(p);
       await p.evaluate(() => window.__LAP.openWin("exam")); const x = p.locator("[data-win=exam]");
@@ -464,6 +504,8 @@ const PLANTS = [
   ["EXAM", "the exam inbox hides where a disguised link goes", { "assets/examui.js": [["(e.links || []).forEach(", "([]).forEach("]] }],
   ["EXAM", "Reset throws away the devices already inspected", { "assets/examui.js": [["if (st.visited) n.visited = st.visited.slice();", ""]] }],
   ["EXAM", "App Deployment's Commands tab shows no output", { "assets/examui.js": [["E.cmds[ui.cmd] ? \"PS C:\\\\> \" + E.cmds[ui.cmd][0] + \"\\n\\n\" + E.cmds[ui.cmd][1] :", "false ? 0 :"]] }],
+  ["ROUTER", "Save in the 92 Series app doesn't save", { "assets/routerui.js": [["return R.save(f, rr); }); ui.msg", "return { ok: true, text: \"Settings saved.\" }; }); ui.msg"]] }],
+  ["ROUTER", "the call panel's answers aren't shown", { "assets/laptop.js": [["log.appendChild(el(\"p\", \"call-a\", t.who + \": \" + c.a));", ""]] }],
   ["EXAM", "Submit never grades", { "assets/examui.js": [["const r = P.check(v, st);", "const r = { done: false, wrong: 0, missing: 0 };"]] }],
   ["PERSIST", "the dyslexia setting is not saved", { "assets/laptop.js": [["put(\"c2vm.reading\", on ? \"dyslexia\" : \"default\");", ""]] }]
 ];

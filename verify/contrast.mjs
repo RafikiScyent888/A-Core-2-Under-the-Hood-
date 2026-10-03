@@ -312,6 +312,29 @@ export async function run(extraCss) {
     await ex.getByRole("button", { name: "System Logs" }).click();
     await sweep(tag + ": Exam Practice, Malware network map, System Logs");
     await ex.getByRole("button", { name: "Guided" }).click();
+
+    /* the 92 Series app and the customer on the phone */
+    const toFront = (id) => page.evaluate((i) => window.__LAP.openWin(i), id);
+    const rw = page.locator("[data-win=router]");
+    await toFront("helpdesk"); await hd.getByRole("button", { name: /Globe light orange/ }).first().click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+    await hd.getByRole("button", { name: "Open the 92 Series app" }).click(); await page.waitForTimeout(200);
+    await sweep(tag + ": 92 Series app, status with the internet down");
+    await toFront("helpdesk"); await hd.getByRole("button", { name: /Ask Marcus: Which port/ }).click(); await hd.getByRole("button", { name: /Ask Marcus: What are the lights/ }).click(); await page.waitForTimeout(150);
+    await hd.locator(".call").scrollIntoViewIfNeeded();
+    await sweep(tag + ": a router ticket's call panel");
+    await toFront("router"); await rw.getByRole("button", { name: "Wireless", exact: true }).click();
+    await rw.locator("#rt-ssid").fill("LeesBakery-2"); await rw.locator("#rt-ssid").dispatchEvent("change"); await page.waitForTimeout(150);
+    await sweep(tag + ": 92 Series app, wireless page, not saved");
+    await rw.getByRole("button", { name: /^Restart the router/ }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": 92 Series app, a restart that lost a change");
+    await rw.getByRole("button", { name: "Administration", exact: true }).click();
+    await rw.locator("#rt-acur").fill("Sourdough#Oven42"); await rw.locator("#rt-acur").dispatchEvent("change"); await rw.locator("#rt-anew").fill("bread"); await rw.locator("#rt-anew").dispatchEvent("change"); await rw.locator("#rt-aagain").fill("bread"); await rw.locator("#rt-aagain").dispatchEvent("change");
+    await rw.getByRole("button", { name: "Change admin password" }).click(); await rw.getByRole("button", { name: "Factory reset…" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": 92 Series app, a refused password and the reset warning");
+    await rw.getByRole("button", { name: "Cancel" }).click(); await rw.getByRole("button", { name: "Wireless", exact: true }).click();
+    await rw.locator("#rt-sec").selectOption("WPA3"); await rw.getByRole("button", { name: /^Save: write/ }).click(); await rw.getByRole("button", { name: /^Restart the router/ }).click();
+    await rw.getByRole("button", { name: "Status", exact: true }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": 92 Series app, a device that can't join");
   }
 
   try {
@@ -335,6 +358,8 @@ const PLANTS = {
   "text typed into a field in a faint grey": ".field, .w-input { color: #9ca3af !important; }",
   "a ruled-out exam option's reason dimmed": ".ex-o.out .ow { color: #9a6b6b !important; }",
   "the blue screen's text in a muted blue": ".ex-bsod { color: #7d8db8 !important; }",
+  "the router app's not-saved bar in a dim amber": ".rt-state.warn { color: #8a7a1c !important; }",
+  "a device's not-connected reason in a pale red": ".rt-t td.rt-bad { color: #e08a8a !important; }",
   "a process's file path in a faint grey": ".ex-tmp { color: #8b93a1 !important; }",
   "the diagram's numbered slots in a pale blue": ".ex-slot { background: #7fb2ff !important; }"
 };

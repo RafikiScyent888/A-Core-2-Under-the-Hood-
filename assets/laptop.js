@@ -22,6 +22,9 @@ import { inspected, nextStep } from "./tickets-malware.js";
 import * as MX from "./mail.js";
 import { drawMail, drawAdmin } from "./mailui.js";
 import { drawExam } from "./examui.js";
+import { EXAMS } from "./exams.js";
+import { drawRouter } from "./routerui.js";
+import * as RT from "./router.js";
 import { staffOf, emailById, part as mailPart, emailDone, CATS } from "./tickets-mail.js";
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
@@ -32,7 +35,7 @@ function put(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 const E = createEngine();
 const LKEY = "c2vm.laptop.v1";
 let L = (function () { try { return JSON.parse(get(LKEY)) || null; } catch (e) { return null; } })() || { chat: [], said: {}, log: {}, unread: 0, sel: null, notes: {}, met: false };
-L.coach = L.coach || {}; L.lines = L.lines || {};
+L.coach = L.coach || {}; L.lines = L.lines || {}; L.calls = L.calls || {};
 function saveL() { put(LKEY, JSON.stringify(L)); }
 let instructor = false;
 
@@ -93,7 +96,8 @@ const APPS = {
   mstsc: { title: "Remote Desktop Connection", mini: "RD", cls: "g-rdp", geo: [0.30, 0.20, 0.36, 0.46], draw: drawMstsc },
   mail: { title: "Mail — helpdesk@rafiki.local", mini: "@", cls: "g-mail", geo: [0.06, 0.04, 0.80, 0.90], draw: drawMailWin },
   mailadmin: { title: "Mail admin — Rafiki's IT Services", mini: "MA", cls: "g-mail", geo: [0.20, 0.05, 0.62, 0.88], draw: drawAdminWin },
-  exam: { title: "Exam Practice — the sims, laid out as the exam shows them", mini: "EX", cls: "g-exam", geo: [0.04, 0.02, 0.92, 0.95], draw: drawExamWin }
+  exam: { title: "Exam Practice — the sims, laid out as the exam shows them", mini: "EX", cls: "g-exam", geo: [0.04, 0.02, 0.92, 0.95], draw: drawExamWin },
+  router: { title: "92 Series — routers you manage", mini: "92", cls: "g-rt", geo: [0.10, 0.03, 0.72, 0.92], draw: drawRouterWin }
 };
 function appOf(id) { return id.indexOf("rdp:") === 0 ? { title: rosterOf(id.slice(4)).host + " — Remote support", mini: "RS", cls: "g-rdp", geo: [0.08, 0.03, 0.86, 0.92], draw: drawRdp } : APPS[id]; }
 function openWin(id) {
@@ -132,14 +136,14 @@ function drag(w) {
   w.bar.addEventListener("dblclick", function (e) { if (!e.target.closest("button")) { w.max = !w.max; place(w); } });
 }
 function redraw(id) { const w = W[id]; if (w) w.a.draw(w); }
-function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); drawTask(); coachTick(); }
+function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); drawTask(); coachTick(); }
 
 /* ------------------------------------------------ desktop and taskbar */
 function drawDesk() {
   desk.innerHTML = "";
   const mark = el("div", "wall-mark", "Rafiki's IT Services"); mark.appendChild(el("small", null, "IT Support · Tier 1")); desk.appendChild(mark);
   const ic = el("div", "icons"); ic.setAttribute("aria-label", "Desktop");
-  [["helpdesk", "Help Desk", "HD", "g-hd"], ["exam", "Exam Practice", "EX", "g-exam"], ["chat", "Chat", "C", "g-chat"], ["mstsc", "Remote Desktop", "RD", "g-rdp"]].forEach(function (x) {
+  [["helpdesk", "Help Desk", "HD", "g-hd"], ["exam", "Exam Practice", "EX", "g-exam"], ["chat", "Chat", "C", "g-chat"], ["router", "92 Series", "92", "g-rt"], ["mstsc", "Remote Desktop", "RD", "g-rdp"]].forEach(function (x) {
     const b = btn("", "dicon", function () { openWin(x[0]); }, "Open " + x[1]);
     b.appendChild(el("span", "glyph " + x[3], x[2])); b.appendChild(el("span", null, x[1])); ic.appendChild(b);
   });
@@ -151,11 +155,11 @@ function drawTask() {
   const mid = el("div", "task-mid");
   const st = btn("", "tb", function () { togglePop("start"); }, "Start"); st.appendChild(el("span", "mini g-hd", "⊞")); st.appendChild(el("span", null, "Start")); st.setAttribute("aria-expanded", String(pop === "start"));
   mid.appendChild(st);
-  const pinned = ["helpdesk", "exam", "chat", "mail", "mailadmin", "mstsc"];
+  const pinned = ["helpdesk", "exam", "chat", "mail", "mailadmin", "router", "mstsc"];
   const ids = pinned.concat(Object.keys(W).filter(function (k) { return pinned.indexOf(k) < 0; }));
   ids.forEach(function (id) {
     const a = appOf(id); const w = W[id];
-    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : rosterOf(id.slice(4)).host;
+    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : rosterOf(id.slice(4)).host;
     const b = btn("", "tb" + (w ? " open" : "") + (front === id && w && !w.min ? " front" : ""), function () {
       if (!w) return openWin(id);
       if (front === id && !w.min) { w.min = true; place(w); front = null; drawTask(); } else { w.min = false; place(w); focusWin(id); }
@@ -293,6 +297,9 @@ function nextStepAdvice(t, st) {
     return p === "cat" ? (e.noForward ? who + "'s email can't be forwarded, so go and look at it: connect to " + who + "'s PC from Devices, open Mail there, and read the message and its details. Then say what it is on the ticket." : "Open Mail from the taskbar and read " + who + "'s forward: who it's really from, where its links really go (point at them, don't click), and what it wants. Then say what it is on the ticket.")
       : p === "tell" ? "Now the giveaway: which one detail proves it? The address, a link's real destination, an attachment's full name, or (for one that can't be forwarded) the headers."
       : "You know what it is. Now deal with it the way that kind of email is dealt with, in Mail and Mail admin. The card ticks itself off when it's done properly."; }
+  if (t.kind === "router") { const rr = RT.get(E.fleet(), t.id), who = t.who;
+    if (!W.router) return "Open the 92 Series app from " + who + "'s ticket: they've shared their router with us. Read the Status page first: is the internet up, and which devices are on?";
+    return "Read the router's Status page word for word, then the page that matches what " + who + " asked about. Remember a router has three versions of its settings: what's typed on the page, what's saved, and what it's running. Anything only someone standing at the router can see, ask " + who + " with the Call panel on the ticket."; }
   if (t.kind === "malware") return "Work through CompTIA's malware-removal steps, in order, on every PC that needs them: investigate and verify, quarantine, disable System Restore, remediate (update the definitions, then scan and remove), schedule scans and run updates, enable System Restore and create a restore point, educate the user. Where are you in that list? The Devices list on the ticket shows which PCs you've checked.";
   if (!W["rdp:" + t.machine] && !ev.length) return "Start by seeing it for yourself. On the ticket in Help Desk, press Connect to " + r.host + ". When " + who + "'s screen opens, run the program they're having trouble with and read exactly what it says.";
   if (!ev.some(function (e) { return e.kind === "launch"; })) return "You're on " + who + "'s PC. Run the program they're having trouble with, from their desktop or Start (or type its name at a prompt), and read the message word for word. If Windows can't find it at all, that's evidence too.";
@@ -367,13 +374,15 @@ function drawTicket(t) {
   const r = rosterOf(t.machine); const name = t.from.split(",")[0], first = name.split(" ")[0];
   p.appendChild(el("p", "t-id", INC[t.id] + " · " + (t.base ? "the " + t.sim + " sim" : "based on the " + t.sim + " sim")));
   p.appendChild(el("h2", null, t.title));
+  const exl = examFor(t); if (exl) { const xb = btn("See this sim the way the exam shows it", "b small", function () { L.examSel = { ex: exl.ex.id, v: exl.v.id }; saveL(); if (W.exam) { redraw("exam"); W.exam.min = false; place(W.exam); focusWin("exam"); } else openWin("exam"); }, "Open Exam Practice at " + exl.ex.sim + (exl.v.base ? ", the sim itself" : ", " + exl.v.title)); xb.classList.add("t-exam"); p.appendChild(xb); }
   const dl = el("dl", "t-grid");
-  const mal = t.kind === "malware", em = t.kind === "email";
-  [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", mal ? "Every PC on the network (see Devices)" : em ? "Mail: " + t.mails.length + " emails" + (t.devices.length ? ", one on " + rosterOf(t.devices[0]).host : "") : r.host + " · " + r.ip], ["Location", mal ? "The whole office" : em ? "Help desk mailbox" : r.where], ["Category", mal ? "Security › Malware" : em ? "Security › Email threats" : "Software › Application"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); });
+  const mal = t.kind === "malware", em = t.kind === "email", rt = t.kind === "router";
+  if (rt) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Device", "92 Series AX1800 router (shared in the 92 Series app)"], ["Location", "Customer site: remote"], ["Category", "Network › Router"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
+  else [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", mal ? "Every PC on the network (see Devices)" : em ? "Mail: " + t.mails.length + " emails" + (t.devices.length ? ", one on " + rosterOf(t.devices[0]).host : "") : r.host + " · " + r.ip], ["Location", mal ? "The whole office" : em ? "Help desk mailbox" : r.where], ["Category", mal ? "Security › Malware" : em ? "Security › Email threats" : "Software › Application"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); });
   p.appendChild(dl);
 
   const m = el("section", "t-sec"); m.appendChild(el("h3", null, "Request"));
-  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, mal || em ? name : name + " (" + r.host + ")")); mh.appendChild(el("span", null, mal ? "assigned by your team lead" : em ? (t.devices.length ? "by phone" : "help desk mailbox") : "via email")); msg.appendChild(mh);
+  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, mal || em || rt ? name : name + " (" + r.host + ")")); mh.appendChild(el("span", null, mal ? "assigned by your team lead" : rt ? "by phone" : em ? (t.devices.length ? "by phone" : "help desk mailbox") : "via email")); msg.appendChild(mh);
   t.brief.forEach(function (x) { msg.appendChild(el("p", null, x)); }); m.appendChild(msg); p.appendChild(m);
 
   const acts = el("div", "t-acts");
@@ -381,10 +390,14 @@ function drawTicket(t) {
     acts.appendChild(coachTag("assign", btn(st ? "Work it again" : "Assign to me and start", "b pri", function () {
       if (st) E.state().tickets[t.id] = null;
       Object.keys(W).filter(function (k) { return k.indexOf("rdp:") === 0; }).forEach(closeWin);
-      E.openTicket(t.id); L.said[t.id] = {}; L.log[t.id] = []; L.coach[t.id] = {}; L.lines[t.id] = []; logT(t.id, "Assigned to you"); refresh();
+      E.openTicket(t.id); L.said[t.id] = {}; L.log[t.id] = []; L.coach[t.id] = {}; L.lines[t.id] = []; L.calls[t.id] = []; logT(t.id, "Assigned to you"); refresh();
     })));
   } else if (!isCur) {
     acts.appendChild(btn("Switch to this ticket", "b pri", function () { Object.keys(W).filter(function (k) { return k.indexOf("rdp:") === 0; }).forEach(closeWin); E.openTicket(t.id); logT(t.id, "Picked back up"); refresh(); }));
+  } else if (st.stage === "work" && rt) {
+    acts.appendChild(coachTag("open-router", btn("Open the 92 Series app", "b pri", function () { openWin("router"); })));
+    acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: " + t.who + " confirms it works" : "Tried to resolve: " + (x.say || "not fixed yet")); after(); })));
+    acts.appendChild(coachTag("escalate", btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); })));
   } else if (st.stage === "work" && em) {
     acts.appendChild(coachTag("open-mail", btn("Open Mail", "b pri", function () { openWin("mail"); })));
     acts.appendChild(coachTag("open-admin", btn("Open Mail admin", "b", function () { openWin("mailadmin"); })));
@@ -401,6 +414,7 @@ function drawTicket(t) {
   }
   p.appendChild(acts);
   if (mal && isCur && st && st.stage !== "done") p.appendChild(drawDevices(t));
+  if (rt && isCur && st && st.stage === "work") p.appendChild(drawCall(t));
   if (em && isCur && st && st.stage === "work") { p.appendChild(drawTriage(t)); if (t.devices.length) p.appendChild(drawDevices(t)); }
   if (isCur && st && st.stage === "work") {
     const c = el("p", "t-id", LEVEL[t.id] === "crawl" ? "Mason is walking you through this one. Follow his steps on the right." : st.guesses ? "Moves that did not help so far: " + st.guesses + ". Looking around never counts." : "Looking around, reading logs, running the program to test it and typos never count against you.");
@@ -424,6 +438,32 @@ function drawTicket(t) {
     const a = el("div", "ins"); a.appendChild(el("strong", null, "Instructor: ")); a.appendChild(document.createTextNode("Fix: " + (mv ? mv.label : "") + ". Outcome: " + t.outcome + ". Cause: " + t.close.options.filter(function (x) { return x.correct; })[0].label + ".")); p.appendChild(a);
   }
   return p;
+}
+/* Each ticket's exam view: the same sim in Exam Practice, at the matching
+   practice (the sim itself for the ticket that is the sim). */
+function examFor(t) {
+  const ex = EXAMS.filter(function (e) { return e.sim === t.sim; })[0]; if (!ex) return null;
+  const i = TICKETS.filter(function (x) { return x.sim === t.sim; }).indexOf(t);
+  return { ex: ex, v: ex.variants[Math.max(0, i)] || ex.variants[0] };
+}
+/* A router ticket's phone line to the customer: they do what only
+   someone standing at the router can (owner, 1 October 2026). */
+const ASKS = [["ports", "Which port is the modem's cable plugged into?"], ["move", "Please move the modem's cable to the blue INTERNET port."], ["lights", "What are the lights on the router doing?"], ["sticker", "What does the sticker underneath it say?"], ["adapter", "Is it on the power adapter that came in its box?"], ["socket", "Could you plug it into a different wall socket?"], ["letter", "Do you have the welcome letter from your internet provider?"], ["power", "Please unplug the router for ten seconds, then plug it back in."]];
+function drawCall(t) {
+  const sec = el("section", "t-sec call"); sec.appendChild(el("h3", null, "Call " + t.who + " (on the line)"));
+  sec.appendChild(el("p", "t-id", t.who + " is at the router and can check what you can't see from here. Looking and asking never count against you."));
+  const log = el("div", "call-log"); log.setAttribute("role", "log"); log.setAttribute("aria-label", "Call with " + t.who);
+  (L.calls[t.id] || []).forEach(function (c) { log.appendChild(el("p", "call-q", "You: " + c.q)); log.appendChild(el("p", "call-a", t.who + ": " + c.a)); });
+  if (!(L.calls[t.id] || []).length) log.appendChild(el("p", "call-a", t.who + ": \"Hello? I'm right here by the router.\""));
+  sec.appendChild(log);
+  const g = el("div", "call-asks"); g.setAttribute("role", "group"); g.setAttribute("aria-label", "Ask " + t.who);
+  ASKS.forEach(function (q) { g.appendChild(coachTag("ask-" + q[0], btn(q[1], "b small", function () {
+    const rr = RT.get(E.fleet(), t.id); const b = E.before(); const lost = q[0] === "power" && RT.dirty(rr);
+    const a = RT.ask(E.fleet(), rr, q[0]); (L.calls[t.id] = L.calls[t.id] || []).push({ q: q[1], a: a.replace(/^"|"$/g, "") }); saveL();
+    E.onAct({ type: "router-ask", what: q[0], lost: lost, machine: "TECH", before: b }); actLog({ type: "router-ask", what: q[0], q: q[1], lost: lost }, t.site); after();
+  }, "Ask " + t.who + ": " + q[1]))); });
+  sec.appendChild(g);
+  return sec;
 }
 /* An incident covers the whole network: every PC is one click from a
    remote session or a walk. The list shows only what the student has
@@ -531,6 +571,27 @@ function drawExamWin(w) {
   const m = w.body.querySelector(".ex-main"); if (m) m.scrollTop = keep; const n = w.body.querySelector(".ex-nav"); if (n) n.scrollTop = keepN;
   if (foc) { const f = document.getElementById(foc); if (f) f.focus(); }
 }
+function drawRouterWin(w) {
+  w.ui = w.ui || {}; const pg = w.body.querySelector(".rt"); const keep = pg ? pg.scrollTop : 0;
+  const foc = document.activeElement && w.body.contains(document.activeElement) && document.activeElement.id ? document.activeElement.id : null;
+  w.body.innerHTML = ""; w.body.classList.add("rt-host");
+  drawRouter(w.body, { routers: function () { const t = E.ticket(), st = E.T(); return t && t.kind === "router" && st && st.stage !== "done" ? [RT.get(E.fleet(), t.id)].filter(Boolean) : []; }, act: routerAct, draw: function () { redraw("router"); } }, w.ui);
+  const pg2 = w.body.querySelector(".rt"); if (pg2) pg2.scrollTop = keep;
+  if (foc) { const f = document.getElementById(foc); if (f) f.focus(); }
+}
+/* Everything done in the 92 Series app goes through here: the change to
+   the router, then the engine (which judges it), the ticket's activity,
+   and Mason. A view that only redraws (a confirm box) is quiet. */
+function routerAct(type, fn, extra) {
+  const t = E.ticket(); extra = extra || {}; if (!t || t.kind !== "router") return {};
+  const rr = RT.get(E.fleet(), t.id); const b = E.before();
+  const lost = type === "router-reboot" ? RT.dirty(rr) : undefined;
+  const res = fn(E.fleet(), rr) || {};
+  if (extra.quiet) { E.save(); redraw("router"); return res; }
+  const a = Object.assign({ type: type, machine: "TECH", before: b, lost: lost }, extra, { ok: res.ok, text: res.text });
+  E.onAct(a); actLog(a, t.site); after();
+  return res;
+}
 function drawMailWin(w) { w.ui = w.ui || {}; w.body.innerHTML = ""; w.body.classList.add("mx-host"); drawMail(w.body, mailCtx("TECH", true, w), w.ui); }
 function drawAdminWin(w) {
   w.ui = w.ui || {}; const keep = w.body.scrollTop; w.body.innerHTML = "";
@@ -615,7 +676,15 @@ function actLog(a, host) {
     "mail-block": function () { return "Blocked " + a.entry; }, "mail-unblock": function () { return "Unblocked " + a.entry; },
     "mail-purge": function () { return "Purged \"" + subj(a.id) + "\" from every mailbox"; }, "mail-unpurge": function () { return "Put \"" + subj(a.id) + "\" back"; },
     "mail-policy": function () { return "Turned " + (a.on ? "on" : "off") + ": " + MX.POLICIES[a.key].label; },
-    "mail-reset": function () { return "Reset " + staffOf(a.who).name + "'s password and signed them out everywhere"; }
+    "mail-reset": function () { return "Reset " + staffOf(a.who).name + "'s password and signed them out everywhere"; },
+    "router-view": function () { return "Opened the router's " + ({ status: "Status", wireless: "Wireless", internet: "Internet", forward: "Port forwarding", admin: "Administration" }[a.tab] || a.tab) + " page"; },
+    "router-edit": function () { return "Changed the " + ({ "wifi.ssid": "network name", "wifi.pass": "Wi-Fi password", "wifi.security": "security", "wifi.band": "band", "wifi.channel": "channel", "wifi.width": "channel width", "wifi.mac": "MAC filtering", "wifi.allowed": "allowed list", "wan.mode": "connection type", "wan.user": "PPPoE username", "wan.pass": "PPPoE password", forwards: "port forwards", screened: "screened-subnet host" }[a.path] || a.path) + " on the page (not saved yet)"; },
+    "router-admin-pass": function () { return a.ok ? "Set a new admin password on the page (not saved yet)" : "Tried a new admin password: " + a.text; },
+    "router-save": function () { return "Saved the router's settings"; },
+    "router-reboot": function () { return "Restarted the router" + (a.lost ? ": unsaved changes on the page were lost" : ""); },
+    "router-factory": function () { return "Factory reset the router"; },
+    "router-firmware": function () { return "Checked for firmware updates: " + a.text; },
+    "router-ask": function () { return "Asked " + t.who + ": " + a.q + (a.lost ? " (unsaved changes on the page were lost)" : ""); }
   }[a.type];
   if (say) logT(t.id, host + ": " + say());
 }
@@ -647,7 +716,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk" };
+const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -1123,6 +1192,77 @@ function mailWalk(id) {
   ]), end: "You walked the help desk mailbox. The rest of the mail tickets, including three that can't be forwarded, are yours to run." };
 }
 WALKS.E2 = mailWalk("E2");
+/* ---------------------------------------- the router crawl and walk */
+function rwin() { return document.querySelector("[data-win=router]"); }
+function rr(id) { return RT.get(E.fleet(), id); }
+function rAt(id, test) { const r = rr(id); if (!r) return -1; const e = r.events.filter(test); return e.length ? e[e.length - 1].at : -1; }
+function rTab(name) { const w = rwin(); return w ? byText(w.querySelector(".rt-tabs"), new RegExp("^" + name + "$")) : null; }
+function rBtn(re) { const w = rwin(); return w ? byText(w, re) : null; }
+function adminFormTarget() { const w = rwin(); if (!w) return null; const empty = ["rt-acur", "rt-anew", "rt-aagain"].map(function (i) { return w.querySelector("#" + i); }).filter(function (x) { return x && !x.value; })[0]; return empty || rBtn(/^Change admin password$/); }
+function strongOnPage(id) { const r = rr(id); return !!(r && RT.strong(r.form.admin.pass, r.sticker.pass)); }
+function strongSaved(id) { const r = rr(id); return !!(r && RT.strong(r.saved.admin.pass, r.sticker.pass)); }
+function strongRunning(id) { const r = rr(id); return !!(r && RT.strong(r.running.admin.pass, r.sticker.pass)); }
+function lookedAfterRestart(id) { const boot = rAt(id, function (e) { return e.kind === "reboot"; }); return boot >= 0 && rAt(id, function (e) { return e.kind === "view" && e.tab === "status"; }) > boot; }
+WALKS.R1 = { machine: "TECH", steps: [
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Read Leah's request. A replacement router, the internet already works, she's signed in with the sticker's details and wants it set up securely. Press Assign to me and start.",
+    why: "\"Securely\" is the word to hold on to. Nothing is broken: this job is about who could get into the router.",
+    target: function () { return document.querySelector('[data-coach="assign"]'); },
+    done: function () { const t = E.ticket(); return !!(t && t.id === "R1" && E.T()); } },
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Leah has shared the router with us. Press Open the 92 Series app on the ticket.",
+    why: "Customer routers are managed remotely: the customer shares access from their own app, and we work on it from here.",
+    target: function () { return W.router ? null : document.querySelector('[data-coach="open-router"]'); },
+    done: function () { return !!W.router; } },
+  { tag: "Find the evidence", win: "router",
+    say: "You're on the Status page. Read it: the internet is connected, and Leah's laptop and the printer are both on. Now press the Administration tab.",
+    why: "Status first, always: it tells you what's working before you change anything, so you'll know if you break something.",
+    target: function () { return rTab("Administration"); },
+    done: function () { return rAt("R1", function (e) { return e.kind === "view" && e.tab === "admin"; }) >= 0; } },
+  { tag: "Fix it", win: "router",
+    say: "Change the admin password. The current one is the sticker's: admin. Make up a new one with 12 or more characters, upper and lower case, a number and a symbol. Type it twice, then press Change admin password.",
+    why: "A model's default admin password is printed on every unit and published online. Until it's replaced with a strong one, anyone on Leah's network could sign in and take the router over.",
+    target: adminFormTarget,
+    done: function () { return strongOnPage("R1"); } },
+  { tag: "Fix it", win: "router",
+    say: "Look at the bar under the router's name: \"Not saved\". The router isn't using your new password yet. Press Save.",
+    why: "What you type on a router's page is only on the page. Save writes it to the router.",
+    target: function () { return rBtn(/^Save$/); },
+    done: function () { return strongSaved("R1"); } },
+  { tag: "Fix it", win: "router",
+    say: "Now it says \"Saved, not running\". Press Restart router so it starts using it.",
+    why: "A router runs the settings it loaded when it started. The Tier 1 sim's step two, \"save the changes and reboot\", is exactly this.",
+    target: function () { return rBtn(/^Restart router$/); },
+    done: function () { return strongRunning("R1"); } },
+  { tag: "Test it", win: "router",
+    say: "The bar says \"Running\". Open the Status tab and check nothing broke: the internet, Leah's laptop, the printer.",
+    why: "A fix isn't finished until you've checked it worked and didn't break anything else.",
+    target: function () { return rTab("Status"); },
+    done: function () { return lookedAfterRestart("R1"); } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "Back on Leah's ticket, press Resolve.",
+    target: function () { return document.querySelector('[data-coach="resolve"]'); },
+    done: function () { const st = E.state().tickets.R1; return !!(st && st.stage !== "work"); } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "Record why the admin password came first. Pick the reason on the ticket that fits.",
+    target: function () { return document.querySelector(".res .opts"); },
+    done: function () { const st = E.state().tickets.R1; return !!(st && (st.closeOK || st.stage === "done")); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Write the resolution notes in your own words: what you changed, and how you made the router use it. Then press Close the ticket.",
+    target: function () { return document.querySelector("#res-note"); },
+    done: function () { const st = E.state().tickets.R1; return !!(st && st.stage === "done"); } }
+], end: "That's the router crawl: status first, the one change that mattered, Save, restart, check, and the write-up. Priya's dental office is next: you drive, I give you the checklist." };
+WALKS.R2 = { mode: "walk", machine: "TECH", steps: [
+  { goal: "Take the ticket", how: "In Help Desk, on Priya's ticket.", done: function () { const t = E.ticket(); return !!(t && t.id === "R2" && E.T()); } },
+  { goal: "Get into the router", how: "Priya shared it with us. The button is on her ticket.", done: function () { return !!W.router; } },
+  { goal: "Find who could sign in today", how: "Which page holds the router's own password?", done: function () { return rAt("R2", function (e) { return e.kind === "view" && e.tab === "admin"; }) >= 0; } },
+  { goal: "Replace the default with a strong password", how: "Twelve or more characters, mixed case, a number and a symbol. Not anything like the sticker.", done: function () { return strongOnPage("R2") || strongSaved("R2"); } },
+  { goal: "Make the router actually use it", how: "Read the bar under the router's name. It tells you what's left.", done: function () { return strongRunning("R2"); } },
+  { goal: "Check the card reader and front desk PC are still online", how: "The page that shows the internet and the devices.", done: function () { return lookedAfterRestart("R2"); } },
+  { goal: "Resolve the ticket", how: "In Help Desk, on Priya's ticket.", done: function () { const st = E.state().tickets.R2; return !!(st && st.stage !== "work"); } },
+  { goal: "Record why it had to be strong", how: "Pick it on the ticket.", done: function () { const st = E.state().tickets.R2; return !!(st && (st.closeOK || st.stage === "done")); } },
+  { goal: "Write the resolution notes", how: "What you changed, why it's strong, how it took effect.", done: function () { const st = E.state().tickets.R2; return !!(st && st.stage === "done"); } }
+], end: "You walked it. The rest of the router tickets are yours: a cable in the wrong port, a change nobody saved, and two that Tier 1 can't fix but must check first." };
 Object.keys(WALKS).forEach(function (k) { WALKS[k].steps.forEach(function (st, i) { if (!i) return; const d = st.done; st.done = function () { const t = E.ticket(); return !!(t && t.id === k) && d(); }; }); });
 function crawling() { const t = E.ticket(); return !!(t && LEVEL[t.id] === "crawl" && WALKS[t.id] && !(E.T() && E.T().stage === "done")); }
 /* Has the student typed this command on the ticket's PC? */
@@ -1237,6 +1377,9 @@ function mark(walk, n) {
   marking = false;
 }
 new MutationObserver(function () { if (!marking) coachTick(); }).observe(root, { childList: true, subtree: true });
+/* typing changes nothing in the page's structure, but a ring on a box the
+   student has just filled must move on to the next one */
+root.addEventListener("input", function () { coachTick(); }); root.addEventListener("change", function () { coachTick(); });
 
 /* =====================================================================
    THE WALK-OVER (owner, 1 October 2026: "if they have to physically go
