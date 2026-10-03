@@ -51,10 +51,12 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455" };
 const NOTES = {
   R1: "Replaced the default admin password from the sticker with a strong one on Administration, saved it, and restarted the router. Leah's laptop and printer still connect.",
   W1: "Set MainOffice1 with the new password, WPA3 because every device supports it, 2.4 GHz for the thick walls, channel 6. Saved and restarted; the Office 3 tablet connects.",
+  N1: "Router 3: HomeWiFi with the password, WPA3, 20 MHz to keep interference down, MAC filtering with the family's four devices allowed, and channel 11 because Router 1 and 2 use 1 and 6. Saved and restarted.",
+  N4: "Turned MAC filtering off so the grandchildren's devices can join with the password; kept HomeWiFi, WPA3, 20 MHz and channel 11. Saved and restarted; the visitors connect.",
   P1: "Forwarded TCP 3389 (Remote Desktop) to the Windows PC on the LAN at 192.168.10.20. Alex moved the console to the screened subnet port and I set it as the screened host. Wi-Fi from WEP to WPA2. Saved, restarted, both tested.",
   P3: "Forwarded TCP 22 for SSH to the Linux server on the LAN at 192.168.1.20. The console is in the screened subnet as the screened host. Wi-Fi from WEP to WPA2. Saved, restarted, both tested.",
   W3: "Conference AP: Conference-5G with its password, WPA3, 5 GHz for its many clear channels with 25 laptops in one open room, channel 36. Saved and restarted; meetings are quick.",
@@ -68,7 +70,7 @@ const NOTES = {
   E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -97,6 +99,7 @@ async function run(rewrites, groups) {
   }
   /* follow Mason's rings and nothing else, to the end of a crawl */
   const VALS = { W1: { "rt-ssid": "MainOffice1", "rt-wpass": "Ma50n1SB35t!", "rt-sec": "WPA3", "rt-band": "2.4", "rt-chan": "6", "wb-pass": "Clos3t-AP-2026" },
+    N1: { "rt-ssid": "HomeWiFi", "rt-wpass": "MyCCR0ck2!", "rt-sec": "WPA3", "rt-chan": "11", "rt-width": "20" },
     P1: { "rt-fe": "3389", "rt-fi": "192.168.10.20", "rt-fq": "3389", "rt-dmz": "10.100.0.50", "rt-sec": "WPA2" } };
   async function crawl(p, id, max) {
     await take(p, id).catch(() => {});
@@ -114,6 +117,7 @@ async function run(rewrites, groups) {
       if (/TEXTAREA/.test(tag)) { await t.first().fill(NOTES[id]); await p.getByRole("button", { name: "Close the ticket" }).click(); continue; }
       if (/DIV/.test(tag) && /opts/.test(tag)) { const right = await p.evaluate(() => window.__LAP.engine.ticket().close.options.find((o) => o.correct).label); await p.locator(".opt2", { hasText: right }).first().click(); continue; }
       if (/con-in/.test(tag)) { const cmd = await p.locator(".coach-cmd").innerText(); await t.first().fill(cmd); await t.first().press("Enter"); continue; }
+      if ((await t.first().evaluate((e) => e.type || "")) === "checkbox") { await t.first().click(); continue; }
       { const wid = await t.first().getAttribute("id") || "", V = VALS[id] || {}; if (V[wid] != null) { if (/^SELECT/.test(tag)) await t.first().selectOption(V[wid]); else { await t.first().fill(V[wid]); await t.first().dispatchEvent("change"); } continue; } }
       if (/^INPUT/.test(tag) && /^rt-a/.test(await t.first().getAttribute("id") || "")) { const i = await t.first().getAttribute("id"); await t.first().fill(i === "rt-acur" ? "admin" : "Brooks#Ledger-2026"); await t.first().dispatchEvent("change"); continue; }
       if (/INPUT/.test(tag)) { const c = p.locator(".w-dialog.uac-creds:visible").first(); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); continue; }
@@ -130,9 +134,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 42) F("LOAD: the queue shows " + items.length + " tickets, not 42");
+      if (items.length !== 48) F("LOAD: the queue shows " + items.length + " tickets, not 48");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 7 || count(/Walk: checklist/) !== 7 || count(/Run: on your own/) !== 28) F("LOAD: the queue's labels are not 7 crawl, 7 walk, 28 run");
+      if (count(/Crawl: guided/) !== 8 || count(/Walk: checklist/) !== 8 || count(/Run: on your own/) !== 32) F("LOAD: the queue's labels are not 8 crawl, 8 walk, 32 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
     });
 
@@ -486,6 +490,25 @@ async function run(rewrites, groups) {
       const g3 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.P3); if (!g3 || g3.stage !== "done" || g3.guesses !== 2) F("PF: P3 didn't close, or its count is wrong (" + (g3 && g3.guesses) + "; want the wrong move and the early Resolve)");
     });
 
+    await step("NR", async (p) => {
+      p.setDefaultTimeout(20000); await signIn(p);
+      if (!(await crawl(p, "N1"))) F("NR: N1 could not be finished by following Mason's rings");
+      const g1 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.N1); if (!g1 || g1.stage !== "done" || g1.guesses) F("NR: N1's crawl cost wrong moves, or didn't close");
+      const hd = p.locator("[data-win=helpdesk]"), rw = p.locator("[data-win=router]"), front = (id) => p.evaluate((i) => window.__LAP.openWin(i), id);
+      await front("helpdesk"); await hd.getByRole("button", { name: /grandchildren can't get on/ }).first().click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+      await hd.getByRole("button", { name: "Open the 92 Series app" }).click(); await p.waitForTimeout(150);
+      if (!/✕ Overlapping/.test(await rw.locator(".rt-page").innerText())) F("NR: N4's status doesn't show the overlap with the neighbours");
+      await rw.getByRole("button", { name: "Wireless", exact: true }).click();
+      for (const [k, v] of [["rt-ssid", "HomeWiFi"], ["rt-wpass", "MyCCR0ck2!"]]) { await rw.locator("#" + k).fill(v); await rw.locator("#" + k).dispatchEvent("change"); }
+      for (const [k, v] of [["rt-sec", "WPA3"], ["rt-chan", "11"], ["rt-width", "20"]]) await rw.locator("#" + k).selectOption(v);
+      await rw.getByRole("button", { name: /^Save: write/ }).click(); await rw.getByRole("button", { name: /^Restart the router/ }).click(); await rw.getByRole("button", { name: "Status", exact: true }).click(); await p.waitForTimeout(150);
+      const st = await rw.locator(".rt-page").innerText();
+      if (!/✓ No overlap/.test(st) || !/Grandchild's tablet[^\n]*✓ Connected/.test(st)) F("NR: after the fix the status doesn't show no overlap and the visitors connected: " + st.replace(/\s+/g, " ").slice(0, 600));
+      await front("helpdesk"); await hd.getByRole("button", { name: "Resolve", exact: true }).click();
+      const right = await p.evaluate(() => window.__LAP.engine.ticket().close.options.find((o) => o.correct).label); await hd.locator(".res .opt2", { hasText: right }).first().click(); await hd.locator("#res-note").fill(NOTES.N4); await hd.getByRole("button", { name: "Close the ticket" }).click();
+      const g4 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.N4); if (!g4 || g4.stage !== "done" || g4.guesses) F("NR: N4 through the UI cost wrong moves, or didn't close (" + (g4 && g4.guesses) + ")");
+    });
+
     await step("EXAM", async (p) => {
       p.setDefaultTimeout(20000); await signIn(p);
       await p.evaluate(() => window.__LAP.openWin("exam")); const x = p.locator("[data-win=exam]");
@@ -567,6 +590,7 @@ const PLANTS = [
   ["WIFI", "the access point never asks you to sign in again after a restart", { "assets/router.js": [["r.running = copy(r.saved); r.form = copy(r.saved); r.signedIn = false;\n  note(fleet, r, \"reboot\"", "r.running = copy(r.saved); r.form = copy(r.saved);\n  note(fleet, r, \"reboot\""]] }],
   ["WIFI", "a crowded room shows as connected", { "assets/routerui.js": [["j.ok ? (R.crowded(r) ? \"rt-bad\" : \"rt-ok\")", "j.ok ? (false ? \"rt-bad\" : \"rt-ok\")"], ["j.ok ? (R.crowded(r) ? \"✕ Connected but crawling", "j.ok ? (false ? \"✕ Connected but crawling"]] }],
   ["PF", "the customer's test from outside always fails", { "assets/router.js": [["if (!x || x.to !== pc.ip) return { ok: false", "if (true) return { ok: false"]] }],
+  ["NR", "the status never shows an overlap", { "assets/routerui.js": [["const clash = R.interference(r), ln", "const clash = [], ln"]] }],
   ["EXAM", "Submit never grades", { "assets/examui.js": [["const r = P.check(v, st);", "const r = { done: false, wrong: 0, missing: 0 };"]] }],
   ["PERSIST", "the dyslexia setting is not saved", { "assets/laptop.js": [["put(\"c2vm.reading\", on ? \"dyslexia\" : \"default\");", ""]] }]
 ];

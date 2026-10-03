@@ -76,8 +76,11 @@ function pageStatus(p, r) {
   if (r.neighbours.length) {
     p.appendChild(el("h3", null, "Nearby networks (Wi-Fi scan)"));
     const t = el("table", "rt-t"); const hr = el("tr"); ["Network", "Channel", "Width", "Security"].forEach(function (h) { const th = el("th", null, h); th.setAttribute("scope", "col"); hr.appendChild(th); }); t.appendChild(hr);
-    r.neighbours.forEach(function (n) { const tr = el("tr"); const th = el("th", null, n.ssid || n.name); th.setAttribute("scope", "row"); tr.appendChild(th); tr.appendChild(el("td", null, String(n.channel))); tr.appendChild(el("td", null, (n.width || 20) + " MHz")); tr.appendChild(el("td", null, n.security || "WPA2")); t.appendChild(tr); });
+    r.neighbours.forEach(function (n) { const tr = el("tr"); const th = el("th", null, n.name && n.name !== "Next door" ? n.name + ": " + n.ssid : (n.ssid || n.name)); th.setAttribute("scope", "row"); tr.appendChild(th); tr.appendChild(el("td", null, String(n.channel))); tr.appendChild(el("td", null, (n.width || 20) + " MHz")); tr.appendChild(el("td", null, n.security || "WPA2")); t.appendChild(tr); });
     const wr = el("div", "rt-tw"); wr.appendChild(t); p.appendChild(wr);
+    const clash = R.interference(r), ln = el("p", "rt-line rt-clash " + (clash.length ? "bad" : "ok"));
+    ln.appendChild(el("strong", null, clash.length ? "✕ Overlapping" : "✓ No overlap")); ln.appendChild(document.createTextNode(clash.length ? " · this router's channel " + run.channel + " at " + run.width + " MHz overlaps " + clash.map(function (n) { return (n.name || n.ssid) + " (channel " + n.channel + ")"; }).join(" and ") + "." : run.channel === "auto" ? " · the router picks its own channel." : " · channel " + run.channel + " at " + run.width + " MHz is clear of every network nearby."));
+    p.appendChild(ln);
   }
 }
 function field(p, id, label, value, onChange, opts) {

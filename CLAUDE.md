@@ -1369,3 +1369,56 @@ so it is safe on GitHub, then the tickets).
   Mason's rings; P3 through the UI with the wrong move, the early Resolve
   and both tests); contrast (the call with both tests failing, the forward
   page with a rule, Status with addresses).
+
+
+### The Neighboring Routers tickets as built (3 October 2026, live)
+
+- **New file:** `tickets-nr.js` (N1–N6): Router 3 in a street of three
+  houses, in the 92 Series app. The neighbours are in the router's Wi-Fi
+  scan on Status, at the widths the exam view shows.
+- **Status now says whether the running channel overlaps a neighbour,** in
+  words ("✕ Overlapping · channel 6 at 40 MHz overlaps Router 1 (channel 1)
+  and Router 2 (channel 6)"), as a Wi-Fi analyzer would. It shows what the
+  settings do, never what they should be.
+- **Done means:** the sim's six settings running (the name and password
+  given; WPA3; 20 MHz; MAC filtering as asked; the clear channel), no
+  overlap with either neighbour, every approved device connected, and,
+  with filtering on, the unknown device shut out.
+- **The tickets** (the sim's six practices; checked against them, including
+  the neighbours' channels in the scan):
+
+  | | Level | Customer | Neighbours | Channel | MAC filtering |
+  |---|---|---|---|---|---|
+  | N1 | Crawl (12 steps) | the Carters, the sim itself | 1, 6 | 11 | on: family's four |
+  | N2 | Walk (7 items) | the Garcias | 6, 11 | 1 | on |
+  | N3 | Run | the blue house | 1, 11 | 6 | on |
+  | N4 | Run | the Carters again: grandchildren visit | 1, 6 | 11 | off: the password is enough |
+  | N5 | Run | Rosa, at home | 11, 6 | 1 | on |
+  | N6 | Run | Dev, at home | 1, 11 | 6 | on |
+
+- **Checks:** logic (48 tickets, 62 plants; a ticket keyed off its exam
+  practice, a ticket already clear of the neighbours); page NR (N1 by
+  Mason's rings; N4 through the UI, with the overlap shown and then gone
+  and the visitors connected); contrast (the scan with an overlap, MAC
+  filtering and the allowed list; 19 plants).
+- **Found and fixed: the contrast sweep was sampling a different layout
+  from the one it read.**
+  - What happened: it took its screenshot with `fullPage`, which resizes
+    the window to the page's height. The laptop is sized to the window, so
+    every window moved 30px down and the queue re-scrolled between reading
+    the text and taking the pixels.
+  - How it showed: with 48 tickets, the sweep reported a customer's name
+    "at 3.89:1" against a row divider that, on screen, was nowhere near it.
+  - The fix: the sweep now screenshots at the window's own size and
+    scrolls the page for anything below the fold (the footer). Text it
+    can't sample fails as NOT SAMPLED instead of passing.
+  - What it means for earlier runs: earlier passes were measured against
+    shifted pixels. Most text sits on large single-colour panels, so they
+    were very likely right. Every screen has now been re-measured
+    properly.
+  - Two new plants: the overlap line, which the sweep now scrolls into
+    view (its first "catch" had been that stray row), and the footer below
+    the fold.
+- **Still to come in the router build:** the 3D street showing each
+  router's reach and channel, and the Wireless Reliability tickets with the
+  microwave cutscene and floor plan.

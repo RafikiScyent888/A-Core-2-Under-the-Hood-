@@ -751,7 +751,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk" };
+const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -1298,6 +1298,77 @@ WALKS.R2 = { mode: "walk", machine: "TECH", steps: [
   { goal: "Record why it had to be strong", how: "Pick it on the ticket.", done: function () { const st = E.state().tickets.R2; return !!(st && (st.closeOK || st.stage === "done")); } },
   { goal: "Write the resolution notes", how: "What you changed, why it's strong, how it took effect.", done: function () { const st = E.state().tickets.R2; return !!(st && st.stage === "done"); } }
 ], end: "You walked it. The rest of the router tickets are yours: a cable in the wrong port, a change nobody saved, and two that Tier 1 can't fix but must check first." };
+/* ---------------------------------------- the neighbouring-routers crawl and walk */
+function nrSet(id, cfg, T) { const r = rr(id); if (!r) return false; const w = r[cfg].wifi; return w.ssid === T.ssid && w.pass === T.pass && w.security === "WPA3" && Number(w.width) === 20 && String(w.channel) === String(T.chan); }
+function nrAllowed(id, cfg) { const r = rr(id); return !!(r && r[cfg].wifi.mac && r.devices.every(function (d) { return (r[cfg].wifi.allowed.indexOf(d.mac) >= 0) === !!d.approved; })); }
+function nrField(id, T) { const w = rwin(); if (!w) return null; const want = { "rt-ssid": T.ssid, "rt-wpass": T.pass, "rt-sec": "WPA3", "rt-chan": String(T.chan), "rt-width": "20" }; return Object.keys(want).map(function (k) { return w.querySelector("#" + k); }).filter(function (x) { return x && x.value !== want[x.id]; })[0] || null; }
+function nrAllowTarget(id) { const w = rwin(), r = rr(id); if (!w || !r) return null; const d = r.devices.filter(function (x) { return x.approved && r.form.wifi.allowed.indexOf(x.mac) < 0; })[0]; return d ? w.querySelector('[aria-label="Allow ' + d.name + '"]') : null; }
+const N1T = { ssid: "HomeWiFi", pass: "MyCCR0ck2!", chan: 11 };
+WALKS.N1 = { machine: "TECH", steps: [
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Read Jamie's request. Some settings are given exactly (the name, the password). The rest are decided by clues: \"most secure\", \"keep interference down\", \"only our own devices\", \"doesn't overlap the neighbours\". Press Assign to me and start.",
+    why: "This is the exam's Neighboring Routers question, on a real router in a real street.",
+    target: function () { return document.querySelector('[data-coach="assign"]'); },
+    done: function () { const t = E.ticket(); return !!(t && t.id === "N1" && E.T()); } },
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Press Open the 92 Series app.",
+    target: function () { return W.router ? null : document.querySelector('[data-coach="open-router"]'); },
+    done: function () { return !!W.router; } },
+  { tag: "Find the evidence", win: "router",
+    say: "Read Status. The Wi-Fi scan shows Router 1 on channel 1 and Router 2 on channel 6, and the line under it says this router overlaps them. There's also an unknown tablet on Jamie's Wi-Fi. Now open Wireless.",
+    why: "On 2.4 GHz only channels 1, 6 and 11 don't overlap. With the neighbours on 1 and 6, only one is left.",
+    target: function () { return rTab("Wireless"); },
+    done: function () { return rAt("N1", function (e) { return e.kind === "view" && e.tab === "wireless"; }) >= 0; } },
+  { tag: "Fix it", win: "router",
+    say: "Set each one: name HomeWiFi, password MyCCR0ck2!, security WPA3-Personal (the most secure), channel 11 (the one left), and channel width 20 MHz (narrower takes less room, so less interference). The ring moves as you go.",
+    why: "A 40 MHz channel on 2.4 GHz takes twice the room and overlaps a neighbour whatever channel it's on.",
+    target: function () { return nrField("N1", N1T); },
+    done: function () { return nrSet("N1", "form", N1T) || nrSet("N1", "saved", N1T); } },
+  { tag: "Fix it", win: "router",
+    say: "\"Only our own devices\": tick MAC filtering.",
+    why: "MAC filtering lets only devices on the allowed list join. Every device has its own MAC address.",
+    target: function () { const w = rwin(); return w && w.querySelector("#rt-mac"); },
+    done: function () { const r = rr("N1"); return !!(r && (r.form.wifi.mac || r.saved.wifi.mac)); } },
+  { tag: "Fix it", win: "router",
+    say: "Now allow Jamie's four: the laptop, both phones and the TV. Press Allow beside each. Leave the unknown tablet off the list.",
+    why: "Turned on with an empty list, filtering would lock the family out too.",
+    target: function () { return nrAllowTarget("N1"); },
+    done: function () { return nrAllowed("N1", "form") || nrAllowed("N1", "saved"); } },
+  { tag: "Fix it", win: "router",
+    say: "Press Save.",
+    target: function () { return rBtn(/^Save$/); },
+    done: function () { return nrSet("N1", "saved", N1T) && nrAllowed("N1", "saved"); } },
+  { tag: "Fix it", win: "router",
+    say: "Press Restart router.",
+    target: function () { return rBtn(/^Restart router$/); },
+    done: function () { return nrSet("N1", "running", N1T) && nrAllowed("N1", "running"); } },
+  { tag: "Test it", win: "router",
+    say: "Read Status again: no overlap with the neighbours, the family's four connected, the unknown tablet blocked.",
+    target: function () { return rTab("Status"); },
+    done: function () { return lookedAfterRestart("N1"); } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "Press Resolve on Jamie's ticket.",
+    target: function () { return document.querySelector('[data-coach="resolve"]'); },
+    done: function () { const st = E.state().tickets.N1; return !!(st && st.stage !== "work"); } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "Record why channel 11 at 20 MHz.",
+    target: function () { return document.querySelector(".res .opts"); },
+    done: function () { const st = E.state().tickets.N1; return !!(st && (st.closeOK || st.stage === "done")); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Write the notes: what you set, and why that channel, width and filtering. Then Close the ticket.",
+    target: function () { return document.querySelector("#res-note"); },
+    done: function () { const st = E.state().tickets.N1; return !!(st && st.stage === "done"); } }
+], end: "That's the neighbours question done for real: read the scan, take the clear channel at 20 MHz, lock it to the family's devices, and prove it on Status. The Garcias are next: you drive." };
+const N2T = { ssid: "Garcia-Home", pass: "Casa#2026Net", chan: 1 };
+WALKS.N2 = { mode: "walk", machine: "TECH", steps: [
+  { goal: "Take the ticket", how: "In Help Desk.", done: function () { const t = E.ticket(); return !!(t && t.id === "N2" && E.T()); } },
+  { goal: "Read the neighbours' channels", how: "The Wi-Fi scan, on Status.", done: function () { return rAt("N2", function (e) { return e.kind === "view" && e.tab === "status"; }) >= 0; } },
+  { goal: "Set what Maria gave you, and decide the rest", how: "Name and password are given. Security, width and channel come from her clues and the scan.", done: function () { return ["form", "saved", "running"].some(function (c) { return nrSet("N2", c, N2T); }); } },
+  { goal: "Only the family's devices", how: "Which setting, and which devices go on its list?", done: function () { return ["form", "saved", "running"].some(function (c) { return nrAllowed("N2", c); }); } },
+  { goal: "Make the router use it all", how: "The bar tells you what's left.", done: function () { return nrSet("N2", "running", N2T) && nrAllowed("N2", "running"); } },
+  { goal: "Prove it on Status", how: "Overlap, the family, the stranger.", done: function () { return lookedAfterRestart("N2"); } },
+  { goal: "Resolve, record why, and write the notes", how: "In Help Desk.", done: function () { const st = E.state().tickets.N2; return !!(st && st.stage === "done"); } }
+], end: "You walked it. The rest of the street is yours, including a family who want the filtering off again." };
 /* ---------------------------------------- the port-forwarding crawl and walk */
 function pfDev(id, role) { const r = rr(id); return r ? RT.role(r, role) : null; }
 function pfFwd(id, cfg) { const r = rr(id), pc = pfDev(id, "remote"); return !!(r && pc && r[cfg].forwards.some(function (f) { return f.ext === "3389" && f.proto === "TCP" && f.ip === pc.ip && f.port === "3389"; })); }

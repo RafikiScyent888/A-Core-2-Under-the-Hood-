@@ -52,9 +52,9 @@ Live: https://rafikiscyent888.github.io/A-Core-2-Under-the-Hood-/
 
 | | Tickets | How much help |
 |---|---|---|
-| **Crawl** | L1, D1, M1, E1: the four sims themselves | Mason walks you through every step and rings what to press |
-| **Walk** | L2, D2, M2, E2 | A checklist that ticks itself off as you work, with "How?" pointers |
-| **Run** | L3–L6, D3–D6, M3–M6, E3–E6 | On your own, as in the exam. Mason checks in after your third wrong move |
+| **Crawl** | L1, D1, M1, E1, R1, W1, P1, N1: the sims themselves | Mason walks you through every step and rings what to press |
+| **Walk** | L2, D2, M2, E2, R2, W2, P2, N2 | A checklist that ticks itself off as you work, with "How?" pointers |
+| **Run** | the rest, 3 to 6 of each | On your own, as in the exam. Mason checks in after your third wrong move |
 
 The L tickets come from the Application Launch sim (Tier 1), the D
 tickets from the Application Deployment sim (Tier 2), and the M tickets
@@ -73,6 +73,20 @@ original's headers on the user's PC and add the safeguard that stops the
 next one. The Deployment sim
 is rebuilt so its old answer is tried and fails: the robocopy from System32
 gives 0xc000007b, and `regsvr32` gives its real error.
+
+The router tickets come from four sims:
+- **R, Tier 1 Router Support:** customers' 92 Series routers. Default
+  admin passwords, a cable in the wrong port, a change never saved, and
+  the faults Tier 1 hands on.
+- **W, WiFi Access Point Configuration:** the office's own access point,
+  in the browser. Security, band and channel decided by the building and
+  the devices in it.
+- **P, Port Forwarding Configuration:** a home network. The computer stays
+  on the LAN behind one forwarded port; the game console goes in the
+  screened subnet. The customer tests both from outside.
+- **N, Neighboring Routers Configuration:** Router 3 in a street of three
+  houses. A clear channel at 20 MHz, WPA3, and MAC filtering where it's
+  asked for; the Wi-Fi scan shows any overlap in words.
 
 The program's rules apply throughout:
 - unlimited tries

@@ -106,25 +106,38 @@ export async function run(extraCss) {
     });
     await pe.evaluate((t) => t.remove());
     const tag = await page.addStyleTag({ content: "*{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;caret-color:transparent!important}" });
-    const png = await page.screenshot({ fullPage: true });
+    /* Screenshots at the window's own size, never fullPage: a full-page
+       capture resizes the window to the page's height, the laptop is sized
+       to the window, and the rows move between reading the text and taking
+       the pixels (found 3 October 2026: the queue re-scrolled and every
+       window sat 30px lower). What lies below the fold is reached by
+       scrolling, which moves the page without re-laying it out. */
+    const [vh, full, sy0] = await page.evaluate(() => [innerHeight, document.documentElement.scrollHeight, scrollY]);
+    const shots = [];
+    for (let off = 0; ; off += vh) { const o = Math.max(0, Math.min(off, full - vh)); await page.evaluate((y) => scrollTo(0, y), o); const got = await page.evaluate(() => scrollY); shots.push({ off: got, png: (await page.screenshot()).toString("base64") }); if (o + vh >= full) break; }
+    await page.evaluate((y) => scrollTo(0, y), sy0);
     await tag.evaluate((t) => t.remove());
     /* Something that changed between reading the text and the screenshot
        (a notification timing out) wasn't painted where it was read: drop
        it rather than measure it against what replaced it. */
     const gone = await page.evaluate((list) => list.filter((r) => { const e = window.__sweepEls[r.k]; if (!e || !e.isConnected) return true; const b = e.getBoundingClientRect(); return b.width === 0 && b.height === 0; }).map((r) => r.k), runs.filter((r) => r.k != null).map((r) => ({ k: r.k })));
     for (let i = runs.length - 1; i >= 0; i--) if (gone.indexOf(runs[i].k) >= 0) runs.splice(i, 1);
-    const bgs = await page.evaluate(async ({ b64, runs }) => {
-      const img = new Image(); img.src = "data:image/png;base64," + b64; await img.decode();
-      const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d"); x.drawImage(img, 0, 0);
+    const bgs = await page.evaluate(async ({ shots, runs }) => {
+      const cv = [];
+      for (const sh of shots) { const img = new Image(); img.src = "data:image/png;base64," + sh.png; await img.decode();
+        const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d"); x.drawImage(img, 0, 0); cv.push({ off: sh.off, x, w: img.width, h: img.height }); }
       return runs.map((r) => { const w = Math.max(1, Math.round(r.w - 4)), h = Math.max(1, Math.round(r.h - 4));
-        if (r.x + 2 >= img.width || r.y + 2 >= img.height) return [];
-        const d = x.getImageData(Math.round(r.x + 2), Math.round(r.y + 2), w, h).data, cnt = {}; let tot = 0;
+        /* the shot that holds the whole run; none means it can't be measured, which fails below rather than passing */
+        const s = cv.find((q) => r.y >= q.off && r.y + r.h <= q.off + q.h && r.x + r.w <= q.w);
+        if (!s) return null;
+        const d = s.x.getImageData(Math.round(r.x + 2), Math.round(r.y - s.off + 2), w, h).data, cnt = {}; let tot = 0;
         for (let i = 0; i < d.length; i += 4) { const k = d[i] + "," + d[i + 1] + "," + d[i + 2]; cnt[k] = (cnt[k] || 0) + 1; tot++; }
         return Object.entries(cnt).filter(([, v]) => v / tot >= 0.08).map(([k]) => k.split(",").map(Number)); });
-    }, { b64: png.toString("base64"), runs });
+    }, { shots, runs });
     runs.forEach((r, i) => {
       const m = r.c.match(/[\d.]+/g).map(Number); const a = (m[3] ?? 1) * r.op;
       const need = (r.s >= 24 || (r.s >= 18.66 && r.b)) ? 4.5 : 7;
+      if (!bgs[i]) { const key = "NOT SAMPLED | " + r.el.split(" > ").pop(); const e = found.get(key) || { key, worst: 0, need, states: new Set(), sample: r.t }; e.states.add(state); found.set(key, e); return; }
       let worst = 99, wbg = null;
       for (const bg of bgs[i]) { const fg = [0, 1, 2].map((k) => m[k] * a + bg[k] * (1 - a)); const q = ratio(fg, bg); if (q < worst) { worst = q; wbg = bg; } }
       if (worst < need) {
@@ -353,6 +366,14 @@ export async function run(extraCss) {
     await sweep(tag + ": 92 Series app, port forwarding with a rule");
     await rw.getByRole("button", { name: "Status", exact: true }).click(); await page.waitForTimeout(150);
     await sweep(tag + ": 92 Series app, status with addresses");
+    /* the street: the Wi-Fi scan with the overlap, the allowed list */
+    await toFront("helpdesk"); await hd.getByRole("button", { name: /blue house's Wi-Fi keeps dropping/ }).first().click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+    await hd.getByRole("button", { name: "Open the 92 Series app" }).click(); await page.waitForTimeout(150);
+    await rw.locator(".rt-clash").scrollIntoViewIfNeeded();
+    await sweep(tag + ": 92 Series app, the Wi-Fi scan and an overlap");
+    await rw.getByRole("button", { name: "Wireless", exact: true }).click(); await rw.locator("#rt-mac").click(); await rw.getByRole("button", { name: "Allow Laptop" }).click(); await page.waitForTimeout(150);
+    await rw.locator("#rt-mac").scrollIntoViewIfNeeded();
+    await sweep(tag + ": 92 Series app, MAC filtering and the allowed list");
   }
 
   try {
@@ -381,7 +402,9 @@ const PLANTS = {
   "the forward form's labels in a faint grey": ".rt-add label, .rt-f label { color: #8b93a1 !important; }",
   "the browser's address and sign-in labels in a faint grey": ".wb-url, .wb-login label { color: #8b93a1 !important; }",
   "a process's file path in a faint grey": ".ex-tmp { color: #8b93a1 !important; }",
-  "the diagram's numbered slots in a pale blue": ".ex-slot { background: #7fb2ff !important; }"
+  "the diagram's numbered slots in a pale blue": ".ex-slot { background: #7fb2ff !important; }",
+  "the Wi-Fi scan's overlap line in a pale red": ".rt-clash.bad { color: #e08a8a !important; }",
+  "the footer, below the fold, in a faint grey": "footer.under p { color: #5b6270 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {
@@ -391,7 +414,9 @@ if (!plant) {
   console.log("PASS — every text run meets AAA on painted pixels, in dark, light, and dark with dyslexia text");
 } else {
   let bad = 0;
-  for (const [name, css] of Object.entries(PLANTS).filter(([n]) => !process.env.ONLY || n.indexOf(process.env.ONLY) >= 0)) {
+  /* SHARD=i/n runs every n-th plant, so the list can be split across processes */
+  const sh = (process.env.SHARD || "0/1").split("/").map(Number);
+  for (const [name, css] of Object.entries(PLANTS).filter(([n], i) => (!process.env.ONLY || n.indexOf(process.env.ONLY) >= 0) && i % sh[1] === sh[0])) {
     const list = await run(css);
     if (list.length && !list.some((e) => /DRIVE ERROR/.test(e.key))) console.log("caught   " + name + "  →  " + list[0].worst.toFixed(2) + ":1 " + list[0].key);
     else { console.log("MISSED   " + name + (list.length ? " (" + list[0].key + ")" : "")); bad++; }
