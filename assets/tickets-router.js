@@ -15,14 +15,14 @@ import * as R from "./router.js";
 function opt(label, correct, why) { return { label: label, correct: !!correct, why: why || "" }; }
 export function routerOf(fleet, t) { return R.get(fleet, t.id); }
 /* every device in the house still gets on: a fix must not break anything */
-function intact(r) { return r.devices.every(function (d) { return R.joins(r, d).ok; }); }
+export function intact(r) { return r.devices.every(function (d) { return R.joins(r, d).ok; }); }
 function asked(r, what) { return r.events.some(function (e) { return e.kind === "ask" && e.what === what; }); }
 function viewed(r, tab) { return r.events.some(function (e) { return e.kind === "view" && e.tab === tab; }); }
 function savedStrong(r) { return R.strong(r.saved.admin.pass, r.sticker.pass); }
 function runningStrong(r) { return R.strong(r.running.admin.pass, r.sticker.pass); }
 
 /* The shared shape of a router ticket. */
-function routerTicket(o) {
+export function routerTicket(o) {
   const t = Object.assign({ sim: "Tier 1 Router Support Scenario", tier: 1, kind: "router", outcome: "resolve", machine: "TECH" }, o);
   t.setup = function (fleet) {
     const r = R.add(fleet, Object.assign({ id: t.id }, o.router));

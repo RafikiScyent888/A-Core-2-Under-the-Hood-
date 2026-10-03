@@ -335,6 +335,13 @@ export async function run(extraCss) {
     await rw.locator("#rt-sec").selectOption("WPA3"); await rw.getByRole("button", { name: /^Save: write/ }).click(); await rw.getByRole("button", { name: /^Restart the router/ }).click();
     await rw.getByRole("button", { name: "Status", exact: true }).click(); await page.waitForTimeout(150);
     await sweep(tag + ": 92 Series app, a device that can't join");
+    /* the browser at 192.168.1.1: the access point's sign-in, a refused one, a crowded room */
+    const bw = page.locator("[data-win=browser]");
+    await toFront("helpdesk"); await hd.getByRole("button", { name: /Conference room access point/ }).first().click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+    await hd.getByRole("button", { name: "Open 192.168.1.1 in the browser" }).click(); await bw.locator("#wb-pass").fill("nope"); await bw.getByRole("button", { name: "Sign in" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": the access point's sign-in page, a refused password");
+    await bw.locator("#wb-pass").fill("Clos3t-AP-2026"); await bw.getByRole("button", { name: "Sign in" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": the access point's status, a crowded room");
   }
 
   try {
@@ -360,6 +367,7 @@ const PLANTS = {
   "the blue screen's text in a muted blue": ".ex-bsod { color: #7d8db8 !important; }",
   "the router app's not-saved bar in a dim amber": ".rt-state.warn { color: #8a7a1c !important; }",
   "a device's not-connected reason in a pale red": ".rt-t td.rt-bad { color: #e08a8a !important; }",
+  "the browser's address and sign-in labels in a faint grey": ".wb-url, .wb-login label { color: #8b93a1 !important; }",
   "a process's file path in a faint grey": ".ex-tmp { color: #8b93a1 !important; }",
   "the diagram's numbered slots in a pale blue": ".ex-slot { background: #7fb2ff !important; }"
 };

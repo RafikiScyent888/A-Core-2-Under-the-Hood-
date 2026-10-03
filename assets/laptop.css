@@ -477,4 +477,10 @@ tr.coach-target td:first-child { box-shadow: inset 4px 4px 0 #b88a00, inset 0 -4
 .call-q { font-weight: 700; }
 .call-asks { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
 .t-exam { justify-self: start; margin: 0.2rem 0 0.4rem; }
+.g-web { background: #1e3a8a; }
+.wb-bar { display: flex; padding: 0.45rem 0.6rem; background: var(--win-3); border-bottom: 1px solid var(--line); }
+.wb-url { flex: 1 1 auto; font-family: Consolas, "DejaVu Sans Mono", monospace; }
+.wb-page { padding-top: 1rem; }
+.wb-login { max-width: 30rem; }
+.wb-login h2, .wb-page h2 { margin: 0; font-size: 1.2rem; }
 

@@ -37,9 +37,13 @@ const BASE = {
 
 /* A router, from a ticket's description of it.
      o.cfg      settings that differ from the factory ones (deep-merged)
-     o.devices  the house's devices: { name, mac, ip, wpa3, bands, knows,
-                needs } — knows is the Wi-Fi password the device has
-                saved; needs lists what the customer wants it to do
+     o.devices  the house's devices: { name, mac, wpa3, bands, knows,
+                ssid, walls, where } — knows is the Wi-Fi password the
+                device has saved, ssid the network it looks for, walls the
+                thick walls between it and the router
+     o.crowd    how many devices share one room (a meeting's laptops)
+     o.web      reached at 192.168.1.1 in the browser (Rafiki's own access
+                point), not shared in the 92 Series app
      o.neighbours  other routers in range: { name, ssid, channel, width }
      o.phys     { wanPort: "wan" | "lan1", power: "ok" | "faulty" }
      o.isp      { mode: "DHCP" } or { mode: "PPPoE", user, pass, letter },
@@ -51,7 +55,7 @@ export function add(fleet, o) {
   const r = { id: o.id, label: o.label || "92 Series AX1800", site: o.site || "", customer: o.customer || "", model: o.model || "92 Series AX1800", fw: "1.0.4",
     sticker: { pass: cfg.admin.pass, ssid: cfg.wifi.ssid, wifiPass: cfg.wifi.pass },
     phys: Object.assign({ wanPort: "wan", power: "ok" }, o.phys || {}), isp: Object.assign({ mode: "DHCP" }, o.isp || {}), publicIp: o.publicIp || "50.90.234.1",
-    devices: copy(o.devices || []), neighbours: copy(o.neighbours || []),
+    devices: copy(o.devices || []), neighbours: copy(o.neighbours || []), crowd: o.crowd || 0, web: !!o.web, where: o.where || "",
     saved: cfg, running: copy(cfg), form: copy(cfg), events: [], signedIn: false };
   all(fleet)[o.id] = r;
   return r;
@@ -152,12 +156,19 @@ export function joins(r, d) {
   const w = r.running.wifi;
   if (wanStatus(r).code === "power") return { ok: false, why: "The router keeps restarting." };
   const bands = d.bands || ["2.4", "5"];
+  if (d.ssid && d.ssid !== w.ssid) return { ok: false, why: d.name + " is looking for \"" + d.ssid + "\" and can't find it." };
   if (w.band !== "dual" && bands.indexOf(w.band) < 0) return { ok: false, why: d.name + " can't see the network: it only has " + bands.join(" and ") + " GHz." };
+  /* 5 GHz is stopped by thick walls; 2.4 GHz gets through. Dual-band
+     steers a far device onto 2.4 GHz. */
+  if (w.band === "5" && (d.walls || 0) >= 2) return { ok: false, why: d.name + " can't hold a signal: 5 GHz doesn't get through " + d.walls + " thick walls." };
   if (w.security === "WPA3" && !d.wpa3) return { ok: false, why: d.name + " only supports WPA2, so it can't join a WPA3-only network." };
   if (w.mac && w.allowed.indexOf(d.mac) < 0) return { ok: false, why: d.name + " is blocked: its MAC address isn't on the allowed list." };
   if (w.security !== "Open" && d.knows !== w.pass) return { ok: false, why: d.name + " has a different Wi-Fi password saved." };
   return { ok: true, why: d.name + " is connected." };
 }
+/* Many devices in one room on 2.4 GHz, which has only three channels
+   that don't overlap: they join, but it crawls. */
+export function crowded(r) { return r.running.wifi.band === "2.4" && (r.crowd || 0) >= 15; }
 /* Who can join who shouldn't: open or weak security, or no MAC list when
    the customer asked for approved devices only. */
 export function weakSecurity(r) { const s = r.running.wifi.security; return s === "Open" || s === "WEP" || s === "WPA"; }

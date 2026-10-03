@@ -51,9 +51,11 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442" };
 const NOTES = {
   R1: "Replaced the default admin password from the sticker with a strong one on Administration, saved it, and restarted the router. Leah's laptop and printer still connect.",
+  W1: "Set MainOffice1 with the new password, WPA3 because every device supports it, 2.4 GHz for the thick walls, channel 6. Saved and restarted; the Office 3 tablet connects.",
+  W3: "Conference AP: Conference-5G with its password, WPA3, 5 GHz for its many clear channels with 25 laptops in one open room, channel 36. Saved and restarted; meetings are quick.",
   R3: "Status said no cable in the INTERNET port. Marcus found the modem cable in yellow LAN port 1 and moved it to the blue INTERNET port; the globe went green and the card machine is back.",
   R4: "Daniel typed the new Wi-Fi password but never saved it, so the router kept the old one. Entered Blue-Harbor#88, saved and restarted; his laptop and TV rejoined with it.",
   L1: "Testing said MSVCP100.dll was missing. Reinstalled Testing from Software Center. Tested: it opens.",
@@ -64,7 +66,7 @@ const NOTES = {
   E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -92,6 +94,7 @@ async function run(rewrites, groups) {
     if (p) { p.errs.forEach((e) => F(name + ": page error — " + e)); await p.close(); }
   }
   /* follow Mason's rings and nothing else, to the end of a crawl */
+  const WIFI_VAL = { "rt-ssid": "MainOffice1", "rt-wpass": "Ma50n1SB35t!", "rt-sec": "WPA3", "rt-band": "2.4", "rt-chan": "6", "wb-pass": "Clos3t-AP-2026" };
   async function crawl(p, id, max) {
     await take(p, id).catch(() => {});
     for (let i = 0; i < (max || 70); i++) {
@@ -108,6 +111,7 @@ async function run(rewrites, groups) {
       if (/TEXTAREA/.test(tag)) { await t.first().fill(NOTES[id]); await p.getByRole("button", { name: "Close the ticket" }).click(); continue; }
       if (/DIV/.test(tag) && /opts/.test(tag)) { const right = await p.evaluate(() => window.__LAP.engine.ticket().close.options.find((o) => o.correct).label); await p.locator(".opt2", { hasText: right }).first().click(); continue; }
       if (/con-in/.test(tag)) { const cmd = await p.locator(".coach-cmd").innerText(); await t.first().fill(cmd); await t.first().press("Enter"); continue; }
+      { const wid = await t.first().getAttribute("id") || ""; if (WIFI_VAL[wid] != null) { if (/^SELECT/.test(tag)) await t.first().selectOption(WIFI_VAL[wid]); else { await t.first().fill(WIFI_VAL[wid]); await t.first().dispatchEvent("change"); } continue; } }
       if (/^INPUT/.test(tag) && /^rt-a/.test(await t.first().getAttribute("id") || "")) { const i = await t.first().getAttribute("id"); await t.first().fill(i === "rt-acur" ? "admin" : "Brooks#Ledger-2026"); await t.first().dispatchEvent("change"); continue; }
       if (/INPUT/.test(tag)) { const c = p.locator(".w-dialog.uac-creds:visible").first(); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); continue; }
       const h = await t.first().elementHandle(); await h.click({ timeout: 4000 }).catch(() => {});
@@ -123,9 +127,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 30) F("LOAD: the queue shows " + items.length + " tickets, not 30");
+      if (items.length !== 36) F("LOAD: the queue shows " + items.length + " tickets, not 36");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 5 || count(/Walk: checklist/) !== 5 || count(/Run: on your own/) !== 20) F("LOAD: the queue's labels are not 5 crawl, 5 walk, 20 run");
+      if (count(/Crawl: guided/) !== 6 || count(/Walk: checklist/) !== 6 || count(/Run: on your own/) !== 24) F("LOAD: the queue's labels are not 6 crawl, 6 walk, 24 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
     });
 
@@ -428,6 +432,29 @@ async function run(rewrites, groups) {
       const g4 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.R4); if (!g4 || g4.stage !== "done" || g4.guesses !== 1) F("ROUTER: R4 didn't close, or its count is wrong (" + (g4 && g4.guesses) + ")");
     });
 
+    await step("WIFI", async (p) => {
+      p.setDefaultTimeout(20000); await signIn(p);
+      if (!(await crawl(p, "W1"))) F("WIFI: W1 could not be finished by following Mason's rings");
+      const g1 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.W1); if (!g1 || g1.stage !== "done" || g1.guesses) F("WIFI: W1's crawl cost wrong moves, or didn't close");
+      const hd = p.locator("[data-win=helpdesk]"), bw = p.locator("[data-win=browser]"), front = (id) => p.evaluate((i) => window.__LAP.openWin(i), id);
+      await front("helpdesk"); await hd.getByRole("button", { name: /Conference room access point/ }).first().click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+      await hd.getByRole("button", { name: "Open 192.168.1.1 in the browser" }).click(); await p.waitForTimeout(200);
+      const signin = async (pw) => { await bw.locator("#wb-pass").fill(pw); await bw.getByRole("button", { name: "Sign in" }).click(); await p.waitForTimeout(150); };
+      await signin("wrong"); if (!/Wrong username or password/.test(await bw.innerText())) F("WIFI: a wrong admin password isn't refused at 192.168.1.1");
+      if ((await p.evaluate(() => window.__LAP.engine.T().guesses)) !== 0) F("WIFI: a mistyped sign-in counted as a wrong move");
+      await signin("Clos3t-AP-2026");
+      const set = async (v) => { await bw.getByRole("button", { name: "Wireless", exact: true }).click(); for (const [k, x] of Object.entries(v)) { const e = bw.locator("#" + k); if ((await e.evaluate((n) => n.tagName)) === "SELECT") await e.selectOption(x); else { await e.fill(x); await e.dispatchEvent("change"); } } await bw.getByRole("button", { name: /^Save: write/ }).click(); await bw.getByRole("button", { name: /^Restart the access point/ }).click(); await p.waitForTimeout(150); await signin("Clos3t-AP-2026"); await bw.getByRole("button", { name: "Status", exact: true }).click(); };
+      await set({ "rt-ssid": "Conference-5G", "rt-wpass": "M33t1ng$Room!", "rt-sec": "WPA3", "rt-band": "2.4", "rt-chan": "1" });
+      if (!/Connected but crawling/.test(await bw.innerText())) F("WIFI: 25 laptops on 2.4 GHz don't show as crawling");
+      await front("helpdesk"); await hd.getByRole("button", { name: "Resolve", exact: true }).click();
+      if (!/crawls/.test(await hd.locator(".say").innerText().catch(() => ""))) F("WIFI: Resolve with the meeting crawling didn't say why it isn't done");
+      await front("browser"); await set({ "rt-band": "5", "rt-chan": "36" });
+      if (/crawling|Not connected/.test(await bw.locator(".rt-page").innerText())) F("WIFI: on 5 GHz the meeting laptops still don't connect cleanly");
+      await front("helpdesk"); await hd.getByRole("button", { name: "Resolve", exact: true }).click();
+      const right = await p.evaluate(() => window.__LAP.engine.ticket().close.options.find((o) => o.correct).label); await hd.locator(".res .opt2", { hasText: right }).first().click(); await hd.locator("#res-note").fill(NOTES.W3); await hd.getByRole("button", { name: "Close the ticket" }).click();
+      const g3 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.W3); if (!g3 || g3.stage !== "done" || g3.guesses < 1) F("WIFI: W3 didn't close, or its wrong band didn't count (" + (g3 && g3.guesses) + ")");
+    });
+
     await step("EXAM", async (p) => {
       p.setDefaultTimeout(20000); await signIn(p);
       await p.evaluate(() => window.__LAP.openWin("exam")); const x = p.locator("[data-win=exam]");
@@ -506,6 +533,8 @@ const PLANTS = [
   ["EXAM", "App Deployment's Commands tab shows no output", { "assets/examui.js": [["E.cmds[ui.cmd] ? \"PS C:\\\\> \" + E.cmds[ui.cmd][0] + \"\\n\\n\" + E.cmds[ui.cmd][1] :", "false ? 0 :"]] }],
   ["ROUTER", "Save in the 92 Series app doesn't save", { "assets/routerui.js": [["return R.save(f, rr); }); ui.msg", "return { ok: true, text: \"Settings saved.\" }; }); ui.msg"]] }],
   ["ROUTER", "the call panel's answers aren't shown", { "assets/laptop.js": [["log.appendChild(el(\"p\", \"call-a\", t.who + \": \" + c.a));", ""]] }],
+  ["WIFI", "the access point never asks you to sign in again after a restart", { "assets/router.js": [["r.running = copy(r.saved); r.form = copy(r.saved); r.signedIn = false;\n  note(fleet, r, \"reboot\"", "r.running = copy(r.saved); r.form = copy(r.saved);\n  note(fleet, r, \"reboot\""]] }],
+  ["WIFI", "a crowded room shows as connected", { "assets/routerui.js": [["j.ok ? (R.crowded(r) ? \"rt-bad\" : \"rt-ok\")", "j.ok ? (false ? \"rt-bad\" : \"rt-ok\")"], ["j.ok ? (R.crowded(r) ? \"✕ Connected but crawling", "j.ok ? (false ? \"✕ Connected but crawling"]] }],
   ["EXAM", "Submit never grades", { "assets/examui.js": [["const r = P.check(v, st);", "const r = { done: false, wrong: 0, missing: 0 };"]] }],
   ["PERSIST", "the dyslexia setting is not saved", { "assets/laptop.js": [["put(\"c2vm.reading\", on ? \"dyslexia\" : \"default\");", ""]] }]
 ];

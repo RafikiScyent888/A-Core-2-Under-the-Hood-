@@ -23,7 +23,7 @@ const TABS = [["status", "Status"], ["wireless", "Wireless"], ["internet", "Inte
 
 export function drawRouter(host, ctx, ui) {
   const wrap = el("div", "rt"); host.appendChild(wrap);
-  const top = el("div", "rt-top"); top.appendChild(el("span", "rt-logo", "92")); top.appendChild(el("strong", null, "92 Series")); top.appendChild(el("span", "rt-sub", "Routers you manage"));
+  const top = el("div", "rt-top"); top.appendChild(el("span", "rt-logo", "92")); top.appendChild(el("strong", null, "92 Series")); top.appendChild(el("span", "rt-sub", ctx.web ? "Access point · web admin · signed in as admin" : "Routers you manage"));
   wrap.appendChild(top);
   const list = ctx.routers();
   if (!list.length) { const p = el("div", "rt-empty"); p.appendChild(el("h2", null, "Nothing shared with you yet")); p.appendChild(el("p", null, "When a customer shares their 92 Series router with Rafiki's IT Services from their own app, it appears here.")); wrap.appendChild(p); return; }
@@ -31,16 +31,17 @@ export function drawRouter(host, ctx, ui) {
   const r = list.filter(function (x) { return x.id === ui.sel; })[0];
 
   const head = el("div", "rt-head");
-  const ht = el("div"); ht.appendChild(el("h2", null, r.site || r.label)); ht.appendChild(el("p", "rt-sub", r.model + " · firmware " + r.fw + " · shared by " + (r.customer || "the customer") + " · remote management"));
+  const ht = el("div"); ht.appendChild(el("h2", null, r.site || r.label)); ht.appendChild(el("p", "rt-sub", r.model + " · firmware " + r.fw + (ctx.web ? " · 192.168.1.1, on our own network" : " · shared by " + (r.customer || "the customer") + " · remote management")));
   head.appendChild(ht);
   if (list.length > 1) { const pick = el("div", "rt-pick"); list.forEach(function (x) { const b = btn(x.site || x.label, "b small" + (x.id === r.id ? " pri" : ""), function () { ui.sel = x.id; ui.tab = "status"; ui.msg = null; ctx.act("router-view", function (f, rr) { R.note(f, rr, "view", { tab: "status" }); }, { tab: "status" }); }); b.setAttribute("aria-pressed", String(x.id === r.id)); pick.appendChild(b); }); head.appendChild(pick); }
   wrap.appendChild(head);
 
+  const noun = ctx.web ? "access point" : "router";
   /* where the settings are: typed, saved, or running */
   const bar = el("div", "rt-state"); bar.setAttribute("role", "status");
-  if (R.dirty(r)) { bar.classList.add("warn"); bar.appendChild(el("span", "rt-badge", "● Not saved")); bar.appendChild(el("span", null, "You have changes on this page that aren't saved. The router isn't using them.")); }
-  else if (R.pending(r)) { bar.classList.add("warn"); bar.appendChild(el("span", "rt-badge", "● Saved, not running")); bar.appendChild(el("span", null, "Saved to the router. It keeps running its old settings until it restarts.")); }
-  else { bar.appendChild(el("span", "rt-badge ok", "✓ Running")); bar.appendChild(el("span", null, "The router is running exactly what's saved.")); }
+  if (R.dirty(r)) { bar.classList.add("warn"); bar.appendChild(el("span", "rt-badge", "● Not saved")); bar.appendChild(el("span", null, "You have changes on this page that aren't saved. The " + noun + " isn't using them.")); }
+  else if (R.pending(r)) { bar.classList.add("warn"); bar.appendChild(el("span", "rt-badge", "● Saved, not running")); bar.appendChild(el("span", null, "Saved to the " + noun + ". It keeps running its old settings until it restarts.")); }
+  else { bar.appendChild(el("span", "rt-badge ok", "✓ Running")); bar.appendChild(el("span", null, "The " + noun + " is running exactly what's saved.")); }
   wrap.appendChild(bar);
 
   const tabs = el("div", "rt-tabs"); tabs.setAttribute("role", "group"); tabs.setAttribute("aria-label", "Router pages");
@@ -53,8 +54,8 @@ export function drawRouter(host, ctx, ui) {
 
   if (ui.msg) { const m = el("p", "rt-msg" + (ui.msgBad ? " bad" : ""), ui.msg); m.setAttribute("role", "status"); wrap.appendChild(m); }
   const foot = el("div", "rt-foot");
-  foot.appendChild(btn("Save", "b" + (R.dirty(r) ? " pri" : ""), function () { const x = ctx.act("router-save", function (f, rr) { return R.save(f, rr); }); ui.msg = x && x.text; ui.msgBad = false; ctx.draw(); }, "Save: write the changes on this page to the router"));
-  foot.appendChild(btn("Restart router", "b" + (!R.dirty(r) && R.pending(r) ? " pri" : ""), function () { const x = ctx.act("router-reboot", function (f, rr) { return R.reboot(f, rr); }); ui.msg = x && x.text; ui.msgBad = !!(x && x.lost); ctx.draw(); }, "Restart the router: it loads its saved settings"));
+  foot.appendChild(btn("Save", "b" + (R.dirty(r) ? " pri" : ""), function () { const x = ctx.act("router-save", function (f, rr) { return R.save(f, rr); }); ui.msg = x && x.text; ui.msgBad = false; ctx.draw(); }, "Save: write the changes on this page to the " + noun));
+  foot.appendChild(btn("Restart " + noun, "b" + (!R.dirty(r) && R.pending(r) ? " pri" : ""), function () { const x = ctx.act("router-reboot", function (f, rr) { return R.reboot(f, rr); }); ui.msg = x && x.text; ui.msgBad = !!(x && x.lost); ctx.draw(); }, "Restart the " + noun + ": it loads its saved settings"));
   wrap.appendChild(foot);
 }
 
@@ -69,8 +70,8 @@ function pageStatus(p, r) {
   p.appendChild(dl);
   p.appendChild(el("h3", null, "Devices"));
   if (!r.devices.length) p.appendChild(el("p", null, "No devices are known to this router."));
-  else { const t = el("table", "rt-t"); const hr = el("tr"); ["Device", "MAC address", "Wi-Fi"].forEach(function (h) { const th = el("th", null, h); th.setAttribute("scope", "col"); hr.appendChild(th); }); t.appendChild(hr);
-    r.devices.forEach(function (d) { const j = R.joins(r, d); const tr = el("tr"); const th = el("th", null, d.name); th.setAttribute("scope", "row"); tr.appendChild(th); tr.appendChild(el("td", "rt-mono", d.mac)); tr.appendChild(el("td", j.ok ? "rt-ok" : "rt-bad", j.ok ? "✓ Connected" : "✕ Not connected: " + j.why)); t.appendChild(tr); });
+  else { const where = r.devices.some(function (d) { return d.where; }); const t = el("table", "rt-t"); const hr = el("tr"); (where ? ["Device", "Where", "Wi-Fi"] : ["Device", "MAC address", "Wi-Fi"]).forEach(function (h) { const th = el("th", null, h); th.setAttribute("scope", "col"); hr.appendChild(th); }); t.appendChild(hr);
+    r.devices.forEach(function (d) { const j = R.joins(r, d); const tr = el("tr"); const th = el("th", null, d.name); th.setAttribute("scope", "row"); tr.appendChild(th); tr.appendChild(where ? el("td", null, d.where || "") : el("td", "rt-mono", d.mac)); tr.appendChild(el("td", j.ok ? (R.crowded(r) ? "rt-bad" : "rt-ok") : "rt-bad", j.ok ? (R.crowded(r) ? "✕ Connected but crawling: " + r.crowd + " devices share 2.4 GHz's three clear channels" : "✓ Connected") : "✕ Not connected: " + j.why)); t.appendChild(tr); });
     const wr = el("div", "rt-tw"); wr.appendChild(t); p.appendChild(wr); }
   if (r.neighbours.length) {
     p.appendChild(el("h3", null, "Nearby networks (Wi-Fi scan)"));

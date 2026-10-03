@@ -1284,3 +1284,46 @@ so it is safe on GitHub, then the tickets).
     page redraws moved it). Typing now moves it.
   - The app's message after Save or Restart was drawn before it was set,
     so "changes that weren't saved were lost" never showed.
+
+### The WiFi Access Point tickets as built (3 October 2026, live)
+
+- **New file:** `tickets-wifi.js` (W1–W6). `routerTicket` in
+  `tickets-router.js` is shared, so Wi-Fi tickets are judged exactly as
+  the router tickets are.
+- **Rafiki's own access point, in the browser at 192.168.1.1.** The laptop
+  has a **Browser** (desktop icon, taskbar pin). It opens the access
+  point's sign-in page (admin, and the password from the closet binder in
+  Mason's message: Clos3t-AP-2026; after a factory reset, the sticker's
+  admin). Restarting the access point signs you out, as a real one does.
+  Once signed in, the same five pages as the 92 Series app, worded for an
+  access point.
+- **The model now knows where each device is** (`router.js`):
+  - the network name it looks for
+  - thick walls: 5 GHz doesn't get through two or more; 2.4 GHz does;
+    dual-band steers a far device onto 2.4 GHz
+  - a crowded room: 15 or more devices on 2.4 GHz connect but crawl
+  The Status page gains a "Where" column and says "Connected but
+  crawling" in words.
+- **The tickets** (the WiFi AP sim, matching its exam view's six practices;
+  the settings are the sim's keys, and `verify/logic.mjs` checks each
+  ticket against the exam practice it matches):
+
+  | | Level | Job | Decided by |
+  |---|---|---|---|
+  | W1 | Crawl (11 steps) | MainOffice1, the sim itself | WPA3 (all devices), 2.4 GHz (thick walls), channel 6 (given) |
+  | W2 | Walk (9 items) | Rafiki-Staff for the Office 3 tablet | channel 11 (next door on 1 and 6) |
+  | W3 | Run | Conference-5G, 25 laptops in one open room | 5 GHz: capacity, no walls |
+  | W4 | Run | the WPA2-only label printer | WPA2/WPA3 transition |
+  | W5 | Run | Rafiki-Guest for reception | 2.4 GHz: two thick walls |
+  | W6 | Run | after a factory reset | channel 11, read from the Wi-Fi scan |
+
+- **Resolve's refusal names what Mason would see, never the setting that's
+  wrong** (the hint ladder's job). Found while building: the first draft
+  listed "the band, the channel"; a logic check now forbids it.
+- **Checks:**
+  - logic: 36 tickets, 58 plants; the model's walls, network name and
+    crowding; each Wi-Fi ticket keyed to its exam practice; no leak in the
+    refusal
+  - page: WIFI (W1 by Mason's rings, including signing back in after the
+    restart; W3 with 2.4 GHz crawling and counted, then 5 GHz)
+  - contrast: the sign-in page with a refused password, a crowded room

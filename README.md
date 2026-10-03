@@ -22,6 +22,9 @@ on the laptop:
   Restart that behave like a real router's: a change isn't made until it's
   saved and the router restarts. The customer is on the phone for anything
   physical.
+- **Browser:** the office access point at 192.168.1.1. Sign in, set its
+  Wi-Fi, Save and restart; the Status page shows each device in the office,
+  where it is, and whether it really connects.
 - **Exam Practice** shows each sim laid out the way the exam shows it: the
   Port Forwarding diagram, the Wi-Fi office map, the three houses of
   Neighboring Routers, the Tier 1 Router scenario, the Wireless
