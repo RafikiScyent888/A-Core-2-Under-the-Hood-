@@ -38,6 +38,12 @@
                 its sender blocked, a link opened); every giveaway question
                 is six with one right, spread across the slots and not
                 usually the longest; no hint names the giveaway
+     ROUTER     the 92 Series model: typed-but-unsaved changes die on a
+                reboot, saved ones wait for it; strong admin passwords
+                only; the WAN side (cable port, PPPoE, unregistered, a
+                faulty power supply); only 1, 6 and 11 clear each other;
+                who can join (WPA3-only, band, MAC list, password); what
+                reaches in (a forward, the screened-subnet host)
      EXAM       each exam view: six per sim, one the sim itself; the sims'
                 own keys (as ruled); every question six, one right, reasons;
                 every typed answer is in the brief word for word; App
@@ -62,6 +68,7 @@ import * as MW from "../assets/malware.js";
 import { nextStep } from "../assets/tickets-malware.js";
 import * as MX from "../assets/mail.js";
 import * as PQ from "../assets/pbq.js";
+import * as RT from "../assets/router.js";
 import { EXAMS } from "../assets/exams.js";
 import { MALWARE } from "../assets/tickets-malware.js";
 import { CATS, emailById } from "../assets/tickets-mail.js";
@@ -262,6 +269,7 @@ export function check(D) {
   if (!E4.ticket() || E4.ticket().id !== "D5" || E4.T().guesses !== g3) F("SNAPSHOT: the session did not survive a reload");
 
   examChecks(D, F);
+  routerChecks(D, F);
   return fails;
 }
 
@@ -512,7 +520,69 @@ function examChecks(D, F) {
   if (qs && longest > Math.ceil(qs / 3)) F("EXAM: SPREAD: the right answer is the longest option in " + longest + " of " + qs + " questions");
 }
 
-const BASE = { TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+/* The 92 Series router model: what a router does is decided from its
+   RUNNING settings, so typed-but-unsaved and saved-but-not-rebooted
+   changes do nothing, as on a real router. */
+function routerChecks(D, F) {
+  const R = D.R;
+  const mk = (o) => { const f = makeFleet(); return { f, r: R.add(f, Object.assign({ id: "R1" }, o || {})) }; };
+  /* save and reboot */
+  let { f, r } = mk(); R.edit(f, r, "wifi.ssid", "Typed");
+  R.reboot(f, r); if (r.running.wifi.ssid === "Typed") F("ROUTER SAVE: a change typed but never saved survives a reboot");
+  ({ f, r } = mk()); R.edit(f, r, "wifi.ssid", "Saved"); R.save(f, r);
+  if (r.running.wifi.ssid === "Saved") F("ROUTER SAVE: a saved change is running before the reboot");
+  if (!R.pending(r)) F("ROUTER SAVE: a saved change isn't waiting for the reboot");
+  R.reboot(f, r); if (r.running.wifi.ssid !== "Saved") F("ROUTER SAVE: save then reboot doesn't apply the change");
+  ({ f, r } = mk()); R.edit(f, r, "wifi.ssid", "Power"); R.save(f, r); R.ask(f, r, "power"); if (r.running.wifi.ssid !== "Power") F("ROUTER SAVE: unplugging it doesn't load the saved settings");
+  /* the admin password */
+  ({ f, r } = mk());
+  if (!R.defaultPass(r)) F("ROUTER PASS: a new router doesn't have its sticker password");
+  if (R.setAdminPass(f, r, "admin", "admin", "admin").ok || R.setAdminPass(f, r, "admin", "Password1", "Password1").ok || R.setAdminPass(f, r, "admin", "MyAdmin#2026x", "MyAdmin#2026x").ok) F("ROUTER PASS: a weak or default-based admin password is accepted");
+  if (!R.setAdminPass(f, r, "admin", "Ma50n1SB35t!", "Ma50n1SB35t!").ok) F("ROUTER PASS: a strong password (Ma50n1SB35t!) is refused");
+  R.save(f, r); R.reboot(f, r); if (R.defaultPass(r) || !R.signIn(f, r, "admin", "Ma50n1SB35t!").ok || R.signIn(f, r, "admin", "admin").ok) F("ROUTER PASS: the new admin password isn't the one that signs in");
+  R.factoryReset(f, r); if (!R.defaultPass(r)) F("ROUTER PASS: a factory reset doesn't bring back the sticker password");
+  /* the internet side */
+  ({ f, r } = mk({ phys: { wanPort: "lan1" } }));
+  if (R.wanStatus(r).up) F("ROUTER WAN: up with the modem cable in a LAN port");
+  R.ask(f, r, "move"); if (!R.wanStatus(r).up) F("ROUTER WAN: still down after the customer moves the cable to INTERNET");
+  ({ f, r } = mk({ isp: { mode: "PPPoE", user: "jdoe@isp", pass: "K7v9-pq" } }));
+  if (R.wanStatus(r).up) F("ROUTER WAN: up with no PPPoE sign-in");
+  R.edit(f, r, "wan.mode", "PPPoE"); R.edit(f, r, "wan.user", "jdoe@isp"); R.edit(f, r, "wan.pass", "wrong"); R.save(f, r); R.reboot(f, r);
+  if (R.wanStatus(r).code !== "pppoe") F("ROUTER WAN: a wrong PPPoE password isn't reported as rejected");
+  R.edit(f, r, "wan.pass", "K7v9-pq"); R.save(f, r); R.reboot(f, r); if (!R.wanStatus(r).up) F("ROUTER WAN: the right PPPoE details, saved and rebooted, don't connect");
+  ({ f, r } = mk({ isp: { mode: "unprovisioned" } })); R.reboot(f, r); if (R.wanStatus(r).up) F("ROUTER WAN: an unregistered router connects anyway");
+  ({ f, r } = mk({ phys: { power: "faulty" } })); R.ask(f, r, "socket"); if (R.wanStatus(r).code !== "power") F("ROUTER WAN: a faulty power supply is cured by a new socket");
+  /* channels: only 1, 6 and 11 clear each other at 20 MHz; our 40 MHz doesn't */
+  const ov = (a, w, b) => R.overlaps({ band: "2.4", channel: a, width: w }, { band: "2.4", channel: b });
+  if (ov(1, 20, 6) || ov(6, 20, 11) || ov(11, 20, 1) || ov(11, 20, 6)) F("ROUTER CHAN: 1, 6 and 11 at 20 MHz are said to overlap");
+  if (!ov(1, 20, 4) || !ov(9, 20, 11) || !ov(6, 20, 6)) F("ROUTER CHAN: channels under five apart are said to be clear");
+  if (!ov(11, 40, 6)) F("ROUTER CHAN: our 40 MHz on 11 is said to clear a neighbour on 6");
+  ({ f, r } = mk({ neighbours: [{ name: "Router 1", channel: 1, width: 40 }, { name: "Router 2", channel: 6, width: 40 }] }));
+  R.edit(f, r, "wifi.channel", 11); R.save(f, r); R.reboot(f, r); if (R.interference(r).length) F("ROUTER CHAN: the sim's key (channel 11, 20 MHz) is said to interfere");
+  R.edit(f, r, "wifi.width", 40); R.save(f, r); R.reboot(f, r); if (!R.interference(r).length) F("ROUTER CHAN: 40 MHz on channel 11 is said to clear the neighbours");
+  if (R.widthValid("2.4", 80) || !R.widthValid("5", 80)) F("ROUTER CHAN: 80 MHz is allowed on 2.4 GHz, or refused on 5 GHz");
+  /* who can join */
+  const devs = [{ name: "Laptop", mac: "AA:01", wpa3: true, bands: ["2.4", "5"], knows: "Home#Wifi2026" }, { name: "Printer", mac: "AA:02", wpa3: false, bands: ["2.4"], knows: "Home#Wifi2026" }];
+  ({ f, r } = mk({ devices: devs, cfg: { wifi: { pass: "Home#Wifi2026" } } }));
+  const set = (k, v) => { R.edit(f, r, k, v); R.save(f, r); R.reboot(f, r); };
+  set("wifi.security", "WPA3"); if (R.joins(r, devs[1]).ok || !R.joins(r, devs[0]).ok) F("ROUTER JOIN: WPA3-only lets a WPA2-only device in, or keeps a WPA3 one out");
+  set("wifi.security", "WPA2/WPA3"); if (!R.joins(r, devs[1]).ok) F("ROUTER JOIN: transition mode keeps a WPA2-only device out");
+  if (R.strongestFor(r) !== "WPA2/WPA3") F("ROUTER JOIN: with a WPA2-only device, transition mode isn't the strongest that works");
+  set("wifi.band", "5"); if (R.joins(r, devs[1]).ok) F("ROUTER JOIN: a 2.4 GHz-only device joins a 5 GHz network");
+  set("wifi.band", "2.4"); set("wifi.mac", true); R.allow(f, r, "AA:01"); R.save(f, r); R.reboot(f, r);
+  if (!R.joins(r, devs[0]).ok || R.joins(r, devs[1]).ok) F("ROUTER JOIN: MAC filtering doesn't follow the allowed list");
+  set("wifi.pass", "Changed#Pass99"); if (R.joins(r, devs[0]).ok) F("ROUTER JOIN: a device with the old Wi-Fi password still joins");
+  /* what comes in from the internet */
+  ({ f, r } = mk());
+  R.addForward(f, r, { ext: 3389, ip: "192.168.10.20" }); R.edit(f, r, "screened", "10.100.0.50"); R.save(f, r); R.reboot(f, r);
+  const rdp = R.inbound(r, 3389), game = R.inbound(r, 3074, "UDP");
+  if (!rdp || rdp.to !== "192.168.10.20" || rdp.via !== "forward") F("ROUTER IN: TCP 3389 doesn't reach the PC by its forward");
+  if (!game || game.to !== "10.100.0.50" || game.via !== "screened") F("ROUTER IN: the screened-subnet host doesn't get everything else");
+  /* snapshots: a router is plain data the engine can copy */
+  ({ f, r } = mk()); if (JSON.stringify(JSON.parse(JSON.stringify(f.TECH.routers))) !== JSON.stringify(f.TECH.routers)) F("ROUTER SNAP: a router doesn't survive the engine's copy");
+}
+
+const BASE = { R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
 /* Each plant is one defect a check exists to catch, and the check it must
@@ -550,6 +620,12 @@ const PLANTS = [
   ["EXAM wifi:w1: TEXT", "the WiFi password mistyped in the answer", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "wifi" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "w1" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id === "pass" ? Object.assign({}, f, { answer: "Ma5on1SB35t!" }) : f)) }))) }))) })],
   ["EXAM t1:t1: SIX", "a Tier 1 task with five options", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "t1" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "t1" ? v : Object.assign({}, v, { fields: v.fields.map((f, i) => (i ? f : Object.assign({}, f, { options: f.options.slice(0, 5) }))) }))) }))) })],
   ["EXAM al:al1: KEY", "App Launch keyed to copy the file from another PC", () => ({ KEYS: Object.assign({}, KEYS, { "al:al1": Object.assign({}, KEYS["al:al1"], { t2: "Replace the missing file using a known working system" }) }) })],
+  ["ROUTER SAVE", "a reboot keeps what was only typed", () => ({ R: Object.assign({}, RT, { reboot: (f, r) => { r.saved = JSON.parse(JSON.stringify(r.form)); return RT.reboot(f, r); } }) })],
+  ["ROUTER PASS", "any admin password of 8 characters is strong", () => ({ R: Object.assign({}, RT, { setAdminPass: (f, r, c, n, a) => { if (n !== a || n.length < 8) return { ok: false }; r.form.admin.pass = n; return { ok: true }; } }) })],
+  ["ROUTER WAN", "PPPoE is up whatever the password", () => ({ R: Object.assign({}, RT, { wanStatus: (r) => (r.isp.mode === "PPPoE" && r.running.wan.mode === "PPPoE" ? { up: true, code: "up" } : RT.wanStatus(r)) }) })],
+  ["ROUTER CHAN", "channels only clash on the same number", () => ({ R: Object.assign({}, RT, { overlaps: (a, b) => Number(a.channel) === Number(b.channel) }) })],
+  ["ROUTER JOIN", "MAC filtering ignored", () => ({ R: Object.assign({}, RT, { joins: (r, d) => { const w = r.running.wifi; const save = w.mac; w.mac = false; const out = RT.joins(r, d); w.mac = save; return out; } }) })],
+  ["ROUTER IN", "a forward reaches the router itself", () => ({ R: Object.assign({}, RT, { inbound: (r, p, pr) => { const x = RT.inbound(r, p, pr); return x && x.via === "forward" ? Object.assign({}, x, { to: r.running.lan.ip }) : x; } }) })],
   ["EXAM ad:ad1: KEY", "App Deployment keyed the sim's way (robocopy from System32)", () => ({ KEYS: Object.assign({}, KEYS, { "ad:ad1": Object.assign({}, KEYS["ad:ad1"], { c1: "robocopy \"\\\\User-PC02\\C$\\Windows\\System32\" \"C:\\Program Files (x86)\\Testing\" \"msvcp100.dll\"" }) }) })],
   ["EXAM ad:ad6: RUNS", "LabelPro keyed with the 32-bit runtime", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "ad" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "ad6" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id !== "c1" ? f : Object.assign({}, f, { options: f.options.map((o) => Object.assign({}, o, { correct: /VC_redist\.x86/.test(o.label) })) }))) }))) }))) })],
   ["EXAM ad:ad4: RUNS", "the policy install keyed without the restart", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "ad" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "ad4" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id !== "c2" ? f : Object.assign({}, f, { options: f.options.map((o) => Object.assign({}, o, { correct: /^tasklist/.test(o.label) })) }))) }))) }))) })],

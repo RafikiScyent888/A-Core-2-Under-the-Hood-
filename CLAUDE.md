@@ -1201,3 +1201,37 @@ came from a sim's 2D picture, the Wi-Fi sim's office map.
   student who restarted another way was wrongly told it hadn't worked.
 - **Still to come:** the router tickets (the 92 Series web admin and app;
   `router.js` is started), the Help Desk chats, and extra training.
+
+## 13. The router build — started 3 October 2026
+
+The owner: "Finish this and then router tickets" (the router model first,
+so it is safe on GitHub, then the tickets).
+
+### The 92 Series model (`assets/router.js`, live but not yet used)
+
+- **Plain JSON on TECH-01's record** (`fleet.TECH.routers`), so the
+  engine's snapshots and revert cover routers as they cover PCs. No DOM:
+  the web admin and the app will both drive it.
+- **Three copies of the settings,** as a real router keeps:
+  - `form`: typed on the page; lost on a reboot
+  - `saved`: what Save wrote
+  - `running`: what the router is doing; a reboot (or the customer
+    unplugging it) loads it from `saved`
+  This is the Tier 1 sim's "save the changes and reboot", made real.
+- **Everything a ticket judges is computed from the running settings and
+  the house:**
+  - the admin password (strong: 12+ characters, mixed case, a digit and a
+    symbol, and not the sticker's)
+  - the internet side: the modem cable's port, a PPPoE sign-in, a router
+    the provider hasn't registered, and a faulty power supply
+  - channels: only 1, 6 and 11 clear each other at 20 MHz; our 40 MHz
+    takes twice the room; a neighbour is judged on its main channel, as a
+    Wi-Fi analyzer lists it and as the Neighboring Routers sim keys it
+  - who can join: WPA3-only against a WPA2-only device, the band, the MAC
+    allowed list, the saved Wi-Fi password, each with its reason in words
+  - what reaches in from the internet: a port forward, or everything for
+    the screened-subnet host
+- **The customer does the physical checks on the phone** (`ask`): which
+  port the cable is in, moving it, the lights, the sticker, the adapter,
+  another socket, the provider's welcome letter, unplugging it.
+- **Checks:** `verify/logic.mjs` ROUTER, with six plants (49 in all).
