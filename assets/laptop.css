@@ -15,7 +15,7 @@
   --focus: #ffd426;
   --bad-bg: #3a1214; --bad-ink: #ffd9d6; --bad-rule: #ff8a80;
   --good-bg: #0f2e1d; --good-ink: #c9f3d8; --good-rule: #4ade80;
-  --gold: #ffd95e; --chip: #2f3850;
+  --gold: #ffd95e; --chip: #2f3850; --work-ink: #c7dbff;
   --shadow: 0 18px 50px rgba(0,0,0,.55);
   color-scheme: dark;
 }
@@ -26,7 +26,7 @@
   --focus: #6b21a8;
   --bad-bg: #fdecea; --bad-ink: #7f1d1d; --bad-rule: #b91c1c;
   --good-bg: #eaf7ee; --good-ink: #14532d; --good-rule: #15803d;
-  --gold: #5c4a00; --chip: #e2e7f0;
+  --gold: #5c4a00; --chip: #e2e7f0; --work-ink: #0b3a82;
   --shadow: 0 18px 50px rgba(15,23,42,.35);
   color-scheme: light;
 }
@@ -133,7 +133,7 @@ textarea.field { min-height: 6rem; resize: vertical; }
 .qi .qi-from { font-size: 0.88rem; color: var(--muted); }
 .chip { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; background: var(--chip); color: var(--ink); font-size: 0.8rem; font-weight: 600; border: 1px solid var(--line); }
 .chip.st-closed { background: var(--good-bg); color: var(--good-ink); border-color: var(--good-rule); }
-.chip.st-work { background: var(--win); color: var(--accent); border-color: var(--accent); }
+.chip.st-work { background: var(--win); color: var(--work-ink); border-color: var(--accent); }
 .hd2-t { overflow: auto; padding: 1rem 1.2rem 2rem; }
 .hd2-t h2 { margin: 0.2rem 0 0.3rem; font-size: 1.35rem; line-height: 1.25; }
 .t-id { color: var(--muted); font-size: 0.9rem; margin: 0; }

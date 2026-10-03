@@ -1327,3 +1327,45 @@ so it is safe on GitHub, then the tickets).
   - page: WIFI (W1 by Mason's rings, including signing back in after the
     restart; W3 with 2.4 GHz crawling and counted, then 5 GHz)
   - contrast: the sign-in page with a refused password, a crowded room
+
+### The Port Forwarding tickets as built (3 October 2026, live)
+
+- **New file:** `tickets-pf.js` (P1–P6), in the 92 Series app, as the owner
+  ruled (swapped): the device reached from outside stays on the LAN behind
+  one forwarded port; the console goes in the screened subnet.
+- **The model knows each wired device's port and address** (`router.js`):
+  plugged into a yellow LAN port it has a LAN address; in the orange
+  SCREENED SUBNET port it takes the screened subnet's. Wired devices don't
+  need the Wi-Fi. Status gains an Address column.
+- **The customer does the physical part and tests from outside** (the call
+  panel; these questions appear only on Port Forwarding tickets):
+  - plug the console into the screened-subnet port (and, the wrong move,
+    the computer; then back into a LAN port)
+  - try connecting from work (Remote Desktop, SSH or VNC): worked out from
+    what really reaches in
+  - start an online game and read the NAT type: Open only when the console
+    is in the screened subnet and set as its host
+- **Done means proven:** the forward to the LAN device, the console in the
+  screened subnet as its host, home Wi-Fi security (WPA2, or transition;
+  WPA3 in P6 where every device supports it), saved and running, and both
+  tests passed since the last restart.
+- **The tickets** (the sim's six practices):
+
+  | | Level | Reached from outside | Service | Wi-Fi |
+  |---|---|---|---|---|
+  | P1 | Crawl (14 steps) | Windows PC | TCP 3389 | WEP to WPA2 |
+  | P2 | Walk (9 items) | Windows PC (strict NAT) | TCP 3389 | WEP to WPA2 |
+  | P3 | Run | Linux server | TCP 22 | WEP to WPA2 |
+  | P4 | Run | Mac | TCP 5900 (VNC) | WEP to WPA2 |
+  | P5 | Run | Windows PC, streaming console | TCP 3389 | WEP to WPA2 |
+  | P6 | Run | Windows PC | TCP 3389 | WPA3 (all devices) |
+
+- **Wrong moves:** the computer into the screened subnet (it says why: every
+  port open to the internet), a forward to the wrong device or port, a
+  save that doesn't help, Resolve before the customer has tested.
+- **Checks:** logic (42 tickets, 60 plants; each ticket keyed to its exam
+  practice: the service's rule, the Wi-Fi security, the device placement;
+  the fix minus the customer's last test doesn't close it); page PF (P1 by
+  Mason's rings; P3 through the UI with the wrong move, the early Resolve
+  and both tests); contrast (the call with both tests failing, the forward
+  page with a rule, Status with addresses).

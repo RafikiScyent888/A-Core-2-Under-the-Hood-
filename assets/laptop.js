@@ -456,7 +456,9 @@ function examFor(t) {
 }
 /* A router ticket's phone line to the customer: they do what only
    someone standing at the router can (owner, 1 October 2026). */
-const ASKS = [["ports", "Which port is the modem's cable plugged into?"], ["move", "Please move the modem's cable to the blue INTERNET port."], ["lights", "What are the lights on the router doing?"], ["sticker", "What does the sticker underneath it say?"], ["adapter", "Is it on the power adapter that came in its box?"], ["socket", "Could you plug it into a different wall socket?"], ["letter", "Do you have the welcome letter from your internet provider?"], ["power", "Please unplug the router for ten seconds, then plug it back in."]];
+const ASKS = [["ports", "Which port is the modem's cable plugged into?"], ["move", "Please move the modem's cable to the blue INTERNET port."], ["lights", "What are the lights on the router doing?"], ["sticker", "What does the sticker underneath it say?"], ["adapter", "Is it on the power adapter that came in its box?"], ["socket", "Could you plug it into a different wall socket?"], ["letter", "Do you have the welcome letter from your internet provider?"], ["power", "Please unplug the router for ten seconds, then plug it back in."],
+  ["console-port", "Please plug the console into the orange SCREENED SUBNET port."], ["pc-port", "Please plug the computer into the orange SCREENED SUBNET port."], ["pc-back", "Please plug the computer back into a yellow LAN port."],
+  ["test-remote", "Try connecting to the computer from outside, from work."], ["test-game", "Start an online game and read me the NAT type."]];
 function drawCall(t) {
   const sec = el("section", "t-sec call"); sec.appendChild(el("h3", null, "Call " + t.who + " (on the line)"));
   sec.appendChild(el("p", "t-id", t.who + " is at the router and can check what you can't see from here. Looking and asking never count against you."));
@@ -465,7 +467,7 @@ function drawCall(t) {
   if (!(L.calls[t.id] || []).length) log.appendChild(el("p", "call-a", t.who + ": \"Hello? I'm right here by the router.\""));
   sec.appendChild(log);
   const g = el("div", "call-asks"); g.setAttribute("role", "group"); g.setAttribute("aria-label", "Ask " + t.who);
-  ASKS.forEach(function (q) { g.appendChild(coachTag("ask-" + q[0], btn(q[1], "b small", function () {
+  ASKS.filter(function (q) { return t.asks ? t.asks.indexOf(q[0]) >= 0 : ["console-port", "pc-port", "pc-back", "test-remote", "test-game"].indexOf(q[0]) < 0; }).forEach(function (q) { g.appendChild(coachTag("ask-" + q[0], btn(q[1], "b small", function () {
     const rr = RT.get(E.fleet(), t.id); const b = E.before(); const lost = q[0] === "power" && RT.dirty(rr);
     const a = RT.ask(E.fleet(), rr, q[0]); (L.calls[t.id] = L.calls[t.id] || []).push({ q: q[1], a: a.replace(/^"|"$/g, "") }); saveL();
     E.onAct({ type: "router-ask", what: q[0], lost: lost, machine: "TECH", before: b }); actLog({ type: "router-ask", what: q[0], q: q[1], lost: lost }, t.site); after();
@@ -749,7 +751,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk" };
+const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -1296,6 +1298,89 @@ WALKS.R2 = { mode: "walk", machine: "TECH", steps: [
   { goal: "Record why it had to be strong", how: "Pick it on the ticket.", done: function () { const st = E.state().tickets.R2; return !!(st && (st.closeOK || st.stage === "done")); } },
   { goal: "Write the resolution notes", how: "What you changed, why it's strong, how it took effect.", done: function () { const st = E.state().tickets.R2; return !!(st && st.stage === "done"); } }
 ], end: "You walked it. The rest of the router tickets are yours: a cable in the wrong port, a change nobody saved, and two that Tier 1 can't fix but must check first." };
+/* ---------------------------------------- the port-forwarding crawl and walk */
+function pfDev(id, role) { const r = rr(id); return r ? RT.role(r, role) : null; }
+function pfFwd(id, cfg) { const r = rr(id), pc = pfDev(id, "remote"); return !!(r && pc && r[cfg].forwards.some(function (f) { return f.ext === "3389" && f.proto === "TCP" && f.ip === pc.ip && f.port === "3389"; })); }
+function pfHost(id, cfg) { const r = rr(id), gc = pfDev(id, "game"); return !!(r && gc && gc.port === "screened" && r[cfg].screened === gc.ip); }
+function pfSec(id, cfg) { const r = rr(id); return !!(r && (r[cfg].wifi.security === "WPA2" || r[cfg].wifi.security === "WPA2/WPA3")); }
+function pfAll(id, cfg) { return pfFwd(id, cfg) && pfHost(id, cfg) && pfSec(id, cfg); }
+function pfAddTarget() { const w = rwin(); if (!w) return null; const want = { "rt-fe": "3389", "rt-fi": "192.168.10.20", "rt-fq": "3389" }; return Object.keys(want).map(function (k) { return w.querySelector("#" + k); }).filter(function (x) { return x && x.value !== want[x.id]; })[0] || rBtn(/^Add the forward$/); }
+function bootAt(id) { return rAt(id, function (e) { return e.kind === "reboot"; }); }
+WALKS.P1 = { machine: "TECH", steps: [
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Read Alex's request. Two things are wanted from outside: Remote Desktop to the Windows PC, and the console's online features. And the Wi-Fi security is old. Press Assign to me and start.",
+    why: "This is the exam's port-forwarding question as a real job: one device reached through one port, one device that needs everything open.",
+    target: function () { return document.querySelector('[data-coach="assign"]'); },
+    done: function () { const t = E.ticket(); return !!(t && t.id === "P1" && E.T()); } },
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Alex has shared the router. Press Open the 92 Series app.",
+    target: function () { return W.router ? null : document.querySelector('[data-coach="open-router"]'); },
+    done: function () { return !!W.router; } },
+  { tag: "Find the evidence", win: "helpdesk",
+    say: "Status shows the Windows PC at 192.168.10.20 and the console, both in yellow LAN ports. The console needs everything open, so it belongs outside the LAN. That's physical: on Alex's ticket, ask them to plug the console into the orange SCREENED SUBNET port.",
+    why: "A screened subnet is a separate network for a device that has to accept connections from the internet, kept apart from the LAN.",
+    target: function () { return document.querySelector('[data-coach="ask-console-port"]'); },
+    done: function () { const gc = pfDev("P1", "game"); return !!(gc && gc.port === "screened"); } },
+  { tag: "Find the evidence", win: "router",
+    say: "Alex says the console now shows a new address. Check it on the router: press Status and read the console's Address.",
+    why: "The address comes from the side it's plugged into: the screened subnet is 10.100.0.x.",
+    target: function () { return rTab("Status"); },
+    done: function () { const moved = rAt("P1", function (e) { return e.kind === "moved-game"; }); return moved >= 0 && rAt("P1", function (e) { return e.kind === "view" && e.tab === "status"; }) > moved; } },
+  { tag: "Fix it", win: "router",
+    say: "Now the PC. Open Port forwarding and add one forward: outside port 3389, TCP, to the PC's address 192.168.10.20, inside port 3389. Then press Add the forward.",
+    why: "Remote Desktop listens on TCP 3389. Forwarding just that one port to the PC reaches it from outside while it stays protected on the LAN.",
+    target: function () { return rTab("Port forwarding") && !rwin().querySelector("#rt-fe") ? rTab("Port forwarding") : pfAddTarget(); },
+    done: function () { return pfFwd("P1", "form") || pfFwd("P1", "saved"); } },
+  { tag: "Fix it", win: "router",
+    say: "Below it, set the screened-subnet (DMZ) host to the console's new address: 10.100.0.50.",
+    why: "The screened-subnet host gets every connection that isn't forwarded somewhere else: exactly what the console's chat and online play need.",
+    target: function () { const w = rwin(); return w && w.querySelector("#rt-dmz"); },
+    done: function () { return pfHost("P1", "form") || pfHost("P1", "saved"); } },
+  { tag: "Fix it", win: "router",
+    say: "Last setting: the Wi-Fi is on WEP. Open Wireless and set Security to WPA2-Personal: a shared passphrase, the right kind for a home.",
+    why: "WEP is cracked in minutes. Homes use a passphrase (WPA2 PSK); Enterprise needs a RADIUS server a home doesn't have.",
+    target: function () { const w = rwin(); if (!w) return null; const sel = w.querySelector("#rt-sec"); return sel || rTab("Wireless"); },
+    done: function () { return pfSec("P1", "form") || pfSec("P1", "saved"); } },
+  { tag: "Fix it", win: "router",
+    say: "The bar says Not saved. Press Save.",
+    target: function () { return rBtn(/^Save$/); },
+    done: function () { return pfAll("P1", "saved"); } },
+  { tag: "Fix it", win: "router",
+    say: "Saved, not running. Press Restart router.",
+    target: function () { return rBtn(/^Restart router$/); },
+    done: function () { return pfAll("P1", "running"); } },
+  { tag: "Test it", win: "helpdesk",
+    say: "Prove it from outside. On the ticket, ask Alex to try connecting to the PC from work.",
+    target: function () { return document.querySelector('[data-coach="ask-test-remote"]'); },
+    done: function () { return rAt("P1", function (e) { return e.kind === "tested-remote" && e.ok; }) > bootAt("P1"); } },
+  { tag: "Test it", win: "helpdesk",
+    say: "And the console: ask Alex to start an online game and read the NAT type.",
+    target: function () { return document.querySelector('[data-coach="ask-test-game"]'); },
+    done: function () { return rAt("P1", function (e) { return e.kind === "tested-game" && e.open; }) > bootAt("P1"); } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "Both work. Press Resolve.",
+    target: function () { return document.querySelector('[data-coach="resolve"]'); },
+    done: function () { const st = E.state().tickets.P1; return !!(st && st.stage !== "work"); } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "Record why the PC stays on the LAN and the console goes in the screened subnet.",
+    target: function () { return document.querySelector(".res .opts"); },
+    done: function () { const st = E.state().tickets.P1; return !!(st && (st.closeOK || st.stage === "done")); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Write the notes: what you forwarded, where the console went, and the Wi-Fi security. Then Close the ticket.",
+    target: function () { return document.querySelector("#res-note"); },
+    done: function () { const st = E.state().tickets.P1; return !!(st && st.stage === "done"); } }
+], end: "That's port forwarding for real: one port to the device on the LAN, the console outside it, the Wi-Fi secured, and both proven from outside. Sam's strict NAT is next: you drive." };
+WALKS.P2 = { mode: "walk", machine: "TECH", steps: [
+  { goal: "Take the ticket", how: "In Help Desk.", done: function () { const t = E.ticket(); return !!(t && t.id === "P2" && E.T()); } },
+  { goal: "Read where each device is plugged in", how: "Status, in the 92 Series app: the port and the address.", done: function () { return rAt("P2", function (e) { return e.kind === "view" && e.tab === "status"; }) >= 0; } },
+  { goal: "Get the console outside the LAN", how: "That's physical. Who can plug it in for you?", done: function () { const gc = pfDev("P2", "game"); return !!(gc && gc.port === "screened"); } },
+  { goal: "Reach the PC from outside, one port only", how: "Which port does Remote Desktop use, and which address is the PC on?", done: function () { const r = rr("P2"), pc = pfDev("P2", "remote"); return !!(r && pc && ["form", "saved", "running"].some(function (c) { return r[c].forwards.some(function (f) { return f.ext === "3389" && f.ip === pc.ip; }); })); } },
+  { goal: "Open everything else to the console", how: "Its new address, in the right box on Port forwarding.", done: function () { return pfHost("P2", "form") || pfHost("P2", "saved") || pfHost("P2", "running"); } },
+  { goal: "Secure the Wi-Fi for a home", how: "Not WEP. What does a home use?", done: function () { return pfSec("P2", "form") || pfSec("P2", "saved") || pfSec("P2", "running"); } },
+  { goal: "Make the router use it all", how: "The bar tells you what's left.", done: function () { return pfAll("P2", "running"); } },
+  { goal: "Have Sam test both from outside", how: "On the ticket's call panel.", done: function () { const b = bootAt("P2"); return rAt("P2", function (e) { return e.kind === "tested-remote" && e.ok; }) > b && rAt("P2", function (e) { return e.kind === "tested-game" && e.open; }) > b; } },
+  { goal: "Resolve, record why, and write the notes", how: "In Help Desk.", done: function () { const st = E.state().tickets.P2; return !!(st && st.stage === "done"); } }
+], end: "You walked it. The rest are yours: SSH to a Linux server, VNC to a Mac, a streaming console, and a house that can use WPA3." };
 /* ---------------------------------------- the Wi-Fi crawl and walk */
 function bwin() { return document.querySelector("[data-win=browser]"); }
 function bTab(name) { const w = bwin(); return w ? byText(w.querySelector(".rt-tabs"), new RegExp("^" + name + "$")) : null; }

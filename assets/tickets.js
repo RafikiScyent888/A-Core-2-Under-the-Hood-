@@ -27,6 +27,7 @@ import { MALWARE } from "./tickets-malware.js";
 import { MAIL } from "./tickets-mail.js";
 import { ROUTER } from "./tickets-router.js";
 import { WIFI } from "./tickets-wifi.js";
+import { PF } from "./tickets-pf.js";
 
 function works(m, app) { return M.launchApp(M.clone(m), app).ok; }
 function has(m, kind, test) { return m.events.some(function (e) { return e.kind === kind && (!test || test(e)); }); }
@@ -306,6 +307,7 @@ MALWARE.forEach(function (t) { TICKETS.push(t); });
 MAIL.forEach(function (t) { TICKETS.push(t); });
 ROUTER.forEach(function (t) { TICKETS.push(t); });
 WIFI.forEach(function (t) { TICKETS.push(t); });
+PF.forEach(function (t) { TICKETS.push(t); });
 
 /* How far along a Tier 2 fix is: used so a step that helps is never
    counted as a guess, even when the program does not run yet. */

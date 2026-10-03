@@ -55,7 +55,7 @@ export function add(fleet, o) {
   const r = { id: o.id, label: o.label || "92 Series AX1800", site: o.site || "", customer: o.customer || "", model: o.model || "92 Series AX1800", fw: "1.0.4",
     sticker: { pass: cfg.admin.pass, ssid: cfg.wifi.ssid, wifiPass: cfg.wifi.pass },
     phys: Object.assign({ wanPort: "wan", power: "ok" }, o.phys || {}), isp: Object.assign({ mode: "DHCP" }, o.isp || {}), publicIp: o.publicIp || "50.90.234.1",
-    devices: copy(o.devices || []), neighbours: copy(o.neighbours || []), crowd: o.crowd || 0, web: !!o.web, where: o.where || "",
+    devices: copy(o.devices || []), neighbours: copy(o.neighbours || []), crowd: o.crowd || 0, web: !!o.web, where: o.where || "", screenedNet: o.screenedNet || "",
     saved: cfg, running: copy(cfg), form: copy(cfg), events: [], signedIn: false };
   all(fleet)[o.id] = r;
   return r;
@@ -155,6 +155,7 @@ export function channelValid(band, ch) { if (ch === "auto") return true; ch = Nu
 export function joins(r, d) {
   const w = r.running.wifi;
   if (wanStatus(r).code === "power") return { ok: false, why: "The router keeps restarting." };
+  if (d.wired) return { ok: true, why: d.name + " is connected by cable." };
   const bands = d.bands || ["2.4", "5"];
   if (d.ssid && d.ssid !== w.ssid) return { ok: false, why: d.name + " is looking for \"" + d.ssid + "\" and can't find it." };
   if (w.band !== "dual" && bands.indexOf(w.band) < 0) return { ok: false, why: d.name + " can't see the network: it only has " + bands.join(" and ") + " GHz." };
@@ -183,6 +184,23 @@ export function inbound(r, port, proto) {
   if (r.running.screened) return { to: r.running.screened, port: port, via: "screened" };
   return null;
 }
+/* A home's wired devices: which port each is plugged into, LAN or the
+   screened subnet, decides its address. */
+export function lanNet(r) { return r.running.lan.ip.split(".").slice(0, 3).join("."); }
+export function role(r, k) { return r.devices.filter(function (d) { return d.role === k; })[0]; }
+function readdress(r, d) { d.ip = (d.port === "screened" ? r.screenedNet : lanNet(r)) + "." + (d.host || 20); }
+/* What the customer finds when they test from outside. */
+export function remoteTest(r) {
+  const pc = role(r, "remote"); if (!pc) return { ok: false, text: "There's nothing to connect to." };
+  const x = inbound(r, pc.svc, "TCP");
+  if (!x || x.to !== pc.ip) return { ok: false, text: "It just times out. Nothing answers from outside." };
+  return { ok: true, exposed: x.via === "screened", text: "Connected: I can see the " + pc.name + "'s desktop from work." };
+}
+export function natTest(r) {
+  const gc = role(r, "game"); if (!gc) return { open: false, text: "" };
+  const open = gc.port === "screened" && r.running.screened === gc.ip;
+  return { open: open, text: open ? "NAT type: Open. Party chat and everything else work." : "NAT type: Strict. It can't join parties or voice chat." };
+}
 export function deviceByName(r, name) { return r.devices.filter(function (d) { return d.name === name; })[0]; }
 
 /* The things only someone standing at the router can do. The customer
@@ -196,6 +214,15 @@ export function ask(fleet, r, what) {
   if (what === "adapter") return r.phys.power === "faulty" ? "\"It's the one that came in the box, and it's plugged straight into the wall.\"" : "\"It's the one from the box.\"";
   if (what === "socket") { note(fleet, r, "socket-moved"); return r.phys.power === "faulty" ? "\"I've moved it to the socket by the door. … It's just gone off again.\"" : "\"Moved. It's running fine.\""; }
   if (what === "letter") return r.isp.mode === "PPPoE" && r.isp.letter ? "\"Found the welcome letter. Username " + r.isp.user + ", password " + r.isp.pass + ".\"" : "\"I've looked everywhere. There's nothing from the provider with a username on it.\"";
+  if (what === "console-port" || what === "pc-port") {
+    const d = role(r, what === "console-port" ? "game" : "remote"); if (!d) return "\"There's nothing like that here.\"";
+    if (d.port === "screened") return "\"It's already in the orange one.\"";
+    d.port = "screened"; readdress(r, d); note(fleet, r, "moved-" + d.role);
+    return "\"Done: the " + d.name + " is in the orange SCREENED SUBNET port now. It shows its address as " + d.ip + ".\"";
+  }
+  if (what === "pc-back") { const d = role(r, "remote"); if (!d || d.port !== "screened") return "\"It's already in a yellow one.\""; d.port = "lan"; readdress(r, d); note(fleet, r, "moved-back"); return "\"OK, the " + d.name + " is back in yellow port 1. It shows " + d.ip + ".\""; }
+  if (what === "test-remote") { const x = remoteTest(r); note(fleet, r, "tested-remote", { ok: x.ok }); return "\"" + x.text + "\""; }
+  if (what === "test-game") { const x = natTest(r); note(fleet, r, "tested-game", { open: x.open }); return "\"" + x.text + "\""; }
   if (what === "power") { note(fleet, r, "power-cycle"); r.running = copy(r.saved); r.form = copy(r.saved); r.signedIn = false; return "\"I've unplugged it, counted to ten, and plugged it back in. The lights are coming back.\""; }
   return "\"OK.\"";
 }

@@ -342,6 +342,17 @@ export async function run(extraCss) {
     await sweep(tag + ": the access point's sign-in page, a refused password");
     await bw.locator("#wb-pass").fill("Clos3t-AP-2026"); await bw.getByRole("button", { name: "Sign in" }).click(); await page.waitForTimeout(150);
     await sweep(tag + ": the access point's status, a crowded room");
+    /* a port-forwarding job: the call's tests and the forward page with a rule */
+    await toFront("helpdesk"); await hd.getByRole("button", { name: /SSH to the home server/ }).first().click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+    await hd.getByRole("button", { name: /Ask Jordan: Please plug the console/ }).click(); await hd.getByRole("button", { name: /Ask Jordan: Try connecting/ }).click(); await hd.getByRole("button", { name: /Ask Jordan: Start an online game/ }).click(); await page.waitForTimeout(150);
+    await hd.locator(".call").scrollIntoViewIfNeeded();
+    await sweep(tag + ": a port-forwarding call, both tests failing");
+    await hd.getByRole("button", { name: "Open the 92 Series app" }).click(); await rw.getByRole("button", { name: "Port forwarding", exact: true }).click();
+    for (const [k, v] of [["rt-fe", "22"], ["rt-fi", "192.168.1.20"], ["rt-fq", "22"]]) { await rw.locator("#" + k).fill(v); await rw.locator("#" + k).dispatchEvent("change"); }
+    await rw.getByRole("button", { name: "Add the forward" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": 92 Series app, port forwarding with a rule");
+    await rw.getByRole("button", { name: "Status", exact: true }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": 92 Series app, status with addresses");
   }
 
   try {
@@ -367,6 +378,7 @@ const PLANTS = {
   "the blue screen's text in a muted blue": ".ex-bsod { color: #7d8db8 !important; }",
   "the router app's not-saved bar in a dim amber": ".rt-state.warn { color: #8a7a1c !important; }",
   "a device's not-connected reason in a pale red": ".rt-t td.rt-bad { color: #e08a8a !important; }",
+  "the forward form's labels in a faint grey": ".rt-add label, .rt-f label { color: #8b93a1 !important; }",
   "the browser's address and sign-in labels in a faint grey": ".wb-url, .wb-login label { color: #8b93a1 !important; }",
   "a process's file path in a faint grey": ".ex-tmp { color: #8b93a1 !important; }",
   "the diagram's numbered slots in a pale blue": ".ex-slot { background: #7fb2ff !important; }"

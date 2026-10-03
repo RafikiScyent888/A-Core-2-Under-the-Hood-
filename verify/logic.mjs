@@ -118,6 +118,12 @@ const NOTES = {
   E3: "Brenda's TravelSafe hotel booking was genuine. Dev's streaming offer was spam, junked. Rosa's bank suspended email and John's Jakarta login alert were both phishing: reported and purged.",
   E4: "Farah's gift card request from Mason came from rafiki-lt.com with a Gmail reply-to, failing SPF and DMARC in the headers: phishing, reported, purged, blocked, and turned on the external tag policy. Dev's course was genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   E5: "Rosa's mailbox validate email claimed to be our help desk but the headers show SPF and DMARC failed from an outside server: phishing, reported, purged, anti-spoof quarantine policy on. Dev's PayWise notice was genuine (Software Center). Brenda's webinar spam. Rosa's parcel zip label malicious.",
+  P1: "Forwarded TCP 3389 (Remote Desktop) to the Windows PC on the LAN at 192.168.10.20. Alex moved the console to the screened subnet port and I set it as the screened host. Wi-Fi from WEP to WPA2. Saved, restarted, both tested.",
+  P2: "Forwarded TCP 3389 to Sam's Windows PC at 192.168.50.20. The console went into the screened subnet port as the screened host; NAT is open now. WEP replaced with WPA2. Saved and restarted.",
+  P3: "Forwarded TCP 22 for SSH to the Linux server on the LAN at 192.168.1.20. The console is in the screened subnet as the screened host. Wi-Fi from WEP to WPA2. Saved, restarted, both tested.",
+  P4: "Forwarded TCP 5900 for VNC screen sharing to the Mac at 192.168.20.20. Console moved to the screened subnet port and set as screened host. WEP replaced with WPA2. Saved, restarted, tested.",
+  P5: "Forwarded TCP 3389 Remote Desktop to the Windows PC at 192.168.88.20. The streaming console is in the screened subnet as the screened host. Wi-Fi from WEP to WPA2. Saved, restarted, tested.",
+  P6: "Forwarded TCP 3389 Remote Desktop to the Windows PC at 192.168.30.20. Console moved to the screened subnet as the screened host. Every device supports WPA3, so WPA3. Saved, restarted, tested.",
   W1: "Set MainOffice1 with the new password, WPA3 because every device supports it, 2.4 GHz for the thick walls, channel 6. Saved and restarted; the Office 3 tablet connects.",
   W2: "Set Rafiki-Staff with its password, WPA3, 2.4 GHz to get through the brick walls, and channel 11 because next door uses 1 and 6. Saved, restarted, the tablet holds signal.",
   W3: "Conference AP: Conference-5G with its password, WPA3, 5 GHz for its many clear channels with 25 laptops in one open room, channel 36. Saved and restarted; meetings are quick.",
@@ -145,7 +151,7 @@ export function check(D) {
     if (list.length !== 6) F("SHAPE: " + sim + " has " + list.length + " tickets, not 1 + 5");
     if (list.filter((t) => t.base).length !== 1) F("SHAPE: " + sim + " does not have exactly one ticket that is the sim itself");
   });
-  if (Object.keys(bySim).length !== 6) F("SHAPE: expected the two App sims, Malware, Email Threat, Tier 1 Router and WiFi AP, found " + Object.keys(bySim).length);
+  if (Object.keys(bySim).length !== 7) F("SHAPE: expected the two App sims, Malware, Email Threat, Tier 1 Router, WiFi AP and Port Forwarding, found " + Object.keys(bySim).length);
 
   const pos = [0, 0, 0, 0, 0, 0]; let longest = 0, lenQs = 0, movePos = [0, 0, 0, 0, 0, 0];
   APP.forEach((t) => {
@@ -329,11 +335,17 @@ export const RFIX = {
 };
 /* the WiFi tickets: sign in at 192.168.1.1, set the sim's five settings */
 const WSET = { W1: ["MainOffice1", "Ma50n1SB35t!", "WPA3", "2.4", 6], W2: ["Rafiki-Staff", "T3amR@fiki2026", "WPA3", "2.4", 11], W3: ["Conference-5G", "M33t1ng$Room!", "WPA3", "5", 36], W4: ["MainOffice1", "Ma50n1SB35t!", "WPA2/WPA3", "2.4", 6], W5: ["Rafiki-Guest", "W3lc0me-Guest!", "WPA3", "2.4", 1], W6: ["MainOffice1", "Ma50n1SB35t!", "WPA3", "2.4", 11] };
+/* Port Forwarding: forward the service to the LAN device, the console to the
+   screened-subnet port and set as its host, the Wi-Fi secured, save, restart,
+   then the customer tests both from outside */
+const PSET = { P1: ["3389", "192.168.10.20", "10.100.0.50", "WPA2"], P2: ["3389", "192.168.50.20", "10.20.0.50", "WPA2"], P3: ["22", "192.168.1.20", "172.16.5.50", "WPA2"], P4: ["5900", "192.168.20.20", "10.0.9.50", "WPA2"], P5: ["3389", "192.168.88.20", "10.88.0.50", "WPA2"], P6: ["3389", "192.168.30.20", "10.30.0.50", "WPA3"] };
+Object.keys(PSET).forEach((id) => { const v = PSET[id]; RFIX[id] = (a) => { a.view("status"); a.ask("console-port"); a.view("forward"); a.fwd({ name: "Remote", proto: "TCP", ext: v[0], ip: v[1], port: v[0] }); a.edit("screened", v[2]); a.view("wireless"); a.edit("wifi.security", v[3]); a.save(); a.reboot(); a.ask("test-remote"); a.ask("test-game"); }; });
 Object.keys(WSET).forEach((id) => { const v = WSET[id]; RFIX[id] = (a) => { a.sign("admin", id === "W6" ? "admin" : "Clos3t-AP-2026"); a.view("wireless"); a.edit("wifi.ssid", v[0]); a.edit("wifi.pass", v[1]); a.edit("wifi.security", v[2]); a.edit("wifi.band", v[3]); a.edit("wifi.channel", v[4]); a.save(); a.reboot(); }; });
 function routerActs(E, t) {
   const R = RT, r = () => R.get(E.fleet(), t.id), f = () => E.fleet();
   const go = (type, fn, extra) => { const b = E.before(); const res = fn ? fn() : null; E.onAct(Object.assign({ type: type, machine: "TECH", before: b }, extra || {}, res && typeof res === "object" ? { ok: res.ok, lost: res.lost, text: res.text } : {})); return E.T().guesses; };
   return {
+    fwd: (x) => go("router-edit", () => { R.addForward(f(), r(), x); }, { path: "forwards" }),
     sign: (u, pw) => go("router-sign-in", () => R.signIn(f(), r(), u, pw)),
     view: (tab) => go("router-view", () => { R.note(f(), r(), "view", { tab: tab }); }, { tab: tab }),
     edit: (k, v) => go("router-edit", () => { R.edit(f(), r(), k, v); }),
@@ -350,11 +362,16 @@ function routerTicketChecks(D, t, F) {
   const f = D.makeFleet(); t.setup(f); const r = RT.get(f, t.id);
   if (!r) { F(P + "EXHIBITED: no router is set up"); return; }
   if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts");
-  const fault = { R1: () => RT.defaultPass(r), R2: () => RT.defaultPass(r), R3: () => RT.wanStatus(r).code === "cable", R4: () => r.running.wifi.pass !== "Blue-Harbor#88", R5: () => RT.wanStatus(r).code === "pppoe", R6: () => RT.wanStatus(r).code === "power" }[t.id] || (t.kind === "wifi" ? () => r.devices.some((d) => !RT.joins(r, d).ok) || RT.crowded(r) : null);
+  const fault = { R1: () => RT.defaultPass(r), R2: () => RT.defaultPass(r), R3: () => RT.wanStatus(r).code === "cable", R4: () => r.running.wifi.pass !== "Blue-Harbor#88", R5: () => RT.wanStatus(r).code === "pppoe", R6: () => RT.wanStatus(r).code === "power" }[t.id] || (/^P\d$/.test(t.id) ? () => !RT.remoteTest(r).ok && !RT.natTest(r).open : null) || (t.kind === "wifi" ? () => r.devices.some((d) => !RT.joins(r, d).ok) || RT.crowded(r) : null);
   if (!fault || !fault()) F(P + "EXHIBITED: the router doesn't show the fault the ticket describes");
   /* KEY: a WiFi ticket asks for exactly what the sim's exam view keys */
   if (t.kind === "wifi") { const ex = (D.EXAMS || EXAMS).find((e) => e.id === "wifi"), i = D.TICKETS.filter((x) => x.kind === "wifi").indexOf(t), v = ex.variants[i], T = t.target;
     const want = { ssid: T.ssid, pass: T.pass, sec: { "WPA2/WPA3": "WPA2/WPA3 (transition)" }[T.sec] || T.sec, band: T.band + " GHz", chan: String(T.chan) };
+    Object.keys(want).forEach((k) => { const fld = v.fields.find((x) => x.id === k); if (!fld || PQ.rightValue(fld) !== want[k]) F(P + "KEY: " + k + " is " + want[k] + " on the ticket but " + (fld ? PQ.rightValue(fld) : "missing") + " in exam practice " + v.id); }); }
+  /* KEY: a Port Forwarding ticket matches its exam practice: the service's
+     port, the Wi-Fi security, and which device goes where (as ruled) */
+  if (t.sim === "Port Forwarding Configuration") { const ex = (D.EXAMS || EXAMS).find((e) => e.id === "pf"), i = D.TICKETS.filter((x) => x.sim === t.sim).indexOf(t), v = ex.variants[i], T = t.target;
+    const want = { rule: "Allow TCP Any " + T.svc, enc: T.sec === "WPA3" ? "WPA3 Personal (SAE)" : "WPA2 PSK", place: "LAN: " + T.pc + " · Screened subnet: " + T.gc };
     Object.keys(want).forEach((k) => { const fld = v.fields.find((x) => x.id === k); if (!fld || PQ.rightValue(fld) !== want[k]) F(P + "KEY: " + k + " is " + want[k] + " on the ticket but " + (fld ? PQ.rightValue(fld) : "missing") + " in exam practice " + v.id); }); }
   /* NO LEAK in the refusal: Resolve before it's done says what Mason sees,
      never the setting that's wrong */
@@ -730,6 +747,8 @@ const PLANTS = [
   ["EXAM wifi:w1: TEXT", "the WiFi password mistyped in the answer", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "wifi" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "w1" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id === "pass" ? Object.assign({}, f, { answer: "Ma5on1SB35t!" }) : f)) }))) }))) })],
   ["EXAM t1:t1: SIX", "a Tier 1 task with five options", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "t1" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "t1" ? v : Object.assign({}, v, { fields: v.fields.map((f, i) => (i ? f : Object.assign({}, f, { options: f.options.slice(0, 5) }))) }))) }))) })],
   ["EXAM al:al1: KEY", "App Launch keyed to copy the file from another PC", () => ({ KEYS: Object.assign({}, KEYS, { "al:al1": Object.assign({}, KEYS["al:al1"], { t2: "Replace the missing file using a known working system" }) }) })],
+  ["ROUTER P1: KEY", "P1 keyed the sim's original way round", () => ({ TICKETS: withTicket("P1", (t) => ({ target: Object.assign({}, t.target, { pc: "Game Console", gc: "Windows PC" }) })) })],
+  ["ROUTER P2: PARTIAL", "P2 done without the console moved to the screened-subnet port", () => ({ TICKETS: withTicket("P2", (t) => ({ goal: (f) => { const r = RT.get(f, "P2"); return r.running.forwards.length > 0 && !!r.running.screened; } })) })],
   ["ROUTER W2: NO LEAK", "Resolve's refusal lists the settings that are wrong", () => ({ TICKETS: withTicket("W2", (t) => ({ notReady: (f) => { const r = RT.get(f, "W2"); return r.running.wifi.band !== "2.4" ? "Not matching yet: the band." : t.notReady(f); } })) })],
   ["ROUTER W1: KEY", "W1 keyed to 5 GHz", () => ({ TICKETS: withTicket("W1", (t) => ({ target: Object.assign({}, t.target, { band: "5" }) })) })],
   ["ROUTER W4: KEY", "W4 keyed WPA3 only, so the printer is locked out", () => ({ TICKETS: withTicket("W4", (t) => ({ target: Object.assign({}, t.target, { sec: "WPA3" }) })) })],

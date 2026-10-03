@@ -38,7 +38,8 @@ export function routerTicket(o) {
     const better = t.scoreFn(fleet) > before.score || t.goal(fleet);
     if (act.type === "router-view" || act.type === "router-sign-in" || act.type === "router-edit" || act.type === "router-firmware") return { guess: false };
     if (act.type === "router-ask") {
-      if (["move", "socket", "power"].indexOf(act.what) < 0) return { guess: false };
+      if (act.what === "pc-port") return { guess: true, say: "That takes the " + ((R.role(r, "remote") || {}).name || "PC") + " off the LAN into the screened subnet: outside the LAN's protection, with every port open to the internet. The forward already reaches it safely. Have " + t.who + " plug it back into a LAN port." };
+      if (["move", "socket", "power", "console-port", "pc-back"].indexOf(act.what) < 0) return { guess: false };
       if (act.what === "power" && act.lost) return { guess: true, say: t.who + " unplugged it while there were changes on the page that weren't saved. They're gone: the router came back with its saved settings." };
       return better || act.what === "socket" ? { guess: false } : { guess: true, say: act.what === "move" ? "It was already in the INTERNET port. Ask before you have them move things." : t.who + " unplugged it and plugged it back in. Nothing changed." };
     }
