@@ -374,6 +374,16 @@ export async function run(extraCss) {
     await rw.getByRole("button", { name: "Wireless", exact: true }).click(); await rw.locator("#rt-mac").click(); await rw.getByRole("button", { name: "Allow Laptop" }).click(); await page.waitForTimeout(150);
     await rw.locator("#rt-mac").scrollIntoViewIfNeeded();
     await sweep(tag + ": 92 Series app, MAC filtering and the allowed list");
+    /* the lunchtime job: the break counter, and the floor plan */
+    await toFront("helpdesk"); await hd.getByRole("button", { name: /Wi-Fi drops every lunchtime/ }).first().click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+    await toFront("helpdesk"); await hd.locator("[data-coach=walk-break]").click(); await page.waitForTimeout(800);
+    if (await page.locator(".wo-skip").count()) await page.locator(".wo-skip").click().catch(() => {});
+    await page.waitForSelector(".wo-desk", { timeout: 90000 }); await page.waitForTimeout(400);
+    await sweep(tag + ": the break counter, with the floor plan");
+    await page.locator(".wo-back").click(); await page.waitForTimeout(600); if (await page.locator(".wo-skip").count()) await page.locator(".wo-skip").click().catch(() => {});
+    await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+    await toFront("helpdesk"); await hd.locator("[data-coach=open-floor]").click(); await page.waitForTimeout(300);
+    await sweep(tag + ": the floor plan from the desk");
   }
 
   try {
@@ -399,6 +409,7 @@ const PLANTS = {
   "the blue screen's text in a muted blue": ".ex-bsod { color: #7d8db8 !important; }",
   "the router app's not-saved bar in a dim amber": ".rt-state.warn { color: #8a7a1c !important; }",
   "a device's not-connected reason in a pale red": ".rt-t td.rt-bad { color: #e08a8a !important; }",
+  "a device's label on the floor plan in a faint grey": ".fp-dev, .fp-room { color: #8b93a1 !important; }",
   "the forward form's labels in a faint grey": ".rt-add label, .rt-f label { color: #8b93a1 !important; }",
   "the browser's address and sign-in labels in a faint grey": ".wb-url, .wb-login label { color: #8b93a1 !important; }",
   "a process's file path in a faint grey": ".ex-tmp { color: #8b93a1 !important; }",

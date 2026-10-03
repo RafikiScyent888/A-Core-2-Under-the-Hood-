@@ -118,6 +118,12 @@ const NOTES = {
   E3: "Brenda's TravelSafe hotel booking was genuine. Dev's streaming offer was spam, junked. Rosa's bank suspended email and John's Jakarta login alert were both phishing: reported and purged.",
   E4: "Farah's gift card request from Mason came from rafiki-lt.com with a Gmail reply-to, failing SPF and DMARC in the headers: phishing, reported, purged, blocked, and turned on the external tag policy. Dev's course was genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   E5: "Rosa's mailbox validate email claimed to be our help desk but the headers show SPF and DMARC failed from an outside server: phishing, reported, purged, anti-spoof quarantine policy on. Dev's PayWise notice was genuine (Software Center). Brenda's webinar spam. Rosa's parcel zip label malicious.",
+  WR1: "The microwave on the break counter sat beside the access point and drowned 2.4 GHz at lunch. Moved it across the room, then set 2.4 GHz for the dense walls, channel 11 and WPA3. Saved, restarted, all connected.",
+  WR2: "Ten networks nearby crowded 2.4 GHz all day. Moved the router to 5 GHz on fixed channel 36, kept WPA3. Saved and restarted; nobody is crawling now.",
+  WR3: "The edit suite at the far end needs 2.4 GHz reach and the projector needs 5 GHz speed, so dual-band with steering and automatic channel, WPA3. Saved and restarted; both work.",
+  WR4: "Fourteen networks covered channels 1 to 11, so no clear 2.4 GHz channel was left. Set 5 GHz on fixed channel 149 with WPA3. Saved and restarted; everyone is fine.",
+  WR5: "Concrete walls stopped 5 GHz from reaching the scanner. Set 2.4 GHz on channel 6, clear of the two networks on 1 and 11, and WPA3 instead of open. Saved and restarted.",
+  WR6: "The far treatment rooms need 2.4 GHz reach and the imaging tablet needs 5 GHz speed: dual-band with steering, automatic channel since no networks are nearby, WPA3. Saved and restarted.",
   N1: "Router 3: HomeWiFi with the password, WPA3, 20 MHz to keep interference down, MAC filtering with the family's four devices allowed, and channel 11 because Router 1 and 2 use 1 and 6. Saved and restarted.",
   N2: "Garcia-Home with its password, WPA3, 20 MHz, MAC filtering allowing only the family's devices, and channel 1, since the neighbours use 6 and 11. Saved and restarted; no more overlap.",
   N3: "BlueHouse with its password, WPA3, 20 MHz width, MAC filtering for the laptop, phone and doorbell camera, and channel 6 because the neighbours are on 1 and 11. Saved and restarted.",
@@ -157,7 +163,7 @@ export function check(D) {
     if (list.length !== 6) F("SHAPE: " + sim + " has " + list.length + " tickets, not 1 + 5");
     if (list.filter((t) => t.base).length !== 1) F("SHAPE: " + sim + " does not have exactly one ticket that is the sim itself");
   });
-  if (Object.keys(bySim).length !== 8) F("SHAPE: expected the two App sims, Malware, Email Threat, Tier 1 Router, WiFi AP, Port Forwarding and Neighboring Routers, found " + Object.keys(bySim).length);
+  if (Object.keys(bySim).length !== 9) F("SHAPE: expected the two App sims, Malware, Email Threat, Tier 1 Router, WiFi AP, Port Forwarding, Neighboring Routers and Wireless Reliability, found " + Object.keys(bySim).length);
 
   const pos = [0, 0, 0, 0, 0, 0]; let longest = 0, lenQs = 0, movePos = [0, 0, 0, 0, 0, 0];
   APP.forEach((t) => {
@@ -349,6 +355,10 @@ Object.keys(PSET).forEach((id) => { const v = PSET[id]; RFIX[id] = (a) => { a.vi
 /* Neighboring Routers: read the scan, set the sim's six, the allowed list */
 const NSET = { N1: ["HomeWiFi", "MyCCR0ck2!", true, 11], N2: ["Garcia-Home", "Casa#2026Net", true, 1], N3: ["BlueHouse", "Bl#eDoor55", true, 6], N4: ["HomeWiFi", "MyCCR0ck2!", false, 11], N5: ["Ortiz_Net", "Recept10n!Home", true, 1], N6: ["Patel5", "D3v@Home!!", true, 6] };
 Object.keys(NSET).forEach((id) => { const v = NSET[id]; RFIX[id] = (a) => { a.view("status"); a.view("wireless"); a.edit("wifi.ssid", v[0]); a.edit("wifi.pass", v[1]); a.edit("wifi.security", "WPA3"); a.edit("wifi.width", 20); a.edit("wifi.channel", v[3]); if (v[2]) { a.edit("wifi.mac", true); a.allowApproved(); } a.save(); a.reboot(); }; });
+/* Wireless Reliability: the lab's keyed band, channel plan and security (and
+   in WR1, the microwave moved across the room first) */
+const RSET = { WR1: ["2.4", 11], WR2: ["5", 36], WR3: ["dual", "auto"], WR4: ["5", 149], WR5: ["2.4", 6], WR6: ["dual", "auto"] };
+Object.keys(RSET).forEach((id) => { const v = RSET[id]; RFIX[id] = (a) => { if (id === "WR1") { a.sign("admin", "Clos3t-AP-2026"); a.mw(38.5, 30.5); } a.view("status"); a.view("wireless"); a.edit("wifi.band", v[0]); a.edit("wifi.channel", v[1]); a.edit("wifi.security", "WPA3"); a.save(); a.reboot(); }; });
 Object.keys(WSET).forEach((id) => { const v = WSET[id]; RFIX[id] = (a) => { a.sign("admin", id === "W6" ? "admin" : "Clos3t-AP-2026"); a.view("wireless"); a.edit("wifi.ssid", v[0]); a.edit("wifi.pass", v[1]); a.edit("wifi.security", v[2]); a.edit("wifi.band", v[3]); a.edit("wifi.channel", v[4]); a.save(); a.reboot(); }; });
 function routerActs(E, t) {
   const R = RT, r = () => R.get(E.fleet(), t.id), f = () => E.fleet();
@@ -356,6 +366,7 @@ function routerActs(E, t) {
   return {
     allowApproved: () => go("router-edit", () => { r().devices.filter((d) => d.approved).forEach((d) => R.allow(f(), r(), d.mac)); }, { path: "wifi.allowed" }),
     fwd: (x) => go("router-edit", () => { R.addForward(f(), r(), x); }, { path: "forwards" }),
+    mw: (x, z) => go("router-microwave", () => R.moveMicrowave(f(), r(), x, z)),
     sign: (u, pw) => go("router-sign-in", () => R.signIn(f(), r(), u, pw)),
     view: (tab) => go("router-view", () => { R.note(f(), r(), "view", { tab: tab }); }, { tab: tab }),
     edit: (k, v) => go("router-edit", () => { R.edit(f(), r(), k, v); }),
@@ -372,10 +383,10 @@ function routerTicketChecks(D, t, F) {
   const f = D.makeFleet(); t.setup(f); const r = RT.get(f, t.id);
   if (!r) { F(P + "EXHIBITED: no router is set up"); return; }
   if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts");
-  const fault = { R1: () => RT.defaultPass(r), R2: () => RT.defaultPass(r), R3: () => RT.wanStatus(r).code === "cable", R4: () => r.running.wifi.pass !== "Blue-Harbor#88", R5: () => RT.wanStatus(r).code === "pppoe", R6: () => RT.wanStatus(r).code === "power" }[t.id] || (/^P\d$/.test(t.id) ? () => !RT.remoteTest(r).ok && !RT.natTest(r).open : null) || (/^N\d$/.test(t.id) ? () => RT.interference(r).length > 0 : null) || (t.kind === "wifi" ? () => r.devices.some((d) => !RT.joins(r, d).ok) || RT.crowded(r) : null);
+  const fault = { R1: () => RT.defaultPass(r), R2: () => RT.defaultPass(r), R3: () => RT.wanStatus(r).code === "cable", R4: () => r.running.wifi.pass !== "Blue-Harbor#88", R5: () => RT.wanStatus(r).code === "pppoe", R6: () => RT.wanStatus(r).code === "power" }[t.id] || (/^P\d$/.test(t.id) ? () => !RT.remoteTest(r).ok && !RT.natTest(r).open : null) || (/^N\d$/.test(t.id) ? () => RT.interference(r).length > 0 : null) || (/^WR\d$/.test(t.id) ? () => r.devices.some((d) => !RT.joins(r, d).ok || RT.slowWhy(r, d)) : null) || (t.kind === "wifi" ? () => r.devices.some((d) => !RT.joins(r, d).ok) || RT.crowded(r) : null);
   if (!fault || !fault()) F(P + "EXHIBITED: the router doesn't show the fault the ticket describes");
   /* KEY: a WiFi ticket asks for exactly what the sim's exam view keys */
-  if (t.kind === "wifi") { const ex = (D.EXAMS || EXAMS).find((e) => e.id === "wifi"), i = D.TICKETS.filter((x) => x.kind === "wifi").indexOf(t), v = ex.variants[i], T = t.target;
+  if (t.sim === "WiFi Access Point Configuration") { const ex = (D.EXAMS || EXAMS).find((e) => e.id === "wifi"), i = D.TICKETS.filter((x) => x.sim === t.sim).indexOf(t), v = ex.variants[i], T = t.target;
     const want = { ssid: T.ssid, pass: T.pass, sec: { "WPA2/WPA3": "WPA2/WPA3 (transition)" }[T.sec] || T.sec, band: T.band + " GHz", chan: String(T.chan) };
     Object.keys(want).forEach((k) => { const fld = v.fields.find((x) => x.id === k); if (!fld || PQ.rightValue(fld) !== want[k]) F(P + "KEY: " + k + " is " + want[k] + " on the ticket but " + (fld ? PQ.rightValue(fld) : "missing") + " in exam practice " + v.id); }); }
   /* KEY: a Port Forwarding ticket matches its exam practice: the service's
@@ -388,9 +399,14 @@ function routerTicketChecks(D, t, F) {
     const want = { ssid: T.ssid, pass: T.pass, sec: "WPA3", width: "20 MHz", mac: T.mac ? "Enabled" : "Disabled", chan: String(T.chan) };
     Object.keys(want).forEach((k) => { const fld = v.fields.find((x) => x.id === k); if (!fld || PQ.rightValue(fld) !== want[k]) F(P + "KEY: " + k + " is " + want[k] + " on the ticket but " + (fld ? PQ.rightValue(fld) : "missing") + " in exam practice " + v.id); });
     const rn = RT.get((() => { const f2 = D.makeFleet(); t.setup(f2); return f2; })(), t.id); v.neighbours.forEach((n, j) => { if (!rn.neighbours[j]) F(P + "KEY: " + n.name + " is missing from the scan"); else if (String(rn.neighbours[j].channel) !== String(n.channel)) F(P + "KEY: " + n.name + " is on channel " + rn.neighbours[j].channel + " in the scan but " + n.channel + " in exam practice " + v.id); }); }
+  /* KEY: a Wireless Reliability ticket matches its exam practice: band,
+     channel plan and security are the lab's checkpoints 2 to 4 */
+  if (t.sim === "Wireless Reliability Decision Lab") { const ex = (D.EXAMS || EXAMS).find((e) => e.id === "wr"), i = D.TICKETS.filter((x) => x.sim === t.sim).indexOf(t), v = ex.variants[i], T = t.target;
+    const want = { band: { "2.4": "2.4 GHz", "5": "5 GHz", dual: "Dual-band with client steering" }[T.band], channel: T.chan === "auto" ? "Allow automatic channel selection only" : "Use a non-overlapping channel", security: "Modern encrypted security with strong authentication" };
+    Object.keys(want).forEach((k) => { const fld = v.fields.find((x) => x.id === k); if (!fld || PQ.rightValue(fld) !== want[k]) F(P + "KEY: " + k + " is " + want[k] + " on the ticket but " + (fld ? PQ.rightValue(fld) : "missing") + " in exam practice " + v.id); }); }
   /* NO LEAK in the refusal: Resolve before it's done says what Mason sees,
      never the setting that's wrong */
-  if (t.kind === "wifi") { const T = t.target, E = D.createEngine(memStore()); E.openTicket(t.id); const a = routerActs(E, t), rr = () => RT.get(E.fleet(), t.id);
+  if (t.sim === "WiFi Access Point Configuration") { const T = t.target, E = D.createEngine(memStore()); E.openTicket(t.id); const a = routerActs(E, t), rr = () => RT.get(E.fleet(), t.id);
     const bad = [T.band + " GHz", T.sec, "channel " + T.chan, "the band", "the channel", "the security"];
     const look = () => { const m = String(t.notReady(E.fleet()) || ""); bad.forEach((w) => { if (m.indexOf(w) >= 0) F(P + "NO LEAK: Resolve's refusal names \"" + w + "\": " + m); }); };
     look(); a.view("wireless"); a.edit("wifi.ssid", T.ssid); a.edit("wifi.pass", T.pass); a.save(); a.reboot(); look(); }
@@ -406,6 +422,11 @@ function routerTicketChecks(D, t, F) {
     const rec = {}; Object.keys(a).forEach((k) => { rec[k] = (...x) => steps.push([k, x]); }); RFIX[t.id](rec);
     steps.slice(0, -1).forEach(([k, x]) => a[k](...x));
     if (t.goal(E.fleet())) F(P + "PARTIAL: the fix without its last step (" + steps[steps.length - 1][0] + ") already meets the goal"); }
+  /* PARTIAL: with a microwave in the office, the settings alone don't close it */
+  if (r.microwave) { const E = D.createEngine(memStore()); E.openTicket(t.id); const a = routerActs(E, t), steps = [];
+    const rec = {}; Object.keys(a).forEach((k) => { rec[k] = (...x) => steps.push([k, x]); }); RFIX[t.id](rec);
+    steps.filter(([k]) => k !== "mw").forEach(([k, x]) => a[k](...x));
+    if (t.goal(E.fleet())) F(P + "PARTIAL: the right settings close it with the microwave still beside the access point"); }
   /* JUDGE: looking never counts; a factory reset, a lost change and a harmful save do */
   { const E = D.createEngine(memStore()); E.openTicket(t.id); const a = routerActs(E, t);
     a.view("status"); a.view("wireless"); a.edit("wifi.channel", 6); if (E.T().guesses) F(P + "JUDGE: looking, or typing without saving, counted");
@@ -762,6 +783,8 @@ const PLANTS = [
   ["EXAM wifi:w1: TEXT", "the WiFi password mistyped in the answer", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "wifi" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "w1" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id === "pass" ? Object.assign({}, f, { answer: "Ma5on1SB35t!" }) : f)) }))) }))) })],
   ["EXAM t1:t1: SIX", "a Tier 1 task with five options", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "t1" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "t1" ? v : Object.assign({}, v, { fields: v.fields.map((f, i) => (i ? f : Object.assign({}, f, { options: f.options.slice(0, 5) }))) }))) }))) })],
   ["EXAM al:al1: KEY", "App Launch keyed to copy the file from another PC", () => ({ KEYS: Object.assign({}, KEYS, { "al:al1": Object.assign({}, KEYS["al:al1"], { t2: "Replace the missing file using a known working system" }) }) })],
+  ["ROUTER WR1: PARTIAL", "WR1 closes with the microwave still beside the access point", () => ({ TICKETS: withTicket("WR1", (t) => ({ goal: (f) => { const r = RT.get(f, "WR1"); return r.running.wifi.band === "2.4" && r.running.wifi.channel !== "auto"; } })) })],
+  ["ROUTER WR3: KEY", "WR3 keyed to a fixed channel", () => ({ TICKETS: withTicket("WR3", (t) => ({ target: Object.assign({}, t.target, { chan: "fixed" }) })) })],
   ["ROUTER N1: KEY", "N1 keyed to channel 6, where Router 2 already is", () => ({ TICKETS: withTicket("N1", (t) => ({ target: Object.assign({}, t.target, { chan: 6 }) })) })],
   ["ROUTER N2: EXHIBITED", "N2 already clear of the neighbours before the student starts", () => ({ TICKETS: withTicket("N2", (t) => ({ setup: (f) => { t.setup(f); const r = RT.get(f, "N2"); r.neighbours = []; } })) })],
   ["ROUTER P1: KEY", "P1 keyed the sim's original way round", () => ({ TICKETS: withTicket("P1", (t) => ({ target: Object.assign({}, t.target, { pc: "Game Console", gc: "Windows PC" }) })) })],

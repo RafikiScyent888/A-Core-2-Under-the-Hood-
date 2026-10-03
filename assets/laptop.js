@@ -24,6 +24,7 @@ import { drawMail, drawAdmin } from "./mailui.js";
 import { drawExam } from "./examui.js";
 import { EXAMS } from "./exams.js";
 import { drawRouter } from "./routerui.js";
+import { drawFloorPlan } from "./floorplan.js";
 import * as RT from "./router.js";
 import { staffOf, emailById, part as mailPart, emailDone, CATS } from "./tickets-mail.js";
 
@@ -35,7 +36,7 @@ function put(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 const E = createEngine();
 const LKEY = "c2vm.laptop.v1";
 let L = (function () { try { return JSON.parse(get(LKEY)) || null; } catch (e) { return null; } })() || { chat: [], said: {}, log: {}, unread: 0, sel: null, notes: {}, met: false };
-L.coach = L.coach || {}; L.lines = L.lines || {}; L.calls = L.calls || {};
+L.coach = L.coach || {}; L.lines = L.lines || {}; L.calls = L.calls || {}; L.onSite = L.onSite || {};
 function saveL() { put(LKEY, JSON.stringify(L)); }
 let instructor = false;
 
@@ -98,7 +99,8 @@ const APPS = {
   mailadmin: { title: "Mail admin — Rafiki's IT Services", mini: "MA", cls: "g-mail", geo: [0.20, 0.05, 0.62, 0.88], draw: drawAdminWin },
   exam: { title: "Exam Practice — the sims, laid out as the exam shows them", mini: "EX", cls: "g-exam", geo: [0.04, 0.02, 0.92, 0.95], draw: drawExamWin },
   router: { title: "92 Series — routers you manage", mini: "92", cls: "g-rt", geo: [0.10, 0.03, 0.72, 0.92], draw: drawRouterWin },
-  browser: { title: "Browser — 192.168.1.1", mini: "WB", cls: "g-web", geo: [0.14, 0.04, 0.70, 0.90], draw: drawBrowserWin }
+  browser: { title: "Browser — 192.168.1.1", mini: "WB", cls: "g-web", geo: [0.14, 0.04, 0.70, 0.90], draw: drawBrowserWin },
+  floor: { title: "Floor plan — Rafiki's office", mini: "FP", cls: "g-fp", geo: [0.05, 0.03, 0.62, 0.93], draw: drawFloorWin }
 };
 function appOf(id) { return id.indexOf("rdp:") === 0 ? { title: rosterOf(id.slice(4)).host + " — Remote support", mini: "RS", cls: "g-rdp", geo: [0.08, 0.03, 0.86, 0.92], draw: drawRdp } : APPS[id]; }
 function openWin(id) {
@@ -124,6 +126,14 @@ function place(w) {
   w.el.classList.toggle("max", !!w.max); w.el.classList.toggle("min", !!w.min);
   Object.assign(w.el.style, { left: w.x + "px", top: w.y + "px", width: w.w + "px", height: w.h + "px" });
 }
+/* keep every window on the desk when the desk narrows (Mason's panel
+   docking beside it, or the browser window shrinking): a window opened
+   before the panel would otherwise sit under it, covering his steps */
+function fitWins() {
+  const dw = desk.clientWidth; if (!dw) return;
+  Object.values(W).forEach(function (w) { if (w.w > dw) w.w = dw; if (w.x + w.w > dw) w.x = Math.max(0, dw - w.w); place(w); });
+}
+window.addEventListener("resize", fitWins);
 function focusWin(id) { const w = W[id]; if (!w) return; w.el.style.zIndex = ++Z; front = id; Object.values(W).forEach(function (x) { x.el.classList.toggle("front", x.id === id); }); drawTask(); }
 function closeWin(id) { const w = W[id]; if (!w) return; if (w.onClose) w.onClose(); w.el.remove(); delete W[id]; if (front === id) front = null; drawTask(); }
 function drag(w) {
@@ -137,7 +147,7 @@ function drag(w) {
   w.bar.addEventListener("dblclick", function (e) { if (!e.target.closest("button")) { w.max = !w.max; place(w); } });
 }
 function redraw(id) { const w = W[id]; if (w) w.a.draw(w); }
-function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); drawTask(); coachTick(); }
+function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); redraw("floor"); drawTask(); coachTick(); }
 
 /* ------------------------------------------------ desktop and taskbar */
 function drawDesk() {
@@ -160,7 +170,7 @@ function drawTask() {
   const ids = pinned.concat(Object.keys(W).filter(function (k) { return pinned.indexOf(k) < 0; }));
   ids.forEach(function (id) {
     const a = appOf(id); const w = W[id];
-    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : rosterOf(id.slice(4)).host;
+    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : id === "floor" ? "Floor plan" : rosterOf(id.slice(4)).host;
     const b = btn("", "tb" + (w ? " open" : "") + (front === id && w && !w.min ? " front" : ""), function () {
       if (!w) return openWin(id);
       if (front === id && !w.min) { w.min = true; place(w); front = null; drawTask(); } else { w.min = false; place(w); focusWin(id); }
@@ -298,6 +308,7 @@ function nextStepAdvice(t, st) {
     return p === "cat" ? (e.noForward ? who + "'s email can't be forwarded, so go and look at it: connect to " + who + "'s PC from Devices, open Mail there, and read the message and its details. Then say what it is on the ticket." : "Open Mail from the taskbar and read " + who + "'s forward: who it's really from, where its links really go (point at them, don't click), and what it wants. Then say what it is on the ticket.")
       : p === "tell" ? "Now the giveaway: which one detail proves it? The address, a link's real destination, an attachment's full name, or (for one that can't be forwarded) the headers."
       : "You know what it is. Now deal with it the way that kind of email is dealt with, in Mail and Mail admin. The card ticks itself off when it's done properly."; }
+  if (t.kind === "wifi" && planRouter()) return "Two places to look: the access point at 192.168.1.1 (Status shows who's dropping, and how badly), and the office itself. Mason's message has four clues: the time of day, what's on the other side of the closet wall, the walls, and the neighbours. Walk round to the break room and open the floor plan: it shows the Wi-Fi as it really is right now.";
   if (t.kind === "wifi") { if (!W.browser) return "The access point is on our own network: open 192.168.1.1 in the browser from the ticket, and sign in with the admin password Mason gave you.";
     return "Read Mason's message again: some settings he gives you exactly, some he leaves to you with a reason (the devices, the building, the room, the neighbours). The Status page shows each device and whether it connects, and why not. Remember: type, Save, then restart."; }
   if (t.kind === "router") { const rr = RT.get(E.fleet(), t.id), who = t.who;
@@ -400,6 +411,7 @@ function drawTicket(t) {
     acts.appendChild(btn("Switch to this ticket", "b pri", function () { Object.keys(W).filter(function (k) { return k.indexOf("rdp:") === 0; }).forEach(closeWin); E.openTicket(t.id); logT(t.id, "Picked back up"); refresh(); }));
   } else if (st.stage === "work" && wf) {
     acts.appendChild(coachTag("open-web", btn("Open 192.168.1.1 in the browser", "b pri", function () { openWin("browser"); })));
+    if (planRouter()) { acts.appendChild(coachTag("walk-break", btn("Walk to the break room", "b", function () { walkOver("BREAK"); }))); acts.appendChild(coachTag("open-floor", btn("Open the floor plan", "b", function () { openWin("floor"); }))); }
     acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: every device connects as it should" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
     acts.appendChild(coachTag("escalate", btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); })));
   } else if (st.stage === "work" && rt) {
@@ -613,6 +625,14 @@ function drawBrowserWin(w) {
   const pg2 = w.body.querySelector(".rt"); if (pg2) pg2.scrollTop = keep;
   if (foc) { const f = document.getElementById(foc); if (f) f.focus(); }
 }
+/* The floor plan: the office from above, with the Wi-Fi the access point
+   is running and the microwave, which moves only with the student there. */
+function planRouter() { const t = E.ticket(), st = E.T(); const r = t && st && st.stage !== "done" ? RT.get(E.fleet(), t.id) : null; return r && r.plan ? r : null; }
+function drawFloorWin(w) {
+  w.ui = w.ui || {}; w.body.innerHTML = ""; w.body.classList.add("fp-host");
+  drawFloorPlan(w.body, { router: planRouter, onSite: function () { const t = E.ticket(); return !!(t && L.onSite[t.id]); },
+    move: function (x, z) { routerAct("router-microwave", function (f, rr) { return RT.moveMicrowave(f, rr, x, z); }); } }, w.ui);
+}
 /* Everything done in the 92 Series app goes through here: the change to
    the router, then the engine (which judges it), the ticket's activity,
    and Mason. A view that only redraws (a confirm box) is quiet. */
@@ -712,6 +732,7 @@ function actLog(a, host) {
     "mail-policy": function () { return "Turned " + (a.on ? "on" : "off") + ": " + MX.POLICIES[a.key].label; },
     "mail-reset": function () { return "Reset " + staffOf(a.who).name + "'s password and signed them out everywhere"; },
     "router-sign-in": function () { return a.ok ? "Signed in to the access point at 192.168.1.1" : "Sign-in to 192.168.1.1 refused: wrong username or password"; },
+    "router-microwave": function () { const pr = planRouter(); return "Moved the microwave on the floor plan: now " + (pr ? Math.round(RT.microwaveFromAP(pr)) : "?") + " feet from the access point"; },
     "router-view": function () { return "Opened the router's " + ({ status: "Status", wireless: "Wireless", internet: "Internet", forward: "Port forwarding", admin: "Administration" }[a.tab] || a.tab) + " page"; },
     "router-edit": function () { return "Changed the " + ({ "wifi.ssid": "network name", "wifi.pass": "Wi-Fi password", "wifi.security": "security", "wifi.band": "band", "wifi.channel": "channel", "wifi.width": "channel width", "wifi.mac": "MAC filtering", "wifi.allowed": "allowed list", "wan.mode": "connection type", "wan.user": "PPPoE username", "wan.pass": "PPPoE password", forwards: "port forwards", screened: "screened-subnet host" }[a.path] || a.path) + " on the page (not saved yet)"; },
     "router-admin-pass": function () { return a.ok ? "Set a new admin password on the page (not saved yet)" : "Tried a new admin password: " + a.text; },
@@ -751,7 +772,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk" };
+const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -1298,6 +1319,78 @@ WALKS.R2 = { mode: "walk", machine: "TECH", steps: [
   { goal: "Record why it had to be strong", how: "Pick it on the ticket.", done: function () { const st = E.state().tickets.R2; return !!(st && (st.closeOK || st.stage === "done")); } },
   { goal: "Write the resolution notes", how: "What you changed, why it's strong, how it took effect.", done: function () { const st = E.state().tickets.R2; return !!(st && st.stage === "done"); } }
 ], end: "You walked it. The rest of the router tickets are yours: a cable in the wrong port, a change nobody saved, and two that Tier 1 can't fix but must check first." };
+/* ---------------------------------------- the wireless-reliability crawl and walk */
+function wrSet(id, cfg, band, chan) { const r = rr(id); if (!r) return false; const w = r[cfg].wifi; return w.band === band && String(w.channel) === String(chan) && (w.security === "WPA3" || w.security === "WPA2" || w.security === "WPA2/WPA3"); }
+function wrField() { const w = bwin(); if (!w) return null; const want = { "rt-band": "2.4", "rt-chan": "11", "rt-sec": "WPA3" }; return Object.keys(want).map(function (k) { return w.querySelector("#" + k); }).filter(function (x) { return x && x.value !== want[x.id]; })[0] || null; }
+function wrMoved() { const r = rr("WR1"); return !!(r && RT.microwaveFromAP(r) >= 15); }
+function signTarget(then) { const w = bwin(); if (!w) return null; const p = w.querySelector("#wb-pass"); if (p) return !p.value ? p : w.querySelector(".wb-login .b.pri"); return then(); }
+WALKS.WR1 = { machine: "TECH", steps: [
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Read Mason's message. Four clues: it's worst at lunchtime; the break counter with the microwave is right against the closet wall; the walls are dense; only a couple of networks nearby. And someone's already tried 5 GHz. Press Assign to me and start.",
+    why: "This is the Wireless Reliability lab's first variant, for real. Each clue points somewhere; your job is to make them all fit.",
+    target: function () { return document.querySelector('[data-coach="assign"]'); },
+    done: function () { const t = E.ticket(); return !!(t && t.id === "WR1" && E.T()); } },
+  { tag: "Find the evidence", win: function () { return W.browser ? "browser" : "helpdesk"; },
+    say: "Open 192.168.1.1 in the browser and sign in (admin, Clos3t-AP-2026). Status will show who's dropping, and why.",
+    target: function () { return W.browser ? signTarget(function () { return null; }) : document.querySelector('[data-coach="open-web"]'); },
+    done: function () { const r = rr("WR1"); return !!(r && r.events.some(function (e) { return e.kind === "sign-in"; })); } },
+  { tag: "Find the evidence", win: "helpdesk",
+    say: "Status says the Office 3 tablet keeps dropping on 5 GHz: the dense walls stop it. Now see the lunchtime clue for yourself: on the ticket, press Walk to the break room.",
+    why: "Some causes are in the room, not in the settings. Go and look.",
+    target: function () { return document.querySelector('[data-coach="walk-break"]'); },
+    done: function () { return !!L.onSite.WR1 || wrMoved(); } },
+  { tag: "Fix it", win: function () { return ""; },
+    say: "There it is: the microwave on the counter, a few feet from the access point through the wall, running. On the floor plan below, move it across the room, well away from the access point (drag it, or select it and use the arrow keys; Shift moves four feet at a time).",
+    why: "A microwave cooks at 2.45 GHz. Running beside an access point it drowns 2.4 GHz for the whole office; across the room, the damage shrinks to a patch around it.",
+    target: function () { return document.querySelector(".wo-desk .fp-mw"); },
+    done: function () { return wrMoved(); } },
+  { tag: "Fix it", win: function () { return ""; },
+    say: "Walk back to your desk.",
+    target: function () { return document.querySelector(".wo-back"); },
+    done: function () { return wrMoved() && !walkUI; } },
+  { tag: "Fix it", win: "browser",
+    say: "Now the access point. Open Wireless.",
+    target: function () { return signTarget(function () { return bTab("Wireless"); }); },
+    done: function () { const boot = rAt("WR1", function (e) { return e.kind === "microwave"; }); return rAt("WR1", function (e) { return e.kind === "view" && e.tab === "wireless"; }) > boot; } },
+  { tag: "Fix it", win: "browser",
+    say: "Set the band to 2.4 GHz (the dense walls), the channel to 11 (next door is on 1 and 6), and security to WPA3-Personal (it's on old WPA).",
+    why: "With the microwave moved, 2.4 GHz gets through the walls cleanly. A fixed channel clear of the neighbours, and modern security, finish the plan.",
+    target: wrField,
+    done: function () { return wrSet("WR1", "form", "2.4", 11) || wrSet("WR1", "saved", "2.4", 11); } },
+  { tag: "Fix it", win: "browser",
+    say: "Press Save.",
+    target: function () { return bBtn(/^Save$/); },
+    done: function () { return wrSet("WR1", "saved", "2.4", 11); } },
+  { tag: "Fix it", win: "browser",
+    say: "Press Restart access point. Sign back in afterwards.",
+    target: function () { return bBtn(/^Restart access point$/); },
+    done: function () { return wrSet("WR1", "running", "2.4", 11); } },
+  { tag: "Test it", win: "browser",
+    say: "Sign back in and read Status: every device, including the Office 3 tablet, connected, and none crawling.",
+    target: function () { return signTarget(function () { return bTab("Status"); }); },
+    done: function () { return lookedAfterRestart("WR1"); } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "Press Resolve on the ticket.",
+    target: function () { return document.querySelector('[data-coach="resolve"]'); },
+    done: function () { const st = E.state().tickets.WR1; return !!(st && st.stage !== "work"); } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "Record why moving the microwave beat switching to 5 GHz.",
+    target: function () { return document.querySelector(".res .opts"); },
+    done: function () { const st = E.state().tickets.WR1; return !!(st && (st.closeOK || st.stage === "done")); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Write the notes: what was interfering, what you moved, and the band, channel and security you set. Then Close the ticket.",
+    target: function () { return document.querySelector("#res-note"); },
+    done: function () { const st = E.state().tickets.WR1; return !!(st && st.stage === "done"); } }
+], end: "That's the lab's lunchtime variant done for real: the clue in the room, the band the walls allow, a clear channel, modern security, and proof on Status. Bright Path Design is next: you drive." };
+WALKS.WR2 = { mode: "walk", machine: "TECH", steps: [
+  { goal: "Take the ticket", how: "In Help Desk.", done: function () { const t = E.ticket(); return !!(t && t.id === "WR2" && E.T()); } },
+  { goal: "Read the router's Wi-Fi scan", how: "On Status, in the 92 Series app.", done: function () { return rAt("WR2", function (e) { return e.kind === "view" && e.tab === "status"; }) >= 0; } },
+  { goal: "Choose the band for a crowded neighbourhood", how: "How many clear channels does each band have? Is reach a problem in one open room?", done: function () { const r = rr("WR2"); return !!(r && ["form", "saved", "running"].some(function (c) { return r[c].wifi.band === "5"; })); } },
+  { goal: "Fix the channel and keep security modern", how: "A fixed channel; nothing old or open.", done: function () { const r = rr("WR2"); return !!(r && ["form", "saved", "running"].some(function (c) { return r[c].wifi.channel !== "auto" && r[c].wifi.band === "5"; })); } },
+  { goal: "Make the router use it", how: "The bar tells you what's left.", done: function () { const r = rr("WR2"); return !!(r && r.running.wifi.band === "5" && r.running.wifi.channel !== "auto"); } },
+  { goal: "Prove it on Status", how: "Nobody crawling.", done: function () { return lookedAfterRestart("WR2"); } },
+  { goal: "Resolve, record why, and write the notes", how: "In Help Desk.", done: function () { const st = E.state().tickets.WR2; return !!(st && st.stage === "done"); } }
+], end: "You walked it. The rest are yours: a long hallway, fourteen networks, a concrete warehouse, and a clinic corridor." };
 /* ---------------------------------------- the neighbouring-routers crawl and walk */
 function nrSet(id, cfg, T) { const r = rr(id); if (!r) return false; const w = r[cfg].wifi; return w.ssid === T.ssid && w.pass === T.pass && w.security === "WPA3" && Number(w.width) === 20 && String(w.channel) === String(T.chan); }
 function nrAllowed(id, cfg) { const r = rr(id); return !!(r && r[cfg].wifi.mac && r.devices.every(function (d) { return (r[cfg].wifi.allowed.indexOf(d.mac) >= 0) === !!d.approved; })); }
@@ -1548,7 +1641,7 @@ function coachNow() {
      proves nothing on its own ("the box is closed") don't carry back. */
   if (id && walk.mode !== "walk") { let top = -1; walk.steps.forEach(function (s, i) { if (!s.weak && (c[i] || s.done())) top = i; }); for (let i = 0; i <= top; i++) c[i] = true; }
   const n = id ? firstOpen(walk, c) : walk.steps.length;
-  if (!coachBox) { coachBox = el("aside", "coach"); coachBox.setAttribute("aria-label", "Mason is walking you through this ticket"); root.appendChild(coachBox); desk.style.right = "var(--coach-w)"; }
+  if (!coachBox) { coachBox = el("aside", "coach"); coachBox.setAttribute("aria-label", "Mason is walking you through this ticket"); root.appendChild(coachBox); desk.style.right = "var(--coach-w)"; fitWins(); }
   coachBox.dataset.walk = id || coachBox.dataset.walk;
   const waitNow = id && n < walk.steps.length && walk.steps[n].waiting ? String(walk.steps[n].waiting()) : "";
   const key = (id || coachBox.dataset.walk) + ":" + n + ":" + walk.steps.filter(function (x, i) { return c && c[i]; }).length;
@@ -1583,7 +1676,7 @@ function drawCoach(walk, n) {
   if (s.waiting && s.waiting()) now.appendChild(el("p", "coach-wait", s.waiting()));
   now.appendChild(btn("Show me where", "b small", function () {
     const w = winOf(s); if (W[w]) { W[w].min = false; place(W[w]); focusWin(w); }
-    const t = s.target(); if (t) { t.scrollIntoView({ block: "center", behavior: "smooth" }); t.classList.remove("coach-flash"); void t.offsetWidth; t.classList.add("coach-flash"); }
+    const t = s.target(); if (t) { t.scrollIntoView({ block: "nearest", behavior: "smooth" }); t.classList.remove("coach-flash"); void t.offsetWidth; t.classList.add("coach-flash"); }
   }));
   coachBox.appendChild(now);
   const ol = el("ol", "coach-list");
@@ -1659,13 +1752,15 @@ const ROUTES = {
   WS3: { path: [BENCH, CLOSET_DOOR, HALL, [29.5, 14.5], [29.5, 11.6], [33, 9], [36, 8.2]], look: [36, 3.0, 1.6] },
   WS5: { path: [BENCH, CLOSET_DOOR, HALL, [4.0, 14.8], [3.9, 19.5], [3.9, 26.8], [6.0, 26.9]], look: [2, 3.0, 23.5] },
   FS01: { path: [BENCH, [13.8, 26.4], [11.8, 28.6]], look: [15.4, 3.6, 29.2] },
-  MAIL01: { path: [BENCH, [13.8, 26.4], [11.8, 28.2]], look: [15.4, 5.2, 28.6] }
+  MAIL01: { path: [BENCH, [13.8, 26.4], [11.8, 28.2]], look: [15.4, 5.2, 28.6] },
+  BREAK: { path: [BENCH, CLOSET_DOOR, HALL, [21, 14.5], [21, 18.4], [24.5, 22.2], [27.5, 23.6]], look: [19.0, 3.4, 21.5] }
 };
 let walkUI = null;
 function reduceMotion() { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
 function walkOver(id) {
   if (walkUI) return;
-  const r = rosterOf(id), first = r.fullName.split(" ")[0], whose = r.id === "FS01" || r.id === "MAIL01" ? "the " + r.fullName.toLowerCase() : first + "'s desk";
+  const place = id === "BREAK";
+  const r = place ? { id: "BREAK", fullName: "Break counter", host: "the break counter", where: "the conference and break room", dept: "" } : rosterOf(id), first = r.fullName.split(" ")[0], whose = place ? "the break counter" : r.id === "FS01" || r.id === "MAIL01" ? "the " + r.fullName.toLowerCase() : first + "'s desk";
   const t = E.ticket(); if (t) logT(t.id, "Walked to " + r.host + " (" + r.where + ")");
   const ov = el("div", "walkover"); ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Walking to " + whose);
   /* a cutscene has the whole screen; at the desk, Mason's panel is back */
@@ -1690,6 +1785,7 @@ function walkOver(id) {
   }
   function arrived() {
     besideCoach(true);
+    if (place) { arrivedBreak(); return; }
     if (office && window.innerWidth > 760) office.shift(0.3);
     say.textContent = "You're at " + whose + ": " + r.host + ", " + r.where + ".";
     const skip = bar.querySelector(".wo-skip"); if (skip) skip.remove();
@@ -1742,7 +1838,26 @@ function walkOver(id) {
     ov.appendChild(panel);
     setTimeout(function () { back.focus({ preventScroll: true }); }, 0);
   }
+  /* at the break counter: what's there, and the floor plan to move it on */
+  function arrivedBreak() {
+    if (office && window.innerWidth > 760) office.shift(0.3);
+    const t0 = E.ticket(); if (t0) { L.onSite[t0.id] = true; saveL(); }
+    say.textContent = "You're at the break counter in the conference room.";
+    const skip = bar.querySelector(".wo-skip"); if (skip) skip.remove();
+    const panel = el("section", "wo-desk"); panel.setAttribute("aria-label", "At the break counter");
+    panel.appendChild(el("h2", null, "At the break counter · conference and break room"));
+    const rr = planRouter(), d = rr ? Math.round(RT.microwaveFromAP(rr)) : 0;
+    panel.appendChild(el("p", "wo-state", "The microwave is running: someone's heating lunch. It sits on the counter against the closet wall, about " + d + " feet from the access point on the other side of it."));
+    panel.appendChild(el("p", "wo-state", "Below is the whole office from above, with the Wi-Fi as the access point is running it. While you're standing here, you can move the microwave on it."));
+    const fpBox = el("div", "wo-fp"); panel.appendChild(fpBox); const fpUI = {};
+    function drawHere() { fpBox.innerHTML = ""; drawFloorPlan(fpBox, { router: planRouter, onSite: function () { return true; }, move: function (x, z) { routerAct("router-microwave", function (f, rr) { return RT.moveMicrowave(f, rr, x, z); }); drawHere(); } }, fpUI); }
+    drawHere();
+    const back = btn("Walk back to your desk", "b wo-back", function () { panel.remove(); goBack(); });
+    panel.appendChild(back); ov.appendChild(panel);
+    setTimeout(function () { const m = fpBox.querySelector(".fp-mw"); if (m) m.focus({ preventScroll: true }); }, 0);
+  }
   function goBack() {
+    if (place) { const t0 = E.ticket(); if (t0) { L.onSite[t0.id] = false; saveL(); } if (W.floor) redraw("floor"); }
     say.textContent = "Walking back to your desk…";
     const done = function () { fadeTo(true, function () { ov.remove(); walkUI = null; if (office) office.dispose(); const t2 = E.ticket(); if (t2) logT(t2.id, "Back at your desk"); refresh(); }); };
     if (office) office.shift(0);
@@ -1754,14 +1869,15 @@ function walkOver(id) {
     try {
       const mod = await import("./office3d.js");
       if (!mod.webglOK()) throw new Error("no webgl");
-      office = await mod.mountOffice(stage, { walk: true, machines: ROSTER, height: stage.clientHeight || window.innerHeight, ao: false });
+      const pr = planRouter();
+      office = await mod.mountOffice(stage, { walk: true, machines: ROSTER, height: stage.clientHeight || window.innerHeight, ao: false, microwave: pr ? pr.microwave : null });
       office.standAt(BENCH, [12.4, 3.4, 23.2]);
       say.textContent = "Walking to " + whose + "…";
       const skip = btn("Skip the walk", "b small wo-skip", function () { if (walking) walking.skip(); }); bar.appendChild(skip);
       ov.classList.add("cine-on"); caption("Rafiki's IT Services", "Your bench is in the network closet");
       walking = office.walk(route.path, route.look, arrive, { aerial: true, onPhase: function (ph) {
         if (ph === "aerial") fadeTo(false);
-        if (ph === "walk") caption(r.id === "FS01" || r.id === "MAIL01" ? "To the server rack" : "To " + r.where, r.fullName + (r.id === "FS01" || r.id === "MAIL01" ? "" : ", " + r.dept) + " · " + r.host);
+        if (ph === "walk") caption(place ? "To the break room" : r.id === "FS01" || r.id === "MAIL01" ? "To the server rack" : "To " + r.where, place ? "The counter by the closet wall · lunchtime" : r.fullName + (r.id === "FS01" || r.id === "MAIL01" ? "" : ", " + r.dept) + " · " + r.host);
       } });
     } catch (e) {
       stage.appendChild(el("p", "wo-no3d", "The 3D office isn't available on this computer, so picture it: out of the closet, down the corridor, to " + whose + "."));

@@ -29,6 +29,7 @@ import { ROUTER } from "./tickets-router.js";
 import { WIFI } from "./tickets-wifi.js";
 import { PF } from "./tickets-pf.js";
 import { NR } from "./tickets-nr.js";
+import { WR } from "./tickets-wr.js";
 
 function works(m, app) { return M.launchApp(M.clone(m), app).ok; }
 function has(m, kind, test) { return m.events.some(function (e) { return e.kind === kind && (!test || test(e)); }); }
@@ -310,6 +311,7 @@ ROUTER.forEach(function (t) { TICKETS.push(t); });
 WIFI.forEach(function (t) { TICKETS.push(t); });
 PF.forEach(function (t) { TICKETS.push(t); });
 NR.forEach(function (t) { TICKETS.push(t); });
+WR.forEach(function (t) { TICKETS.push(t); });
 
 /* How far along a Tier 2 fix is: used so a step that helps is never
    counted as a guess, even when the program does not run yet. */

@@ -13,6 +13,7 @@
    switching computers"), so nothing here is the only way to do anything,
    and the page works with WebGL switched off.
    ===================================================================== */
+import * as PLAN from "./officeplan.js";
 import * as THREE from "three";
 import { EXRLoader } from "three/addons/loaders/EXRLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -184,23 +185,10 @@ export async function mountOffice(host, opts) {
      sq ft), a 5 ft corridor (44 in minimum), a 22x15 ft conference room
      for ten (20-25 sq ft a person), 9 ft ceilings.
      ===================================================================== */
-  const W = 40, D = 32, H = 9, EXT = 0.8, INT = 0.5;
-  /* walls as [x0,z0,x1,z1, kind, gaps[[a,b]]] along one axis */
-  const WALLS = [
-    [0, 0, W, 0, "ext", []], [0, D, W, D, "ext", [[27, 31]]], [0, 0, 0, D, "ext", [[13, 16.5]]], [W, 0, W, D, "ext", []],
-    [0, 12, W, 12, "int", [[8.5, 11.5], [14.5, 17.5], [28, 31]]],
-    [13, 0, 13, 12, "int", []], [27, 0, 27, 12, "int", []],
-    [11, 17, W, 17, "int", [[13, 16], [19.5, 22.5]]],
-    [11, 17, 11, D, "int", []], [18, 17, 18, D, "int", []]
-  ];
-  const AP = { x: 14.5, z: 18.2, y: 8.2 };
+  /* the plan itself is shared with the 2D floor plan (officeplan.js) */
+  const W = PLAN.W, D = PLAN.D, H = 9, EXT = 0.8, INT = 0.5;
+  const WALLS = PLAN.WALLS, AP = PLAN.AP, segs = PLAN.segs;
   const TABLET = { x: 30.2, z: 5.2 };
-  
-  function segs(w) {
-    const [x0, z0, x1, z1, , gaps] = w; const horiz = z0 === z1; const a0 = horiz ? x0 : z0, a1 = horiz ? x1 : z1;
-    const out = []; let s = a0; gaps.slice().sort((p, q) => p[0] - q[0]).forEach(([g0, g1]) => { if (g0 > s) out.push([s, g0]); s = g1; }); if (s < a1) out.push([s, a1]);
-    return out.map(([a, b]) => horiz ? [a, z0, b, z0] : [x0, a, x0, b]);
-  }
   
   function buildOffice(roof, full) {
     /* site */
@@ -328,6 +316,16 @@ export async function mountOffice(host, opts) {
     box(23, 22.5, 35, 26.5, 2.35, 2.55, wood); cyl(26, 24.5, 0.4, 0.4, 2.35, M("leg"), 10); cyl(32, 24.5, 0.4, 0.4, 2.35, M("leg"), 10);
     [24, 27, 30, 33].forEach((x) => { chair(x + 0.5, 21); chair(x + 0.5, 28); }); chair(21.3, 24.5); chair(36.7, 24.5);
     box(39.3, 21.5, 39.6, 27.5, 4, 7.4, dark);
+    /* the break counter along the closet wall, and the microwave on it
+       (the Wireless Reliability job) */
+    if (opts.microwave) {
+      box(18.25, 19.6, 20.2, 24.4, 0.4, 3.1, M("counter", { color: 0xd8d2c6, roughness: 0.7 }));
+      box(18.2, 19.5, 20.3, 24.5, 3.1, 3.25, M("worktop", { color: 0x5b5f66, roughness: 0.35 }));
+      const mx = opts.microwave.x, mz = opts.microwave.z;
+      box(mx - 0.75, mz - 0.95, mx + 0.75, mz + 0.95, 3.25, 4.3, M("mwbody", { color: 0xe9eaec, metalness: 0.3, roughness: 0.4 }));
+      box(mx + 0.74, mz - 0.85, mx + 0.79, mz + 0.45, 3.4, 4.15, M("mwdoor", { color: 0x1d232b, roughness: 0.15 }));
+      box(mx + 0.74, mz + 0.55, mx + 0.79, mz + 0.85, 3.6, 4.0, M("mwpanel", { color: 0x3a4250, roughness: 0.4 }));
+    }
     /* plants */
     [[1.5, 15.5], [38.5, 15.5], [12, 1.2], [26, 11]].forEach(([x, z]) => { cyl(x, z, 0.55, 0.4, 1.6, M("pot", { color: 0xcfcac0 }), 14); shrub(x, z + 0, 0.9).position.y = 2.4; });
   }

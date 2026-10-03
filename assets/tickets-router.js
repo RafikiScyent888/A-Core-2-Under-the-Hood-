@@ -16,6 +16,8 @@ function opt(label, correct, why) { return { label: label, correct: !!correct, w
 export function routerOf(fleet, t) { return R.get(fleet, t.id); }
 /* every device in the house still gets on: a fix must not break anything */
 export function intact(r) { return r.devices.every(function (d) { return R.joins(r, d).ok; }); }
+/* every device connected, and none of them crawling */
+export function healthy(r) { return r.devices.every(function (d) { return R.joins(r, d).ok && !R.slowWhy(r, d); }); }
 function asked(r, what) { return r.events.some(function (e) { return e.kind === "ask" && e.what === what; }); }
 function viewed(r, tab) { return r.events.some(function (e) { return e.kind === "view" && e.tab === tab; }); }
 function savedStrong(r) { return R.strong(r.saved.admin.pass, r.sticker.pass); }
@@ -46,6 +48,9 @@ export function routerTicket(o) {
     if (act.type === "router-admin-pass") return act.ok ? { guess: false } : { guess: true, say: "The router refused it: " + act.text };
     if (act.type === "router-factory") return { guess: true, say: "Everything on the router is gone: its Wi-Fi name and password, so every device in the " + (t.home ? "house" : "office") + " dropped off, and the admin password is back to the one printed on the sticker. Revert to your last snapshot to put it back." };
     if (act.type === "router-reboot" && act.lost) return { guess: true, say: "The router restarted and threw away what was on the page: it wasn't saved. Type it again, Save, then restart." };
+    /* moving the microwave is exploring, a step at a time: only a move that
+       makes things worse counts */
+    if (act.type === "router-microwave") return t.scoreFn(fleet) < before.score ? { guess: true, say: "That made it worse: look at the floor plan. Where does the microwave do the least harm?" } : { guess: false };
     if (act.type === "router-save" || act.type === "router-reboot") {
       if (better) return { guess: false };
       if (!intact(r)) return { guess: true, say: "Now some of " + t.who + "'s devices can't get on: " + r.devices.filter(function (d) { return !R.joins(r, d).ok; }).map(function (d) { return R.joins(r, d).why; }).join(" ") };

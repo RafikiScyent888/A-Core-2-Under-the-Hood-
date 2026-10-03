@@ -1420,5 +1420,81 @@ so it is safe on GitHub, then the tickets).
     view (its first "catch" had been that stray row), and the footer below
     the fold.
 - **Still to come in the router build:** the 3D street showing each
-  router's reach and channel, and the Wireless Reliability tickets with the
-  microwave cutscene and floor plan.
+  router's reach and channel.
+
+### The Wireless Reliability tickets as built (3 October 2026, live)
+
+- **New files:** `tickets-wr.js` (WR1–WR6), `officeplan.js` (the office as
+  plain geometry, and its Wi-Fi), `floorplan.js` (the 2D floor plan).
+  `office3d.js` now draws its walls from `officeplan.js`, so the 3D office
+  and the floor plan are one plan.
+- **The sim's keys stand** (the owner's 30 September ruling): each ticket's
+  band, channel plan and security are its variant's checkpoint answers,
+  and `verify/logic.mjs` checks each ticket against its exam practice.
+  What the ticket adds is the real job: devices that drop or crawl until
+  the settings fit the building.
+- **WR1, the sim itself (variant A), in Rafiki's own office:**
+  - A break counter with a microwave is in the conference room, against
+    the closet wall, about 6 ft from the access point on the other side.
+    It's new in the 3D office.
+  - **The walk:** "Walk to the break room" is a cutscene from the IT bench
+    to the counter (the owner's ruling 8).
+  - **The floor plan**, drawn at the counter: the office from above, the
+    coverage from the access point's running band, the walls and the
+    microwave, every room, device and reading as real text with a legend
+    in words. The microwave moves by dragging or the arrow keys (Shift for
+    four feet), only while the student is standing there; from the desk
+    the floor plan is look-only.
+  - **The numbers (large and obvious, as asked):** on 2.4 GHz with the
+    microwave beside the access point, 72% of the office drops and 85% is
+    less than good; moved across the room, only a 9% patch around it. On
+    5 GHz the Office 3 tablet drops through the walls whatever the
+    microwave does.
+  - **Done:** the microwave at least 15 ft from the access point, 2.4 GHz,
+    a fixed channel clear of the neighbours (11), modern security, every
+    device connected and none crawling. The cause question asks why moving
+    the microwave beat switching to 5 GHz, which keeps the sim's key (2.4
+    GHz for the walls) and teaches the microwave.
+- **The model learned** (`router.js`): busy airwaves (six or more
+  networks on 2.4 GHz), a device too far down a building for 5 GHz, a
+  device that needs 5 GHz speed, and the floor plan's signal for devices
+  in Rafiki's office. Status says "Connected but crawling", with why.
+- **The tickets:**
+
+  | | Level | Site | Symptom | The lab's plan |
+  |---|---|---|---|---|
+  | WR1 | Crawl (13 steps) | Rafiki's office | drops at lunchtime; 5 GHz tried | move the microwave; 2.4 GHz; fixed channel; WPA3 |
+  | WR2 | Walk (7 items) | Bright Path Design | slow all day, ten networks | 5 GHz, fixed channel |
+  | WR3 | Run | Long Hall Studios | far end drops, projector needs speed | dual-band, automatic |
+  | WR4 | Run | Wu & Partners | fourteen networks | 5 GHz, fixed channel |
+  | WR5 | Run | Doyle Logistics | concrete, far scanner | 2.4 GHz, fixed channel, secured |
+  | WR6 | Run | Riverside Clinic | far rooms drop, imaging tablet needs speed | dual-band, automatic |
+
+- **Moving the microwave is exploring:** only a move that makes things
+  worse counts as a wrong move.
+- **Checks:** logic (54 tickets, 64 plants; each ticket keyed to its exam
+  practice; WR1's settings alone don't close it without the microwave
+  moved); page WR (the floor plan locked from the desk; WR1 by Mason's
+  rings, walk and microwave included; WR4 through the UI); contrast (the
+  break counter with the floor plan, the floor plan from the desk; 20
+  plants).
+- **Found and fixed while building:**
+  - **Windows covered Mason's panel.**
+    - Windows are sized to the desktop when they open. When Mason's panel
+      docked later, the desktop narrowed but open windows kept their size.
+    - So a Browser left open from a Wi-Fi ticket covered his steps at the
+      start of WR1, and its shadow pulled a step number to 6.69:1 in light
+      mode (the sweep found it).
+    - Open windows now refit whenever the desktop narrows.
+    - The desktop is now its own stacking layer, so no window, and no
+      window's shadow, can rise above Mason's panel, the taskbar, toasts
+      or pop-ups, however often it's focused.
+    - A page check (with its plant) opens the Browser first, starts WR1,
+      and requires every window to clear the panel.
+  - **Mason's "Show me where" scrolled the whole page,** pushing window
+    title bars off the top of the screen (`scrollIntoView` with
+    `block: "center"` scrolls every container, the page included). It now
+    uses `nearest`, which scrolls only what's needed to show the target.
+- **The counter and microwave are a new 3D model,** placed by Claude, not
+  from a photo. OPEN: the owner may want them somewhere else, or built
+  from photos of a real break counter.

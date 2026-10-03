@@ -19,6 +19,7 @@
    ticket closes only when the router really works.
    ===================================================================== */
 import * as M from "./machine.js";
+import * as PLAN from "./officeplan.js";
 
 export function all(fleet) { const t = fleet.TECH; if (!t.routers) t.routers = {}; return t.routers; }
 export function get(fleet, id) { return all(fleet)[id]; }
@@ -56,6 +57,7 @@ export function add(fleet, o) {
     sticker: { pass: cfg.admin.pass, ssid: cfg.wifi.ssid, wifiPass: cfg.wifi.pass },
     phys: Object.assign({ wanPort: "wan", power: "ok" }, o.phys || {}), isp: Object.assign({ mode: "DHCP" }, o.isp || {}), publicIp: o.publicIp || "50.90.234.1",
     devices: copy(o.devices || []), neighbours: copy(o.neighbours || []), crowd: o.crowd || 0, web: !!o.web, where: o.where || "", screenedNet: o.screenedNet || "",
+    plan: !!o.plan, microwave: o.microwave ? copy(o.microwave) : null,
     saved: cfg, running: copy(cfg), form: copy(cfg), events: [], signedIn: false };
   all(fleet)[o.id] = r;
   return r;
@@ -159,6 +161,10 @@ export function joins(r, d) {
   const bands = d.bands || ["2.4", "5"];
   if (d.ssid && d.ssid !== w.ssid) return { ok: false, why: d.name + " is looking for \"" + d.ssid + "\" and can't find it." };
   if (w.band !== "dual" && bands.indexOf(w.band) < 0) return { ok: false, why: d.name + " can't see the network: it only has " + bands.join(" and ") + " GHz." };
+  /* in Rafiki's office the floor plan decides: walls, distance and the
+     microwave; dual-band steers each device onto whichever band is better */
+  if (r.plan && d.pos) { const q = planQuality(r, d); if (PLAN.grade(q) === "drops") return { ok: false, why: d.name + " keeps dropping: the signal there is " + Math.round(q) + " dBm, too weak to hold." }; }
+  if (w.band === "5" && d.far) return { ok: false, why: d.name + " keeps dropping: 5 GHz doesn't reach that far down the building." };
   /* 5 GHz is stopped by thick walls; 2.4 GHz gets through. Dual-band
      steers a far device onto 2.4 GHz. */
   if (w.band === "5" && (d.walls || 0) >= 2) return { ok: false, why: d.name + " can't hold a signal: 5 GHz doesn't get through " + d.walls + " thick walls." };
@@ -166,6 +172,24 @@ export function joins(r, d) {
   if (w.mac && w.allowed.indexOf(d.mac) < 0) return { ok: false, why: d.name + " is blocked: its MAC address isn't on the allowed list." };
   if (w.security !== "Open" && d.knows !== w.pass) return { ok: false, why: d.name + " has a different Wi-Fi password saved." };
   return { ok: true, why: d.name + " is connected." };
+}
+/* A device's signal on Rafiki's floor plan (dBm), on the band it gets */
+export function planQuality(r, d) {
+  const b = r.running.wifi.band, mw = r.microwave;
+  return b === "dual" ? Math.max(PLAN.quality(d.pos.x, d.pos.z, "2.4", mw), PLAN.quality(d.pos.x, d.pos.z, "5", mw)) : PLAN.quality(d.pos.x, d.pos.z, b, mw);
+}
+/* Busy airwaves: six or more networks nearby on 2.4 GHz, where only three
+   channels don't overlap, and everyone's taking turns. */
+export function congested(r) { return r.running.wifi.band === "2.4" && r.neighbours.length >= 6; }
+/* Connected, but is it any good? The reason, in words, or null. */
+export function slowWhy(r, d) {
+  if (!joins(r, d).ok || d.wired) return null;
+  const w = r.running.wifi, on24 = w.band === "2.4" || (w.band === "dual" && (d.far || (d.bands || ["2.4", "5"]).indexOf("5") < 0));
+  if (crowded(r)) return r.crowd + " devices share 2.4 GHz's three clear channels";
+  if (congested(r)) return r.neighbours.length + " networks nearby are all taking turns on 2.4 GHz";
+  if (d.needs5 && on24) return d.name + " needs 5 GHz speed, and it's on 2.4 GHz";
+  if (r.plan && d.pos && PLAN.grade(planQuality(r, d)) === "weak") return "the signal there is only " + Math.round(planQuality(r, d)) + " dBm";
+  return null;
 }
 /* Many devices in one room on 2.4 GHz, which has only three channels
    that don't overlap: they join, but it crawls. */
@@ -203,6 +227,16 @@ export function natTest(r) {
 }
 export function deviceByName(r, name) { return r.devices.filter(function (d) { return d.name === name; })[0]; }
 
+/* Moving the microwave, standing in the break room (the floor plan). It
+   stays inside the room it's in. */
+export function moveMicrowave(fleet, r, x, z) {
+  if (!r.microwave) return { ok: false };
+  const room = PLAN.roomAt(r.microwave.x, r.microwave.z) || PLAN.ROOMS[PLAN.ROOMS.length - 1];
+  r.microwave = { x: Math.max(room.x0 + 0.6, Math.min(room.x1 - 0.6, x)), z: Math.max(room.z0 + 0.6, Math.min(room.z1 - 0.6, z)) };
+  note(fleet, r, "microwave", { x: Math.round(r.microwave.x * 10) / 10, z: Math.round(r.microwave.z * 10) / 10 });
+  return { ok: true };
+}
+export function microwaveFromAP(r) { return r.microwave ? Math.hypot(r.microwave.x - PLAN.AP.x, r.microwave.z - PLAN.AP.z) : Infinity; }
 /* The things only someone standing at the router can do. The customer
    does them, on the phone. */
 export function ask(fleet, r, what) {

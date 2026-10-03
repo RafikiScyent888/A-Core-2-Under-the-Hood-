@@ -25,6 +25,10 @@ on the laptop:
 - **Browser:** the office access point at 192.168.1.1. Sign in, set its
   Wi-Fi, Save and restart; the Status page shows each device in the office,
   where it is, and whether it really connects.
+- **Floor plan:** Rafiki's office from above, with the Wi-Fi coverage the
+  access point is really giving, room by room and device by device, in
+  words as well as colour. On the lunchtime job you walk to the break room
+  and drag the microwave across it, and the coverage changes.
 - **Exam Practice** shows each sim laid out the way the exam shows it: the
   Port Forwarding diagram, the Wi-Fi office map, the three houses of
   Neighboring Routers, the Tier 1 Router scenario, the Wireless
@@ -52,8 +56,8 @@ Live: https://rafikiscyent888.github.io/A-Core-2-Under-the-Hood-/
 
 | | Tickets | How much help |
 |---|---|---|
-| **Crawl** | L1, D1, M1, E1, R1, W1, P1, N1: the sims themselves | Mason walks you through every step and rings what to press |
-| **Walk** | L2, D2, M2, E2, R2, W2, P2, N2 | A checklist that ticks itself off as you work, with "How?" pointers |
+| **Crawl** | L1, D1, M1, E1, R1, W1, P1, N1, WR1: the sims themselves | Mason walks you through every step and rings what to press |
+| **Walk** | L2, D2, M2, E2, R2, W2, P2, N2, WR2 | A checklist that ticks itself off as you work, with "How?" pointers |
 | **Run** | the rest, 3 to 6 of each | On your own, as in the exam. Mason checks in after your third wrong move |
 
 The L tickets come from the Application Launch sim (Tier 1), the D
@@ -74,7 +78,7 @@ next one. The Deployment sim
 is rebuilt so its old answer is tried and fails: the robocopy from System32
 gives 0xc000007b, and `regsvr32` gives its real error.
 
-The router tickets come from four sims:
+The router tickets come from five sims:
 - **R, Tier 1 Router Support:** customers' 92 Series routers. Default
   admin passwords, a cable in the wrong port, a change never saved, and
   the faults Tier 1 hands on.
@@ -87,6 +91,9 @@ The router tickets come from four sims:
 - **N, Neighboring Routers Configuration:** Router 3 in a street of three
   houses. A clear channel at 20 MHz, WPA3, and MAC filtering where it's
   asked for; the Wi-Fi scan shows any overlap in words.
+- **WR, Wireless Reliability Decision Lab:** offices whose Wi-Fi drops or
+  crawls. Band and channel plan from the sim's keys, made real: walls,
+  distance, busy airwaves, and a microwave in Rafiki's own break room.
 
 The program's rules apply throughout:
 - unlimited tries
