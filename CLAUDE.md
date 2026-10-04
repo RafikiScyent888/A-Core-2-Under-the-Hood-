@@ -1587,3 +1587,27 @@ The owner, 30 September: "The three houses from Router_houses.png get a
   on a weak graphics card: warm point lights in every room (cheap whole
   room light instead), and a "transmission" glass turntable (plain
   see-through glass instead).
+
+## 14. The Help Desk chats and extra training — SETTLED 4 October 2026
+
+The objectives were re-read on 4 October 2026; the Core 2 wording is
+unchanged (section 2). The owner's answers to the questions asked after
+the street went live:
+
+- **The chats are chat plus hands-on.** While chatting, the student also
+  checks and fixes the real thing (the phone's mail settings, the mail
+  server, the router), not only picks replies.
+- **Customer mood: yes.** A wrong reply gets a realistic reaction (the
+  customer gets confused or frustrated), shown in words on a mood line.
+  Nothing ever locks the student out.
+- **Keep the sims' joke replies, and add realistic mistakes.** Each step
+  has a pool of nine (one right, eight wrong): the sims' own wrong
+  replies, jokes included ("Blow on the SIM card"), plus near misses a
+  technician really makes. Six are shown (section 11, ruling 10).
+- **Extra training's first preview: yes.** The Help Desk queue in its two
+  headed sections, plus one sample extra-training ticket built end to end
+  (backup and recovery suggested).
+- **Mobile troubleshooting needs a phone:** the owner asked to see the
+  phone model first ("Show me this phone you have").
+- **Weekly usage:** "Do NOT worry about the 90%. I will keep a watch on
+  it."
