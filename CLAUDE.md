@@ -1611,3 +1611,86 @@ the street went live:
   phone model first ("Show me this phone you have").
 - **Weekly usage:** "Do NOT worry about the 90%. I will keep a watch on
   it."
+- **The phone: SETTLED.** The owner, on seeing the preview renders
+  ("Use the phone that you showed me"): the generic smartphone built in
+  `assets/phone3d.js` (aluminium frame, frosted navy back, two-lens camera,
+  power and volume keys, SIM tray with a nano-SIM, USB-C, speaker grille).
+  It is the customer's phone in the Mobile devices program: the 3D model
+  shows the settings screen, and the same settings are beside it as real
+  text (readable, zoomable, measured for contrast).
+
+### The Help Desk chats as built (4 October 2026)
+
+- **New files:**
+  - `chat.js`: the conversation model
+  - `tickets-chat.js`: CE1–CE6 and CR1–CR6
+  - `chatui.js`: the Customer chat and Mobile devices programs
+  - `mobile.js`: company phones and the mail server
+  - `phone3d.js` and `phoneview.js`: the approved phone, in a window
+- **Customer chat** (a program on the laptop, opened from the ticket):
+  - The conversation, with the customer's mood in words and a four-step
+    meter: Calm, Impatient, Frustrated, Upset.
+  - Six replies shown on each step, from its pool of nine: one right,
+    and eight wrong ones made up of the sim's own (jokes included) and
+    the realistic mistakes.
+  - A wrong reply stays in the conversation with the customer's reaction
+    under it, and stays red in the choices, marked three ways.
+  - A wrong instruction is tried by the customer, fails, and is put back,
+    so it never poisons the steps after it.
+  - **Start the chat again** gives a new six on every step, puts the
+    customer's phone or router back, and keeps the hint count.
+- **Hands-on, in the middle of the chat.** The customer waits while the
+  student checks the real thing, and the step ticks off when it's done:
+  - **Email chats:** compare the phone with the mail server in Mobile
+    devices; after the customer's change, press Sync now and read the
+    result.
+  - **Router chats:** read the customer's router in the 92 Series app
+    (it's shared): before advising, and after their change and restart.
+- **Mobile devices** (a program on the laptop):
+  - The customer's phone in 3D (the approved model), its screen showing
+    its mail settings.
+  - The same settings as real text, with Sync now and its result in
+    words.
+  - The company mail server's published settings, and a "ports you'll
+    meet" table.
+- **The phone and mail model** (`mobile.js`): mail works only when the
+  phone matches the server.
+  - Receiving: IMAP on 993 or POP3 on 995, SSL/TLS.
+  - Sending: SMTP on 587, STARTTLS, with sign-in. Carriers block port 25.
+  - The right server name and the current password.
+  - Each failure gives the error a real phone would.
+- **The router model** gained a newer firmware version to install (CR4).
+  The 92 Series app's Check for updates installs it and restarts.
+- **The tickets:**
+
+  | | Level | Customer | Fault |
+  |---|---|---|---|
+  | CE1 | Crawl (11 steps) | Brenda, the sim word for word | IMAP SSL on port 100 → 993 |
+  | CE2 | Walk (8 items) | John | can't send: port 25, no security, no sign-in → 587, STARTTLS, sign-in |
+  | CE3 | Run | Farah | POP3 removes mail from the server → IMAP on 993 |
+  | CE4 | Run | Rosa | server name typo, incoming and outgoing |
+  | CE5 | Run | Dev | password changed, phone still has the old one |
+  | CE6 | Run | Brenda | a friend set security to None on 143 → SSL/TLS on 993 |
+  | CR1 | Crawl (11 steps) | Priya Shah, the sim word for word | default admin password, save, reboot |
+  | CR2 | Walk (8 items) | Tom Rivera | Wi-Fi on the sticker's name and password → new name, passphrase, WPA3 |
+  | CR3 | Run | Ana Lopez | new Wi-Fi password typed, never saved, lost in a power cut |
+  | CR4 | Run | Grace Kim | firmware update, done safely |
+  | CR5 | Run | Mia Torres | WPA3-only locks out an old laptop → WPA2/WPA3 transition |
+  | CR6 | Run | Ben Carter | evening drop-outs: channel 6 at 40 MHz → 11 at 20 MHz |
+
+- **The five-more chats end with a professional close** (its own nine).
+  The sims end on the customer's thanks, so CE1 and CR1 do too.
+- **Checks:**
+  - logic: 66 tickets, 71 plants. Seven chat plants: a pool short a
+    reply, the sim's joke dropped, the fault missing, a wrong reply moving
+    the chat on, a hint giving the reply away, a restart that keeps the
+    customer's changes, a restart that shows the same six.
+  - page CHAT: CE1 by Mason's rings; CE3's restart drawing a new six; CR3
+    through the screen with one wrong reply (reaction, mood and red
+    checked), the Wireless check, the router really running the new
+    password, closed with exactly one wrong move counted. Three plants.
+  - contrast: the chat with wrong replies, Mason's rung 3 in the replies,
+    the hands-on wait, Mobile devices (phone, failed sync, mail server).
+    Two plants.
+- **Still to come:** exam views for the two chat sims (laid out as the sims
+  are), and the extra-training preview.

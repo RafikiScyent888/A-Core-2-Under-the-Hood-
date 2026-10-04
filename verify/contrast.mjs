@@ -384,6 +384,22 @@ export async function run(extraCss) {
     await svw.locator(".sv-list").scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
     await sweep(tag + ": the street, the band chart and the list");
     await svw.getByRole("button", { name: /^Close Street view/ }).click();
+    /* the customer chat: a wrong reply and the customer's reaction, Mason's rung 3 in the replies, a hands-on wait; Mobile devices */
+    await toFront("helpdesk"); await hd.getByRole("button", { name: /John's phone won't send email/ }).first().click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+    await hd.getByRole("button", { name: "Open the customer chat" }).click(); await page.waitForTimeout(200);
+    const ccw = page.locator("[data-win=custchat]");
+    const pickWrong = async (n) => { for (let k = 0; k < n; k++) { await page.evaluate(() => { const E = window.__LAP.engine, t = E.ticket(), c = E.fleet().TECH.chats[t.id], lab = t.chat[c.step].right.label; const b = Array.from(document.querySelectorAll("[data-win=custchat] .cc-opts .opt2")).filter((x) => !x.disabled && x.querySelector(".ol").textContent !== lab)[0]; if (b) b.click(); }); await page.waitForTimeout(100); } };
+    const pickRight = async () => { await page.evaluate(() => { const E = window.__LAP.engine, t = E.ticket(), c = E.fleet().TECH.chats[t.id], lab = t.chat[c.step].right.label; const b = Array.from(document.querySelectorAll("[data-win=custchat] .cc-opts .opt2")).filter((x) => x.querySelector(".ol").textContent === lab)[0]; if (b) b.click(); }); await page.waitForTimeout(100); };
+    await pickWrong(3); await sweep(tag + ": customer chat, wrong replies and the customer's reactions");
+    await pickRight(); await pickWrong(2); await ccw.locator(".cc-opts").scrollIntoViewIfNeeded(); await sweep(tag + ": customer chat, Mason's rung 3 in the replies");
+    await pickRight(); await ccw.locator(".cc-wait").scrollIntoViewIfNeeded(); await sweep(tag + ": customer chat, waiting for a hands-on check");
+    await ccw.getByRole("button", { name: "Open Mobile devices" }).click(); await page.waitForTimeout(2500);
+    const mdw = page.locator("[data-win=mobile]");
+    await mdw.getByRole("button", { name: /^Sync now/ }).click(); await page.waitForTimeout(300);
+    await sweep(tag + ": Mobile devices, the phone and a failed sync");
+    await mdw.getByRole("button", { name: "Mail server", exact: true }).click(); await page.waitForTimeout(200);
+    await sweep(tag + ": Mobile devices, the mail server and its ports");
+    await mdw.getByRole("button", { name: /^Close Mobile devices/ }).click(); await ccw.getByRole("button", { name: /^Close Customer chat/ }).click();
     /* the lunchtime job: the break counter, and the floor plan */
     await toFront("helpdesk"); await hd.getByRole("button", { name: /Wi-Fi drops every lunchtime/ }).first().click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
     await toFront("helpdesk"); await hd.locator("[data-coach=walk-break]").click(); await page.waitForTimeout(800);
@@ -426,7 +442,9 @@ const PLANTS = {
   "the diagram's numbered slots in a pale blue": ".ex-slot { background: #7fb2ff !important; }",
   "the Wi-Fi scan's overlap line in a pale red": ".rt-clash.bad { color: #e08a8a !important; }",
   "the footer, below the fold, in a faint grey": "footer.under p { color: #5b6270 !important; }",
-  "the street's band chart in pale bars": ".sv-bar { background: #8da2d6 !important; }"
+  "the street's band chart in pale bars": ".sv-bar { background: #8da2d6 !important; }",
+  "the customer chat's mood words in a faint grey": ".cc-mood-n, .cc-mood-l { color: #8b93a1 !important; }",
+  "Mobile devices' failed sync in a pale red": ".mdm-res.bad { color: #e08a8a !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

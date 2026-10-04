@@ -45,6 +45,17 @@
                 who can join (WPA3-only, band, MAC list, password, thick
                 walls on 5 GHz, the network name), a crowded room; what
                 reaches in (a forward, the screened-subnet host)
+     CHAT       for each Help Desk chat: every step's pool is one right and
+                eight wrong, all different, each wrong one with the
+                customer's reaction and a reason; CE1 and CR1 carry the sims'
+                own replies, jokes included, and their keys word for word;
+                the customer's fault is really there at the start; the right
+                replies and the hands-on checks finish it with no wrong
+                moves; a wrong reply counts, stays red, upsets the customer
+                and doesn't move the chat on; six shown, the right one among
+                them; starting again gives a new mix and puts the customer's
+                phone or router back; rung 3 strikes four of the six and
+                leaves the right one alive; no hint names the reply
      EXAM       each exam view: six per sim, one the sim itself; the sims'
                 own keys (as ruled); every question six, one right, reasons;
                 every typed answer is in the brief word for word; App
@@ -73,6 +84,8 @@ import * as RT from "../assets/router.js";
 import { EXAMS } from "../assets/exams.js";
 import { MALWARE } from "../assets/tickets-malware.js";
 import { CATS, emailById } from "../assets/tickets-mail.js";
+import * as CHM from "../assets/chat.js";
+import * as MBM from "../assets/mobile.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -148,6 +161,18 @@ const NOTES = {
   R4: "Daniel typed the new Wi-Fi password but never saved it, so the router kept the old one. Entered Blue-Harbor#88, saved and restarted; his laptop and TV rejoined with it.",
   R5: "Status shows PPPoE authentication failed. Omar has no welcome letter or account details from the provider. Escalated to Tier 2 to get the provider to reissue the PPPoE credentials.",
   R6: "It restarts every few minutes with every light going out. Nora confirmed it's on its own power adapter and it did the same on a second socket. Escalated to Tier 2 for a replacement router.",
+  CE1: "Her phone was on IMAP with SSL but port 100, where nothing listens. She changed the port to 993, IMAP over SSL/TLS; I synced her phone in Mobile devices and it works.",
+  CE2: "John's outgoing server was on port 25 with no security or sign-in; carriers block 25. He set SMTP to 587 with STARTTLS and sign-in; synced, sending works.",
+  CE3: "Farah's phone used POP3 on 995, which removed mail from the server after download. Switched it to IMAP on 993 with SSL/TLS so mail stays on the server; synced and checked.",
+  CE4: "Rosa's server name was a typo, mail.rafki.local. She corrected it to mail.rafiki.local on both incoming and outgoing servers; synced, mail flows.",
+  CE5: "Dev's password had expired and he changed it, but the phone still had the old one saved. He entered the new password on the phone himself; synced and it signs in.",
+  CE6: "A friend set security to None on port 143, unencrypted IMAP the server refuses. She set SSL/TLS on 993 again; I synced her phone and it connects.",
+  CR1: "Replacement router still on the sticker's default admin password. Priya set a strong new one, saved it, and restarted; checked Administration and Status in the app.",
+  CR2: "Tom's Wi-Fi used the sticker's name and password. He set a new SSID, a long passphrase and WPA3, saved and restarted; all devices rejoined, checked on Status.",
+  CR3: "Ana's new Wi-Fi password was typed but never saved, so the power cut restart loaded the old one. She typed it, pressed Save, then restarted; checked Status.",
+  CR4: "Firmware 1.0.4 had an update. Grace saved settings and installed 1.1.2 from Administration without unplugging it; it restarted with her settings. A security update.",
+  CR5: "WPA3 only locked out Mia's old WPA2-only laptop. Set WPA2/WPA3 transition so the laptop uses WPA2 and newer devices WPA3; saved, restarted, all connected.",
+  CR6: "The router was on channel 6 at 40 MHz, overlapping the café on 1 and the flat on 6. Ben set channel 11 at 20 MHz; saved, restarted, no overlap on the scan.",
   E6: "Brady Tag's new bank details came from bradytag-co.com, a lookalike domain with a reply-to on another domain: phishing, reported, purged, blocked, lookalike policy on. Farah's order shipped notice was genuine. John's DocuSign was phishing. Brenda's timesheet xlsm macro was malicious."
 };
 
@@ -163,7 +188,7 @@ export function check(D) {
     if (list.length !== 6) F("SHAPE: " + sim + " has " + list.length + " tickets, not 1 + 5");
     if (list.filter((t) => t.base).length !== 1) F("SHAPE: " + sim + " does not have exactly one ticket that is the sim itself");
   });
-  if (Object.keys(bySim).length !== 9) F("SHAPE: expected the two App sims, Malware, Email Threat, Tier 1 Router, WiFi AP, Port Forwarding, Neighboring Routers and Wireless Reliability, found " + Object.keys(bySim).length);
+  if (Object.keys(bySim).length !== 11) F("SHAPE: expected the two App sims, Malware, Email Threat, Tier 1 Router, WiFi AP, Port Forwarding, Neighboring Routers, Wireless Reliability and the two Help Desk chats, found " + Object.keys(bySim).length);
 
   const pos = [0, 0, 0, 0, 0, 0]; let longest = 0, lenQs = 0, movePos = [0, 0, 0, 0, 0, 0];
   APP.forEach((t) => {
@@ -307,7 +332,99 @@ export function check(D) {
 
   examChecks(D, F);
   routerChecks(D, F);
+  chatChecks(D, F);
   return fails;
+}
+
+/* ---- CHAT: the Help Desk chats ---- */
+const SIM_REPLIES = {
+  CE1: { keys: ["Good afternoon, I will be happy to assist you with your email.", "I will be glad to help, but first I need to know what type of device you are using.", "Let's take a look at your phone settings.", "Please change the port number on your mail settings to 993."],
+    wrong: ["Try restarting your phone.", "Are you sure it's not your internet?", "Check if your inbox is full.", "Did you charge your phone?", "Try toggling airplane mode.", "Blow on the SIM card.", "Switch to POP3 protocol.", "Use port 80 instead."] },
+  CR1: { keys: ["I am happy to assist you today.", "Is this the first router in your office?", "Create a new password with an uppercase, a lowercase, and special character.", "Yes, reboot please."],
+    wrong: ["Have you tried using the FAQ?", "You should know how to do that!", "This is wasting my time!", "Type the password printed on the label on the bottom of the router.", "Use Summer21 as the administrative password so we can assist you in the future.", "Leave the password field blank for easy access in the future.", "If you think you should, you can.", "No, it is not necessary."] }
+};
+/* the fault each chat starts with */
+const CHAT_FAULT = {
+  CE1: (f, t) => !MBM.works(D_.MB.get(f, t.id)), CE2: (f, t) => !MBM.outgoing(D_.MB.get(f, t.id)).ok, CE3: (f, t) => D_.MB.get(f, t.id).account.proto === "POP3",
+  CE4: (f, t) => !MBM.incoming(D_.MB.get(f, t.id)).ok, CE5: (f, t) => !MBM.incoming(D_.MB.get(f, t.id)).ok, CE6: (f, t) => !MBM.incoming(D_.MB.get(f, t.id)).ok,
+  CR1: (f, t) => RT.defaultPass(RT.get(f, t.id)), CR2: (f, t) => { const r = RT.get(f, t.id); return r.running.wifi.pass === r.sticker.wifiPass; },
+  CR3: (f, t) => RT.get(f, t.id).running.wifi.pass === "92series1234", CR4: (f, t) => { const r = RT.get(f, t.id); return r.fw !== r.fwLatest; },
+  CR5: (f, t) => { const r = RT.get(f, t.id); return r.devices.some((d) => !RT.joins(r, d).ok); }, CR6: (f, t) => RT.interference(RT.get(f, t.id)).length > 0
+};
+let D_ = null;
+function chatDrive(D, t, f) {
+  /* the right replies, and each hands-on check done the way a student would */
+  let guard = 0;
+  while (!t.goal(f) && guard++ < 40) {
+    const it = D.CH.current(f, t); if (!it) break;
+    if (it.type === "reply") { D.CH.reply(f, t, it.right.label); continue; }
+    const p = D.MB.get(f, t.id), r = RT.get(f, t.id);
+    if (it.act === "compare") { MBM.note(p, "view-phone"); MBM.note(p, "view-server"); }
+    else if (it.act === "sync") { MBM.sync(p); MBM.note(p, "student-sync"); }
+    else if (it.act === "view") RT.note(f, r, "view", { tab: it.tab });
+    if (t.react) t.react({ type: "look" }, f);
+  }
+}
+function chatChecks(D, F) {
+  D_ = D;
+  const CHATS = D.TICKETS.filter((t) => t.kind === "chat");
+  if (CHATS.length !== 12) F("CHAT SHAPE: " + CHATS.length + " chats, not 12");
+  CHATS.forEach((t) => {
+    /* ---- the pools ---- */
+    t.chat.forEach((it, i) => {
+      if (it.type !== "reply") return;
+      const labels = [it.right.label].concat(it.wrong.map((w) => w.label));
+      if (!it.right.correct || it.wrong.length !== 8 || new Set(labels).size !== 9) F("CHAT POOL " + t.id + " step " + i + ": not one right and eight different wrong replies");
+      it.wrong.forEach((w) => { if (w.correct || !w.reaction || !w.why) F("CHAT POOL " + t.id + " step " + i + ": \"" + w.label + "\" has no reaction or no reason"); });
+      /* no hint names the reply */
+      (it.h || []).forEach((h) => { if (h.indexOf(it.right.label) >= 0) F("CHAT LEAK " + t.id + " step " + i + ": a hint gives the reply away"); });
+      if (!it.h || it.h.length < 2) F("CHAT LEAK " + t.id + " step " + i + ": the step has no two rungs of hints");
+    });
+    /* ---- the sims' own replies and keys ---- */
+    const sim = SIM_REPLIES[t.id];
+    if (sim) {
+      const replies = t.chat.filter((it) => it.type === "reply");
+      sim.keys.forEach((k, i) => { if (!replies[i] || replies[i].right.label !== k) F("CHAT SIM " + t.id + ": step " + (i + 1) + "'s key isn't the sim's: \"" + k + "\""); });
+      const all = [].concat.apply([], replies.map((it) => it.wrong.map((w) => w.label)));
+      sim.wrong.forEach((w) => { if (all.indexOf(w) < 0) F("CHAT SIM " + t.id + ": the sim's own reply \"" + w + "\" is missing"); });
+    }
+    /* ---- the fault is there, and the right way finishes it cleanly ---- */
+    let f = D.makeFleet(); t.setup(f);
+    if (t.goal(f)) F("CHAT EXHIBITED " + t.id + ": finished before the student starts");
+    if (CHAT_FAULT[t.id] && !CHAT_FAULT[t.id](f, t)) F("CHAT EXHIBITED " + t.id + ": the customer's fault isn't there at the start");
+    chatDrive(D, t, f);
+    if (!t.goal(f)) F("CHAT SOLVABLE " + t.id + ": the right replies and checks don't finish it (stuck at item " + D.CH.get(f, t.id).step + ")");
+    if (CHAT_FAULT[t.id] && CHAT_FAULT[t.id](f, t)) F("CHAT SOLVABLE " + t.id + ": finished, but the customer's fault is still there");
+    /* ---- a wrong reply ---- */
+    f = D.makeFleet(); t.setup(f);
+    const c = D.CH.get(f, t.id), first = t.chat[0], m0 = c.mood;
+    /* the six on every step, fresh, before anything is ruled out */
+    const before = JSON.stringify(t.chat.map((it, i) => D.CH.shown(t, c, i).map((x) => x.label)));
+    const shown = D.CH.shown(t, c, 0);
+    if (shown.length !== 6 || shown.filter((x) => x.correct).length !== 1) F("CHAT SHOWN " + t.id + ": not six replies with the right one among them");
+    const w = shown.filter((x) => !x.correct)[0];
+    const o = D.CH.reply(f, t, w.label); const j = t.judge({ type: "chat-reply", correct: o.correct, why: o.why }, f) || {};
+    if (!j.guess) F("CHAT WRONG " + t.id + ": a wrong reply doesn't count");
+    if (c.step !== 0) F("CHAT WRONG " + t.id + ": a wrong reply moves the chat on");
+    if ((c.out[0] || []).indexOf(w.label) < 0 || D.CH.shown(t, c, 0).map((x) => x.label).indexOf(w.label) < 0) F("CHAT WRONG " + t.id + ": a wrong reply doesn't stay red on screen");
+    if (c.mood <= m0 && m0 < D.CH.MOODS.length - 1) F("CHAT WRONG " + t.id + ": a wrong reply doesn't upset the customer");
+    if (!D.CH.transcript(f, t).some((l) => l.wrong && l.text === w.label)) F("CHAT WRONG " + t.id + ": the wrong reply isn't kept in the conversation");
+    /* ---- rung 3 ---- */
+    const g = t.strikeNow(f, (opts, picked) => { const right = opts.filter((x) => x.correct)[0]; const pool = opts.filter((x) => !x.correct && !picked[x.label]); return (pool.length ? pool : opts.filter((x) => !x.correct))[0].label; });
+    const alive = D.CH.shown(t, c, 0).filter((x) => !g.strike[x.label]);
+    if (Object.keys(g.strike).length !== 4 || alive.length !== 2 || !alive.some((x) => x.correct)) F("CHAT LADDER " + t.id + ": rung 3 doesn't strike four and leave the right reply among two");
+    /* ---- starting again ---- */
+    chatDrive(D, t, f);
+    D.CH.restart(f, t);
+    if (c.step !== 0 || Object.keys(c.out).length) F("CHAT RESTART " + t.id + ": starting again doesn't go back to the start");
+    if (JSON.stringify(t.chat.map((it, i) => D.CH.shown(t, c, i).map((x) => x.label))) === before) F("CHAT RESTART " + t.id + ": starting again shows the same replies");
+    const f0 = D.makeFleet(); t.setup(f0);
+    const thing = (ff) => JSON.stringify(t.channel === "email" ? D.MB.get(ff, t.id).account : (({ running, saved, fw }) => ({ running, saved, fw }))(RT.get(ff, t.id)));
+    if (thing(f) !== thing(f0)) F("CHAT RESTART " + t.id + ": starting again doesn't put the customer's " + (t.channel === "email" ? "phone" : "router") + " back");
+    /* ---- the note ---- */
+    if (!D.noteOK(t, D.NOTES[t.id] || "").ok) F("CHAT NOTE " + t.id + ": a good note is refused");
+    if (D.noteOK(t, "Helped the customer in the chat and the problem is fixed now, all good.").ok) F("CHAT NOTE " + t.id + ": a note that says nothing specific is accepted");
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -745,7 +862,7 @@ function routerChecks(D, F) {
   ({ f, r } = mk()); if (JSON.stringify(JSON.parse(JSON.stringify(f.TECH.routers))) !== JSON.stringify(f.TECH.routers)) F("ROUTER SNAP: a router doesn't survive the engine's copy");
 }
 
-const BASE = { R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+const BASE = { CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
 /* Each plant is one defect a check exists to catch, and the check it must
@@ -814,7 +931,14 @@ const PLANTS = [
   ["EXAM mw:mw1: EXHIBITED", "a clean PC shown running an unsigned program from AppData", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "mw" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "mw1" ? v : Object.assign({}, v, { devices: v.devices.map((d) => (d.id !== "WS3" ? d : Object.assign({}, d, { procs: d.procs.concat([{ name: "upd.exe", desc: "upd", cpu: 40, image: "C:\\Users\\dpatel\\AppData\\Roaming\\upd.exe", publisher: "" }]) }))) }))) }))) })],
   ["EXAM mw:mw3: INFECTED", "an infected PC keyed to stay on the network", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "mw" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "mw3" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id !== "WS5" ? f : Object.assign({}, f, { options: f.options.map((o) => Object.assign({}, o, { correct: /^Leave it/.test(o.label) })) }))) }))) }))) })],
   ["EXAM: SPREAD", "the exam questions shown in authored order", () => ({ ordered: (o) => o.slice() })],
-  ["NOTE", "the note check accepts anything forty letters long", () => ({ noteOK: (t, s) => ({ ok: String(s).length >= 40, missing: [] }) })]
+  ["NOTE", "the note check accepts anything forty letters long", () => ({ noteOK: (t, s) => ({ ok: String(s).length >= 40, missing: [] }) })],
+  ["CHAT POOL", "a chat step's pool loses a wrong reply", () => ({ TICKETS: withTicket("CE2", (t) => ({ chat: t.chat.map((it, i) => (i === 0 ? Object.assign({}, it, { wrong: it.wrong.slice(1) }) : it)) })) })],
+  ["CHAT SIM", "CE1 drops the sim's joke reply", () => ({ TICKETS: withTicket("CE1", (t) => ({ chat: t.chat.map((it) => (it.type === "reply" ? Object.assign({}, it, { wrong: it.wrong.map((w) => (w.label === "Blow on the SIM card." ? Object.assign({}, w, { label: "Check the SIM card." }) : w)) }) : it)) })) })],
+  ["CHAT EXHIBITED", "CE1's phone starts already on port 993", () => ({ TICKETS: withTicket("CE1", (t) => ({ setup: (f) => { t.setup(f); MBM.get(f, "CE1").account.port = 993; } })) })],
+  ["CHAT WRONG", "a wrong reply moves the chat on", () => ({ CH: Object.assign({}, CHM, { reply: (f, t, label) => { const o = CHM.reply(f, t, label); if (o && !o.correct) CHM.get(f, t.id).step++; return o; } }) })],
+  ["CHAT LEAK", "a hint gives the reply away", () => ({ TICKETS: withTicket("CR3", (t) => ({ chat: t.chat.map((it) => (it.type === "reply" && it.then ? Object.assign({}, it, { h: [it.h[0], "Say this: " + it.right.label] }) : it)) })) })],
+  ["CHAT RESTART", "starting again keeps the customer's changed router", () => ({ CH: Object.assign({}, CHM, { restart: (f, t) => { const c = CHM.get(f, t.id); c.step = 0; c.out = {}; c.said = {}; c.seed++; } }) })],
+  ["CHAT RESTART", "starting again shows the same six", () => ({ CH: Object.assign({}, CHM, { restart: (f, t) => { const c = CHM.get(f, t.id); c.step = 0; c.out = {}; c.said = {}; if (t.restore) t.restore(f); } }) })]
 ];
 
 const plant = process.argv.includes("--plant");

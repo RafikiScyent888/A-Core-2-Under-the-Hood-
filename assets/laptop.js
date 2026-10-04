@@ -26,6 +26,9 @@ import { EXAMS } from "./exams.js";
 import { drawRouter } from "./routerui.js";
 import { drawFloorPlan } from "./floorplan.js";
 import { drawStreetView } from "./streetview.js";
+import { drawCustomerChat, drawMobile, disposePhone } from "./chatui.js";
+import * as CH from "./chat.js";
+import * as MB from "./mobile.js";
 import * as RT from "./router.js";
 import { staffOf, emailById, part as mailPart, emailDone, CATS } from "./tickets-mail.js";
 
@@ -102,7 +105,9 @@ const APPS = {
   router: { title: "92 Series — routers you manage", mini: "92", cls: "g-rt", geo: [0.10, 0.03, 0.72, 0.92], draw: drawRouterWin },
   browser: { title: "Browser — 192.168.1.1", mini: "WB", cls: "g-web", geo: [0.14, 0.04, 0.70, 0.90], draw: drawBrowserWin },
   floor: { title: "Floor plan — Rafiki's office", mini: "FP", cls: "g-fp", geo: [0.05, 0.03, 0.62, 0.93], draw: drawFloorWin },
-  street: { title: "Street view — Router 3 and its neighbours", mini: "SV", cls: "g-sv", geo: [0.06, 0.03, 0.66, 0.93], draw: drawStreetWin }
+  street: { title: "Street view — Router 3 and its neighbours", mini: "SV", cls: "g-sv", geo: [0.06, 0.03, 0.66, 0.93], draw: drawStreetWin },
+  custchat: { title: "Customer chat — Rafiki's IT Services help desk", mini: "CC", cls: "g-cc", geo: [0.30, 0.03, 0.62, 0.93], draw: drawChatWin },
+  mobile: { title: "Mobile devices — company phones", mini: "MD", cls: "g-md", geo: [0.04, 0.03, 0.72, 0.93], draw: drawMobileWin }
 };
 function appOf(id) { return id.indexOf("rdp:") === 0 ? { title: rosterOf(id.slice(4)).host + " — Remote support", mini: "RS", cls: "g-rdp", geo: [0.08, 0.03, 0.86, 0.92], draw: drawRdp } : APPS[id]; }
 function openWin(id) {
@@ -149,7 +154,7 @@ function drag(w) {
   w.bar.addEventListener("dblclick", function (e) { if (!e.target.closest("button")) { w.max = !w.max; place(w); } });
 }
 function redraw(id) { const w = W[id]; if (w) w.a.draw(w); }
-function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); redraw("floor"); redraw("street"); drawTask(); coachTick(); }
+function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); redraw("floor"); redraw("street"); redraw("custchat"); redraw("mobile"); drawTask(); coachTick(); }
 
 /* ------------------------------------------------ desktop and taskbar */
 function drawDesk() {
@@ -172,7 +177,7 @@ function drawTask() {
   const ids = pinned.concat(Object.keys(W).filter(function (k) { return pinned.indexOf(k) < 0; }));
   ids.forEach(function (id) {
     const a = appOf(id); const w = W[id];
-    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : id === "floor" ? "Floor plan" : id === "street" ? "Street view" : rosterOf(id.slice(4)).host;
+    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : id === "floor" ? "Floor plan" : id === "street" ? "Street view" : id === "custchat" ? "Customer chat" : id === "mobile" ? "Mobile devices" : rosterOf(id.slice(4)).host;
     const b = btn("", "tb" + (w ? " open" : "") + (front === id && w && !w.min ? " front" : ""), function () {
       if (!w) return openWin(id);
       if (front === id && !w.min) { w.min = true; place(w); front = null; drawTask(); } else { w.min = false; place(w); focusWin(id); }
@@ -313,6 +318,10 @@ function nextStepAdvice(t, st) {
   if (t.kind === "wifi" && planRouter()) return "Two places to look: the access point at 192.168.1.1 (Status shows who's dropping, and how badly), and the office itself. Mason's message has four clues: the time of day, what's on the other side of the closet wall, the walls, and the neighbours. Walk round to the break room and open the floor plan: it shows the Wi-Fi as it really is right now.";
   if (t.kind === "wifi") { if (!W.browser) return "The access point is on our own network: open 192.168.1.1 in the browser from the ticket, and sign in with the admin password Mason gave you.";
     return "Read Mason's message again: some settings he gives you exactly, some he leaves to you with a reason (the devices, the building, the room, the neighbours). The Status page shows each device and whether it connects, and why not. Remember: type, Save, then restart."; }
+  if (t.kind === "chat") { const it = CH.current(E.fleet(), t);
+    if (!W.custchat) return "Open the customer chat from " + t.who + "'s ticket and read what they've written, every word: what they say, and what they don't.";
+    if (!it) return t.who + " is happy. Resolve the ticket, record why it worked, and write the note.";
+    return it.type === "do" ? t.who + " is waiting for you to check something real: " + it.doing : "Read " + t.who + "'s last message again. Where is this conversation up to: opening, finding out, looking, fixing, or confirming? Pick the reply a professional would send at that point."; }
   if (t.kind === "router") { const rr = RT.get(E.fleet(), t.id), who = t.who;
     if (!W.router) return "Open the 92 Series app from " + who + "'s ticket: they've shared their router with us. Read the Status page first: is the internet up, and which devices are on?";
     return "Read the router's Status page word for word, then the page that matches what " + who + " asked about. Remember a router has three versions of its settings: what's typed on the page, what's saved, and what it's running. Anything only someone standing at the router can see, ask " + who + " with the Call panel on the ticket."; }
@@ -392,14 +401,15 @@ function drawTicket(t) {
   p.appendChild(el("h2", null, t.title));
   const exl = examFor(t); if (exl) { const xb = btn("See this sim the way the exam shows it", "b small", function () { L.examSel = { ex: exl.ex.id, v: exl.v.id }; saveL(); if (W.exam) { redraw("exam"); W.exam.min = false; place(W.exam); focusWin("exam"); } else openWin("exam"); }, "Open Exam Practice at " + exl.ex.sim + (exl.v.base ? ", the sim itself" : ", " + exl.v.title)); xb.classList.add("t-exam"); p.appendChild(xb); }
   const dl = el("dl", "t-grid");
-  const mal = t.kind === "malware", em = t.kind === "email", rt = t.kind === "router", wf = t.kind === "wifi";
-  if (wf) { [["Status", s[0]], ["Requester", "Mason (Team Lead)"], ["Device", "92 Series AP600 access point · 192.168.1.1"], ["Location", t.site.replace("Rafiki's IT Services · ", "")], ["Category", "Network › Wireless"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
+  const mal = t.kind === "malware", em = t.kind === "email", rt = t.kind === "router", wf = t.kind === "wifi", ch = t.kind === "chat";
+  if (ch) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Channel", "Help desk chat"], ["Device", t.channel === "email" ? "Company phone (in Mobile devices)" : "92 Series AX1800 router (shared in the 92 Series app)"], ["Category", t.channel === "email" ? "Communication › Mobile email" : "Communication › Router setup"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
+  else if (wf) { [["Status", s[0]], ["Requester", "Mason (Team Lead)"], ["Device", "92 Series AP600 access point · 192.168.1.1"], ["Location", t.site.replace("Rafiki's IT Services · ", "")], ["Category", "Network › Wireless"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (rt) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Device", "92 Series AX1800 router (shared in the 92 Series app)"], ["Location", "Customer site: remote"], ["Category", "Network › Router"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", mal ? "Every PC on the network (see Devices)" : em ? "Mail: " + t.mails.length + " emails" + (t.devices.length ? ", one on " + rosterOf(t.devices[0]).host : "") : r.host + " · " + r.ip], ["Location", mal ? "The whole office" : em ? "Help desk mailbox" : r.where], ["Category", mal ? "Security › Malware" : em ? "Security › Email threats" : "Software › Application"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); });
   p.appendChild(dl);
 
   const m = el("section", "t-sec"); m.appendChild(el("h3", null, "Request"));
-  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, mal || em || rt || wf ? name : name + " (" + r.host + ")")); mh.appendChild(el("span", null, mal || wf ? "assigned by your team lead" : rt ? "by phone" : em ? (t.devices.length ? "by phone" : "help desk mailbox") : "via email")); msg.appendChild(mh);
+  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, mal || em || rt || wf || ch ? name : name + " (" + r.host + ")")); mh.appendChild(el("span", null, mal || wf ? "assigned by your team lead" : ch ? "by chat" : rt ? "by phone" : em ? (t.devices.length ? "by phone" : "help desk mailbox") : "via email")); msg.appendChild(mh);
   t.brief.forEach(function (x) { msg.appendChild(el("p", null, x)); }); m.appendChild(msg); p.appendChild(m);
 
   const acts = el("div", "t-acts");
@@ -415,6 +425,11 @@ function drawTicket(t) {
     acts.appendChild(coachTag("open-web", btn("Open 192.168.1.1 in the browser", "b pri", function () { openWin("browser"); })));
     if (planRouter()) { acts.appendChild(coachTag("walk-break", btn("Walk to the break room", "b", function () { walkOver("BREAK"); }))); acts.appendChild(coachTag("open-floor", btn("Open the floor plan", "b", function () { openWin("floor"); }))); }
     acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: every device connects as it should" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
+    acts.appendChild(coachTag("escalate", btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); })));
+  } else if (st.stage === "work" && ch) {
+    acts.appendChild(coachTag("open-chat", btn("Open the customer chat", "b pri", function () { openWin("custchat"); })));
+    acts.appendChild(coachTag(t.channel === "email" ? "open-mobile" : "open-router", btn(t.channel === "email" ? "Open Mobile devices" : "Open the 92 Series app", "b", function () { openWin(t.channel === "email" ? "mobile" : "router"); })));
+    acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: " + t.who + " confirms it works" : "Tried to resolve: " + (x.say || "the chat isn't finished")); after(); })));
     acts.appendChild(coachTag("escalate", btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); })));
   } else if (st.stage === "work" && rt) {
     acts.appendChild(coachTag("open-router", btn("Open the 92 Series app", "b pri", function () { openWin("router"); })));
@@ -600,7 +615,7 @@ function drawRouterWin(w) {
   w.ui = w.ui || {}; const pg = w.body.querySelector(".rt"); const keep = pg ? pg.scrollTop : 0;
   const foc = document.activeElement && w.body.contains(document.activeElement) && document.activeElement.id ? document.activeElement.id : null;
   w.body.innerHTML = ""; w.body.classList.add("rt-host");
-  drawRouter(w.body, { routers: function () { const t = E.ticket(), st = E.T(); return t && t.kind === "router" && st && st.stage !== "done" ? [RT.get(E.fleet(), t.id)].filter(Boolean) : []; }, act: routerAct, draw: function () { redraw("router"); } }, w.ui);
+  drawRouter(w.body, { routers: function () { const t = E.ticket(), st = E.T(); return t && (t.kind === "router" || (t.kind === "chat" && t.channel === "router")) && st && st.stage !== "done" ? [RT.get(E.fleet(), t.id)].filter(Boolean) : []; }, act: routerAct, draw: function () { redraw("router"); } }, w.ui);
   const pg2 = w.body.querySelector(".rt"); if (pg2) pg2.scrollTop = keep;
   if (foc) { const f = document.getElementById(foc); if (f) f.focus(); }
 }
@@ -647,11 +662,33 @@ function drawStreetWin(w) {
   w.body.scrollTop = keep;
   w.onClose = function () { if (w.ui.office) w.ui.office.dispose(); };
 }
+/* The customer chat (the Help Desk Chat sims): the conversation, the mood
+   and the six replies; and Mobile devices, with the customer's phone. */
+function chatTicketNow() { const t = E.ticket(), st = E.T(); return t && t.kind === "chat" && st ? t : null; }
+function drawChatWin(w) {
+  w.ui = w.ui || {}; w.body.classList.add("cc-host");
+  drawCustomerChat(w.body, { ticket: chatTicketNow, fleet: E.fleet,
+    strike: function () { const g = E.guidance(); return g && g.qstrike && g.qstrike.id === "chat" ? g.qstrike.strike : {}; },
+    reply: function (label) { const t = chatTicketNow(); if (!t) return; const b = E.before(); const o = CH.reply(E.fleet(), t, label); if (!o) return;
+      E.onAct({ type: "chat-reply", correct: o.correct, why: o.why, machine: "TECH", before: b }); logT(t.id, (o.correct ? "Replied: " : "Reply didn't help: ") + label); after(); },
+    restart: function () { const t = chatTicketNow(); if (!t) return; CH.restart(E.fleet(), t); E.onAct({ type: "chat-restart", machine: "TECH", before: E.before() }); logT(t.id, "Started the chat again, with a new set of replies"); after(); },
+    open: function (id) { openWin(id); } }, w.ui);
+}
+function drawMobileWin(w) {
+  w.ui = w.ui || {}; w.body.classList.add("mdm-host");
+  const t = chatTicketNow(), p = t && t.channel === "email" ? MB.get(E.fleet(), t.id) : null;
+  /* opening it shows the phone: that's a look at the phone */
+  if (p && w.ui.seen !== t.id && (w.ui.tab || "phone") === "phone") { w.ui.seen = t.id; MB.note(p, "view-phone"); setTimeout(function () { E.onAct({ type: "mdm-view", machine: "TECH", before: E.before() }); after(); }, 0); }
+  drawMobile(w.body, { ticket: chatTicketNow, fleet: E.fleet,
+    mdm: function (kind) { const p2 = MB.get(E.fleet(), t.id); if (p2) MB.note(p2, kind); E.onAct({ type: "mdm-view", machine: "TECH", before: E.before() }); after(); },
+    sync: function () { const p2 = MB.get(E.fleet(), t.id); if (!p2) return; const b = E.before(); const r = MB.sync(p2); MB.note(p2, "student-sync"); E.onAct({ type: "mdm-sync", machine: "TECH", before: b }); logT(t.id, "Synced " + p2.owner.split(" ")[0] + "'s phone: " + (r.in.ok && r.out.ok ? "mail works" : (r.in.ok ? r.out.text : r.in.text))); after(); } }, w.ui);
+  w.onClose = function () { disposePhone(w.ui); };
+}
 /* Everything done in the 92 Series app goes through here: the change to
    the router, then the engine (which judges it), the ticket's activity,
    and Mason. A view that only redraws (a confirm box) is quiet. */
 function routerAct(type, fn, extra) {
-  const t = E.ticket(); extra = extra || {}; if (!t || (t.kind !== "router" && t.kind !== "wifi")) return {};
+  const t = E.ticket(); extra = extra || {}; if (!t || (t.kind !== "router" && t.kind !== "wifi" && !(t.kind === "chat" && t.channel === "router"))) return {};
   const rr = RT.get(E.fleet(), t.id); const b = E.before();
   const lost = type === "router-reboot" ? RT.dirty(rr) : undefined;
   const res = fn(E.fleet(), rr) || {};
@@ -786,7 +823,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk" };
+const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -1476,6 +1513,75 @@ WALKS.N1 = { machine: "TECH", steps: [
     done: function () { const st = E.state().tickets.N1; return !!(st && st.stage === "done"); } }
 ], end: "That's the neighbours question done for real: read the scan, take the clear channel at 20 MHz, lock it to the family's devices, and prove it on Status. The Garcias are next: you drive." };
 const N2T = { ssid: "Garcia-Home", pass: "Casa#2026Net", chan: 1 };
+/* ---------------------------------------------- the Help Desk chats' crawl and walk */
+function chatT(id) { return TICKETS.filter(function (x) { return x.id === id; })[0]; }
+function chatAt(id) { const c = CH.get(E.fleet(), id); return c ? c.step : -1; }
+function chatPast(id, i) { const t = E.ticket(); return !!(t && t.id === id && chatAt(id) > i); }
+function ccOpts() { const w = document.querySelector("[data-win=custchat]"); return w ? w.querySelector(".cc-opts") : null; }
+function mdmBtn(re) { return byText(document.querySelector("[data-win=mobile]"), re); }
+function chatSteps(id, who, say) {
+  /* the ticket, the chat window, then one step per item of the chat, then close-out */
+  const t = chatT(id), out = [
+    { tag: "See it for yourself", win: "helpdesk", say: say.open, why: "This is the exam's Help Desk chat, with a real customer and the real thing behind it.",
+      target: function () { return document.querySelector('[data-coach="assign"]'); }, done: function () { const tt = E.ticket(); return !!(tt && tt.id === id && E.T()); } },
+    { tag: "See it for yourself", win: "helpdesk", say: "Press Open the customer chat.", target: function () { return W.custchat ? null : document.querySelector('[data-coach="open-chat"]'); }, done: function () { return !!W.custchat; } }];
+  t.chat.forEach(function (it, i) {
+    const s = say.items[i];
+    if (it.type === "reply") out.push({ tag: s.tag, win: "custchat", say: s.say, why: s.why, target: ccOpts, done: function () { return chatPast(id, i); } });
+    else if (it.act === "compare") out.push({ tag: s.tag, win: function () { return W.mobile ? "mobile" : "custchat"; }, say: s.say, why: s.why,
+      target: function () { if (!W.mobile) return document.querySelector("[data-win=custchat] .cc-tool"); return mdmBtn(/^Mail server$/); }, done: function () { return chatPast(id, i); } });
+    else if (it.act === "sync") out.push({ tag: s.tag, win: function () { return W.mobile ? "mobile" : "custchat"; }, say: s.say, why: s.why,
+      target: function () { if (!W.mobile) return document.querySelector("[data-win=custchat] .cc-tool"); return mdmBtn(/phone$/) && !document.querySelector("[data-win=mobile] .mdm-sync") ? mdmBtn(/phone$/) : mdmBtn(/^Sync now$/); }, done: function () { return chatPast(id, i); } });
+    else out.push({ tag: s.tag, win: "custchat", say: s.say, why: s.why,
+      target: function () { if (!W.router) return document.querySelector("[data-win=custchat] .cc-tool"); return rTab(it.label); }, done: function () { return chatPast(id, i); } });
+  });
+  out.push({ tag: "Close it out", win: "helpdesk", say: "Press Resolve on " + who + "'s ticket.", target: function () { return document.querySelector('[data-coach="resolve"]'); }, done: function () { const st = E.state().tickets[id]; return !!(st && st.stage !== "work"); } });
+  out.push({ tag: "Close it out", win: "helpdesk", say: say.cause, target: function () { return document.querySelector(".res .opts"); }, done: function () { const st = E.state().tickets[id]; return !!(st && (st.closeOK || st.stage === "done")); } });
+  out.push({ tag: "Document it", win: "helpdesk", say: say.note, target: function () { return document.querySelector("#res-note"); }, done: function () { const st = E.state().tickets[id]; return !!(st && st.stage === "done"); } });
+  return out;
+}
+WALKS.CE1 = { machine: "TECH", steps: chatSteps("CE1", "Brenda", {
+  open: "Read Brenda's ticket: she's started a chat about her email. Press Assign to me and start.",
+  items: [
+    { tag: "Open well", say: "Brenda's first message: 'Email is currently down!' Every support chat opens the same way: greet her and offer help. Choose the reply that does that, and nothing else.", why: "A professional opening calms the customer. A guess, a brush-off or asking for a password does the opposite, and her mood shows it." },
+    { tag: "Find out", say: "She says it's urgent, and only on her phone. Before you can help, you need one fact about it: what kind of device it is. Choose the reply that asks.", why: "Gather the facts before you fix anything." },
+    { tag: "Find out", say: "A new phone from TechCom. Choose the reply that moves to looking at how that phone is set up.", why: "When one device fails and the rest work, look at how that device is set up." },
+    { tag: "Look", say: "Brenda has sent a screenshot of her settings. Now check the real thing: press Open Mobile devices, read her phone, then press Mail server to see what the server accepts.", why: "Never advise from a screenshot alone when you can see the phone and the server yourself." },
+    { tag: "Fix it", say: "Line her settings up against the server: protocol IMAP (matches), security SSL (matches), server 10.0.8.1 (matches), port 100 (the server takes encrypted IMAP on 993). Choose the reply that fixes the one setting that's wrong.", why: "Port 100 has no mail service on it. IMAP over SSL/TLS is 993." },
+    { tag: "Test it", say: "Brenda's changed it. Confirm it yourself: in Mobile devices press Sync now on her phone and read the result.", why: "Test after every change, before you tell the customer it's fixed." }],
+  cause: "Record why port 993 fixed it.", note: "Write the notes: what was wrong, what she changed, and how you confirmed it. Then Close the ticket." }),
+  end: "That's the email chat done for real: open well, find out, look at the real settings, fix the one thing, and test it yourself. John's next: you drive." };
+WALKS.CR1 = { machine: "TECH", steps: chatSteps("CR1", "Priya", {
+  open: "Read Priya's ticket: a replacement router for her office. Press Assign to me and start.",
+  items: [
+    { tag: "Open well", say: "Priya's first message: she needs help setting up a new router. Open the way every support chat opens: offer help. Choose that reply.", why: "A professional opening, not a brush-off." },
+    { tag: "Find out", say: "She wants the basic security set up. Before you advise, find out the situation: is this router new to the office, or replacing one? Choose the reply that asks.", why: "Ask before you advise." },
+    { tag: "Fix it", say: "It's a replacement, and she's signed in. You've told her to change the default password first. Now choose how she should make the new one: what makes an admin password worth having?", why: "Not the sticker's, not shared, not blank: long and mixed." },
+    { tag: "Test it", say: "She says it's done. Check it yourself: press Open the 92 Series app (her router is shared with us) and open its Administration page.", why: "Confirm on the device itself, not just from what you're told." },
+    { tag: "Fix it", say: "The router asks to reboot. It runs its old settings until it restarts. Choose the clear answer.", why: "Save writes it; the restart puts it into use." },
+    { tag: "Test it", say: "It's back up. In the 92 Series app open Status: is it running what's saved, with the new password?", why: "Test after every change." }],
+  cause: "Record why the admin password comes first.", note: "Write the notes: what she changed, why, and how you confirmed it on the router. Then Close the ticket." }),
+  end: "That's the router chat done for real: open well, ask before you advise, guide the change, confirm it on the router itself. Tom's next: you drive." };
+WALKS.CE2 = { mode: "walk", machine: "TECH", steps: [
+  { goal: "Take the ticket and open the chat", how: "In Help Desk.", done: function () { const t = E.ticket(); return !!(t && t.id === "CE2" && W.custchat); } },
+  { goal: "Open the chat professionally", how: "Acknowledge John and offer help.", done: function () { return chatAt("CE2") > 0; } },
+  { goal: "Narrow it down", how: "Reading works and sending doesn't: which side of the settings is that?", done: function () { return chatAt("CE2") > 1; } },
+  { goal: "Compare his phone with the mail server", how: "Mobile devices: his phone, then Mail server.", done: function () { return chatAt("CE2") > 2; } },
+  { goal: "Tell him exactly what to change", how: "Everything that differs from what the server accepts for sending.", done: function () { return chatAt("CE2") > 3; } },
+  { goal: "Confirm it yourself", how: "Sync now, and read both lines.", done: function () { return chatAt("CE2") > 4; } },
+  { goal: "Close the chat well", how: "Politely, checking there's nothing else.", done: function () { return chatAt("CE2") > 5; } },
+  { goal: "Resolve, record why, and write the notes", how: "In Help Desk.", done: function () { const st = E.state().tickets.CE2; return !!(st && st.stage === "done"); } }
+], end: "You walked it. The rest are yours: vanishing emails, a server that can't be found, an old password, and a friend's 'fix'." };
+WALKS.CR2 = { mode: "walk", machine: "TECH", steps: [
+  { goal: "Take the ticket and open the chat", how: "In Help Desk.", done: function () { const t = E.ticket(); return !!(t && t.id === "CR2" && W.custchat); } },
+  { goal: "Open the chat professionally", how: "Thank Tom for asking, and offer help.", done: function () { return chatAt("CR2") > 0; } },
+  { goal: "Explain the risk", how: "Who else knows what's printed on that sticker?", done: function () { return chatAt("CR2") > 1; } },
+  { goal: "See what it's set to now", how: "The 92 Series app: Wireless.", done: function () { return chatAt("CR2") > 2; } },
+  { goal: "Guide the change", how: "Name, passphrase, the strongest security every device supports, and what makes the router use them.", done: function () { return chatAt("CR2") > 3; } },
+  { goal: "Confirm it on the router", how: "Status: running, and every device back on.", done: function () { return chatAt("CR2") > 4; } },
+  { goal: "Close the chat well", how: "Politely, checking there's nothing else.", done: function () { return chatAt("CR2") > 5; } },
+  { goal: "Resolve, record why, and write the notes", how: "In Help Desk.", done: function () { const st = E.state().tickets.CR2; return !!(st && st.stage === "done"); } }
+], end: "You walked it. The rest are yours: a lost change, a firmware update, an old laptop, and noisy neighbours." };
 WALKS.N2 = { mode: "walk", machine: "TECH", steps: [
   { goal: "Take the ticket", how: "In Help Desk.", done: function () { const t = E.ticket(); return !!(t && t.id === "N2" && E.T()); } },
   { goal: "Read the neighbours' channels", how: "The Wi-Fi scan, on Status.", done: function () { return rAt("N2", function (e) { return e.kind === "view" && e.tab === "status"; }) >= 0; } },

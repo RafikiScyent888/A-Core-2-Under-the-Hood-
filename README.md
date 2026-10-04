@@ -33,6 +33,13 @@ on the laptop:
   each router's reach in its channel's colour, red stripes where yours
   overlaps a neighbour, and the 2.4 GHz band drawn as a Wi-Fi analyzer
   shows it, with every part also said in words.
+- **Customer chat:** the Help Desk chat sims, as real conversations. Six
+  replies to choose from on each step; a wrong one stays in the chat with
+  how the customer took it, and their mood shows in words. The customer
+  waits while you check the real thing.
+- **Mobile devices:** the company's phones. The customer's phone in 3D,
+  its mail settings as real text, Sync now, and the mail server's
+  settings to match against.
 - **Exam Practice** shows each sim laid out the way the exam shows it: the
   Port Forwarding diagram, the Wi-Fi office map, the three houses of
   Neighboring Routers, the Tier 1 Router scenario, the Wireless
@@ -60,8 +67,8 @@ Live: https://rafikiscyent888.github.io/A-Core-2-Under-the-Hood-/
 
 | | Tickets | How much help |
 |---|---|---|
-| **Crawl** | L1, D1, M1, E1, R1, W1, P1, N1, WR1: the sims themselves | Mason walks you through every step and rings what to press |
-| **Walk** | L2, D2, M2, E2, R2, W2, P2, N2, WR2 | A checklist that ticks itself off as you work, with "How?" pointers |
+| **Crawl** | L1, D1, M1, E1, R1, W1, P1, N1, WR1, CE1, CR1: the sims themselves | Mason walks you through every step and rings what to press |
+| **Walk** | L2, D2, M2, E2, R2, W2, P2, N2, WR2, CE2, CR2 | A checklist that ticks itself off as you work, with "How?" pointers |
 | **Run** | the rest, 3 to 6 of each | On your own, as in the exam. Mason checks in after your third wrong move |
 
 The L tickets come from the Application Launch sim (Tier 1), the D
@@ -98,6 +105,10 @@ The router tickets come from five sims:
 - **WR, Wireless Reliability Decision Lab:** offices whose Wi-Fi drops or
   crawls. Band and channel plan from the sim's keys, made real: walls,
   distance, busy airwaves, and a microwave in Rafiki's own break room.
+
+The CE and CR tickets come from the two Help Desk chat sims: email on a
+company phone, and a customer's router. Each is a conversation with real
+consequences, and hands-on checks on the phone or the router itself.
 
 The program's rules apply throughout:
 - unlimited tries

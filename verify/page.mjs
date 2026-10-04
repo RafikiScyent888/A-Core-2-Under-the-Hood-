@@ -51,11 +51,13 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472" };
 const NOTES = {
   R1: "Replaced the default admin password from the sticker with a strong one on Administration, saved it, and restarted the router. Leah's laptop and printer still connect.",
   W1: "Set MainOffice1 with the new password, WPA3 because every device supports it, 2.4 GHz for the thick walls, channel 6. Saved and restarted; the Office 3 tablet connects.",
   WR1: "The microwave on the break counter sat beside the access point and drowned 2.4 GHz at lunch. Moved it across the room, then set 2.4 GHz for the dense walls, channel 11 and WPA3. Saved, restarted, all connected.",
+  CE1: "Her phone was on IMAP with SSL but port 100, where nothing listens. She changed the port to 993, IMAP over SSL/TLS; I synced her phone in Mobile devices and it works.",
+  CR3: "Ana's new Wi-Fi password was typed but never saved, so the power cut restart loaded the old one. She typed it, pressed Save, then restarted; checked Status.",
   WR4: "Fourteen networks covered channels 1 to 11, so no clear 2.4 GHz channel was left. Set 5 GHz on fixed channel 149 with WPA3. Saved and restarted; everyone is fine.",
   N1: "Router 3: HomeWiFi with the password, WPA3, 20 MHz to keep interference down, MAC filtering with the family's four devices allowed, and channel 11 because Router 1 and 2 use 1 and 6. Saved and restarted.",
   N4: "Turned MAC filtering off so the grandchildren's devices can join with the password; kept HomeWiFi, WPA3, 20 MHz and channel 11. Saved and restarted; the visitors connect.",
@@ -72,7 +74,7 @@ const NOTES = {
   E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -115,6 +117,8 @@ async function run(rewrites, groups) {
       if (!(await t.count()) && (await p.locator(".walkover").count())) await p.waitForFunction(() => document.querySelector(".coach-target") || document.querySelector(".wo-desk") || !document.querySelector(".walkover"), null, { timeout: 90000 }).catch(() => {});
       if (!(await t.count())) { await p.waitForTimeout(2600); if (!(await t.count())) return false; }
       const tag = await t.first().evaluate((e) => e.tagName + "." + e.className + " " + (e.getAttribute("aria-label") || ""));
+      /* a chat step: send the reply Mason is walking them to */
+      if (/cc-opts/.test(tag)) { await p.evaluate(() => { const E = window.__LAP.engine, t = E.ticket(), c = E.fleet().TECH.chats[t.id], lab = t.chat[c.step].right.label; const b = Array.from(document.querySelectorAll("[data-win=custchat] .cc-opts .opt2")).filter((x) => x.querySelector(".ol").textContent === lab)[0]; if (b) b.click(); }); continue; }
       if (/^A\.mx-link/.test(tag)) { await t.first().hover(); await p.waitForTimeout(150); continue; }
       if (/^INPUT/.test(tag) && /mxa-/.test(await t.first().getAttribute("id") || "")) { await t.first().fill(await p.locator(".coach-cmd").innerText()); await t.first().press("Enter"); continue; }
       if (/TEXTAREA/.test(tag)) { await t.first().fill(NOTES[id]); await p.getByRole("button", { name: "Close the ticket" }).click(); continue; }
@@ -138,9 +142,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 54) F("LOAD: the queue shows " + items.length + " tickets, not 54");
+      if (items.length !== 66) F("LOAD: the queue shows " + items.length + " tickets, not 66");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 9 || count(/Walk: checklist/) !== 9 || count(/Run: on your own/) !== 36) F("LOAD: the queue's labels are not 9 crawl, 9 walk, 36 run");
+      if (count(/Crawl: guided/) !== 11 || count(/Walk: checklist/) !== 11 || count(/Run: on your own/) !== 44) F("LOAD: the queue's labels are not 11 crawl, 11 walk, 44 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
     });
 
@@ -521,6 +525,45 @@ async function run(rewrites, groups) {
       const g4 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.N4); if (!g4 || g4.stage !== "done" || g4.guesses) F("NR: N4 through the UI cost wrong moves, or didn't close (" + (g4 && g4.guesses) + ")");
     });
 
+    await step("CHAT", async (p) => {
+      p.setDefaultTimeout(20000); await signIn(p);
+      if (!(await crawl(p, "CE1", 60))) F("CHAT: CE1 could not be finished by following Mason's rings");
+      const g1 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.CE1); if (!g1 || g1.stage !== "done" || g1.guesses) F("CHAT: CE1's crawl cost wrong moves, or didn't close");
+      const hd = p.locator("[data-win=helpdesk]"), cc = p.locator("[data-win=custchat]"), rw = p.locator("[data-win=router]"), front = (id) => p.evaluate((i) => window.__LAP.openWin(i), id);
+      const right = () => p.evaluate(() => { const E = window.__LAP.engine, t = E.ticket(), c = E.fleet().TECH.chats[t.id]; return t.chat[c.step].right.label; });
+      const send = async (lab) => { await p.evaluate((l) => { const b = Array.from(document.querySelectorAll("[data-win=custchat] .cc-opts .opt2")).filter((x) => x.querySelector(".ol").textContent === l)[0]; b.click(); }, lab); await p.waitForTimeout(120); };
+      /* CE3: starting again draws a different six */
+      await front("helpdesk"); await p.locator(".qi", { hasText: INC.CE3 }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+      await hd.getByRole("button", { name: "Open the customer chat" }).click(); await p.waitForTimeout(200);
+      const six = async () => (await cc.locator(".cc-opts .opt2 .ol").allInnerTexts()).join("|");
+      const s1 = await six(); await cc.getByRole("button", { name: /^Start the chat again/ }).click(); await p.waitForTimeout(150);
+      if ((await cc.locator(".cc-opts .opt2").count()) !== 6) F("CHAT: the chat doesn't show six replies");
+      if ((await six()) === s1) F("CHAT: starting the chat again shows the same six replies");
+      /* CR3 through the screen: a wrong reply, the hands-on checks, the router */
+      await front("helpdesk"); await p.locator(".qi", { hasText: INC.CR3 }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+      await hd.getByRole("button", { name: "Open the customer chat" }).click(); await p.waitForTimeout(200);
+      const r0 = await right(), wrongLab = (await cc.locator(".cc-opts .opt2 .ol").allInnerTexts()).filter((x) => x !== r0)[0];
+      const reaction = await p.evaluate((l) => window.__LAP.engine.ticket().chat[0].wrong.filter((w) => w.label === l)[0].reaction, wrongLab);
+      await send(wrongLab);
+      const logTxt = await cc.locator(".cc-log").innerText();
+      if (logTxt.indexOf(reaction) < 0) F("CHAT: the customer's reaction to a wrong reply isn't shown");
+      if (!/Mood: Frustrated/.test(await cc.locator(".cc-mood").innerText())) F("CHAT: a wrong reply doesn't move Ana's mood on, in words");
+      if (!/✕ Ruled out/.test(await cc.locator(".cc-opts").innerText())) F("CHAT: the wrong reply isn't marked ruled out");
+      await send(await right()); await send(await right());
+      /* the hands-on check: her router's Wireless page */
+      if (!(await cc.locator(".cc-wait").count())) F("CHAT: the chat doesn't say Ana is waiting for a check");
+      await cc.getByRole("button", { name: "Open the 92 Series app" }).click(); await p.waitForTimeout(200);
+      await rw.getByRole("button", { name: "Wireless", exact: true }).click(); await p.waitForTimeout(150);
+      await front("custchat"); await send(await right());
+      await front("router"); await rw.getByRole("button", { name: "Status", exact: true }).click(); await p.waitForTimeout(150);
+      if (!(await p.evaluate(() => { const r = window.__LAP.engine.fleet().TECH.routers.CR3; return r.running.wifi.pass === "Sunflower-Lane-77!" && JSON.stringify(r.saved) === JSON.stringify(r.running); }))) F("CHAT: Ana's router isn't running her new, saved password");
+      await front("custchat"); await send(await right());
+      if (!/has what they needed/.test(await cc.innerText())) F("CHAT: CR3's chat doesn't finish: " + (await cc.locator(".cc-next").innerText()).slice(0, 200));
+      await front("helpdesk"); await hd.getByRole("button", { name: "Resolve", exact: true }).click();
+      const rc = await p.evaluate(() => window.__LAP.engine.ticket().close.options.find((o) => o.correct).label); await hd.locator(".res .opt2", { hasText: rc }).first().click(); await hd.locator("#res-note").fill(NOTES.CR3); await hd.getByRole("button", { name: "Close the ticket" }).click();
+      const g3 = await p.evaluate(() => JSON.parse(localStorage.getItem("c2vm.session.v1")).tickets.CR3); if (!g3 || g3.stage !== "done" || g3.guesses !== 1) F("CHAT: CR3 through the UI didn't close with exactly its one wrong reply counted (" + (g3 && g3.guesses) + ")");
+    });
+
     await step("WR", async (p) => {
       p.setDefaultTimeout(20000); await signIn(p);
       /* from the desk, the floor plan only shows: the microwave moves with you there */
@@ -636,6 +679,9 @@ const PLANTS = [
   ["NR", "the street drawn from the settings typed, not the ones running", { "assets/streetview.js": [["const run = r.running.wifi, clash = R.interference(r);", "const run = r.form.wifi, clash = R.interference({ running: r.form, neighbours: r.neighbours });"]] }],
   ["NR", "the street never shows an overlap", { "assets/streetview.js": [["const run = r.running.wifi, clash = R.interference(r);", "const run = r.running.wifi, clash = [];"]] }],
   ["NR", "the status never shows an overlap", { "assets/routerui.js": [["const clash = R.interference(r), ln", "const clash = [], ln"]] }],
+  ["CHAT", "the customer's reaction to a wrong reply is never shown", { "assets/chatui.js": [["b.appendChild(el(\"p\", null, x.text));", "if (!x.mood && x.mood !== 0) b.appendChild(el(\"p\", null, x.text));"]] }],
+  ["CHAT", "a hands-on check never ticks off", { "assets/tickets-chat.js": [["t.react = function (act, fleet) { CH.advance(fleet, t); };", "t.react = function () {};"]] }],
+  ["CHAT", "starting again shows the same six", { "assets/chat.js": [["c.step = 0; c.out = {}; c.said = {}; c.seed++; c.mood = c.startMood;", "c.step = 0; c.out = {}; c.said = {}; c.mood = c.startMood;"]] }],
   ["WR", "windows open before Mason's panel stay under it", { "assets/laptop.js": [["desk.style.right = \"var(--coach-w)\"; fitWins(); }", "desk.style.right = \"var(--coach-w)\"; }"]] }],
   ["WR", "the microwave can be moved without walking there", { "assets/laptop.js": [["onSite: function () { const t = E.ticket(); return !!(t && L.onSite[t.id]); }", "onSite: function () { return true; }"]] }],
   ["EXAM", "Submit never grades", { "assets/examui.js": [["const r = P.check(v, st);", "const r = { done: false, wrong: 0, missing: 0 };"]] }],

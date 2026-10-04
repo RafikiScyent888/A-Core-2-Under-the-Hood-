@@ -53,7 +53,7 @@ const BASE = {
 export function add(fleet, o) {
   const cfg = copy(BASE);
   Object.keys(o.cfg || {}).forEach(function (k) { cfg[k] = cfg[k] && typeof cfg[k] === "object" && !Array.isArray(cfg[k]) ? Object.assign(cfg[k], copy(o.cfg[k])) : copy(o.cfg[k]); });
-  const r = { id: o.id, label: o.label || "92 Series AX1800", site: o.site || "", customer: o.customer || "", model: o.model || "92 Series AX1800", fw: "1.0.4",
+  const r = { id: o.id, label: o.label || "92 Series AX1800", site: o.site || "", customer: o.customer || "", model: o.model || "92 Series AX1800", fw: o.fw || "1.0.4", fwLatest: o.fwLatest || null,
     sticker: { pass: cfg.admin.pass, ssid: cfg.wifi.ssid, wifiPass: cfg.wifi.pass },
     phys: Object.assign({ wanPort: "wan", power: "ok" }, o.phys || {}), isp: Object.assign({ mode: "DHCP" }, o.isp || {}), publicIp: o.publicIp || "50.90.234.1",
     devices: copy(o.devices || []), neighbours: copy(o.neighbours || []), crowd: o.crowd || 0, web: !!o.web, where: o.where || "", screenedNet: o.screenedNet || "",
@@ -116,7 +116,12 @@ export function factoryReset(fleet, r) {
   r.saved = fresh; r.running = copy(fresh); r.form = copy(fresh); r.signedIn = false;
   note(fleet, r, "factory-reset"); return { ok: true, text: "The router was reset to its factory settings. Everything configured on it is gone." };
 }
-export function firmware(fleet, r) { note(fleet, r, "firmware"); return { ok: true, text: "Firmware " + r.fw + " is the latest version for this model." }; }
+/* A newer version, when the maker has one (fwLatest): it installs, and
+   the router restarts with its saved settings, as real ones do. */
+export function firmware(fleet, r) {
+  if (r.fwLatest && r.fw !== r.fwLatest) { const from = r.fw; r.fw = r.fwLatest; note(fleet, r, "firmware-update", { from: from, to: r.fw }); const rb = reboot(fleet, r); return { ok: true, lost: rb.lost, text: "Updated the firmware from " + from + " to " + r.fw + ". The router restarted" + (rb.lost ? "; changes that weren't saved were lost." : " with its saved settings.") }; }
+  note(fleet, r, "firmware"); return { ok: true, text: "Firmware " + r.fw + " is the latest version for this model." };
+}
 
 /* ------------------------------------------------- what it's doing */
 export function defaultPass(r) { return r.running.admin.pass === r.sticker.pass; }

@@ -533,3 +533,50 @@ tr.coach-target td:first-child { box-shadow: inset 4px 4px 0 #b88a00, inset 0 -4
 .sv-bar.cx { color: #111827; background: #fde047; }
 .sv-off5 { display: block; padding: 0.3rem 0.5rem; font-size: 0.85rem; }
 .sv-list { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.35rem; }
+/* the customer chat (Help Desk Chat sims) */
+.g-cc { background: #5b21b6; } .g-md { background: #14532d; }
+.cc-host, .mdm-host { overflow: auto; }
+.cc { display: grid; gap: 0.7rem; padding: 0.8rem 1rem 1rem; }
+.cc-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.6rem; align-items: center; }
+.cc-head > div:first-child { display: grid; gap: 0.1rem; }
+.cc-site, .cc-note { color: var(--muted); font-size: 0.88rem; }
+.cc-mood { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.6rem; border-radius: 6px; border: 1px solid var(--line); background: var(--win-2); }
+.cc-mood-l { font-weight: 800; }
+.cc-meter { display: inline-flex; gap: 3px; }
+.cc-meter span { width: 1.1rem; height: 0.7rem; border-radius: 2px; border: 1px solid var(--line); background: transparent; }
+.cc-mood.m0 .cc-meter span.on { background: #15803d; } .cc-mood.m1 .cc-meter span.on { background: #ca8a04; }
+.cc-mood.m2 .cc-meter span.on, .cc-mood.m3 .cc-meter span.on { background: #b91c1c; }
+.cc-mood.m2, .cc-mood.m3 { box-shadow: inset 4px 0 0 var(--bad-rule); }
+.cc-mood-n { font-size: 0.88rem; }
+.cc-log { display: grid; gap: 0.5rem; max-height: 22rem; overflow: auto; padding: 0.6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--win-3); }
+.cc-line { max-width: 80%; padding: 0.45rem 0.7rem; border-radius: 10px; background: var(--win); border: 1px solid var(--line); }
+.cc-line p { margin: 0.15rem 0 0; }
+.cc-line.you { justify-self: end; background: var(--win-2); border-color: var(--accent); }
+.cc-line.you.wrong { background: var(--bad-bg); color: var(--bad-ink); border-color: var(--bad-rule); box-shadow: inset 4px 0 0 var(--bad-rule); }
+.cc-line.note { justify-self: center; max-width: 90%; background: var(--good-bg); color: var(--good-ink); border-color: var(--good-rule); font-size: 0.9rem; margin: 0; }
+.cc-who { display: block; font-size: 0.8rem; font-weight: 700; }
+.cc-shot { margin: 0.3rem 0 0; padding: 0.4rem 0.6rem; border-radius: 8px; background: var(--win-2); border: 1px solid var(--line); }
+.cc-shot figcaption { font-weight: 700; font-size: 0.85rem; }
+.cc-shot table, .mdm-t table { border-collapse: collapse; }
+.cc-shot th, .cc-shot td, .mdm-t th, .mdm-t td { text-align: left; padding: 0.15rem 0.8rem 0.15rem 0; vertical-align: top; }
+.cc-ask { margin: 0; font-weight: 800; }
+.cc-wait { display: grid; gap: 0.3rem; justify-items: start; padding: 0.6rem 0.8rem; border-radius: 8px; border: 2px dashed var(--accent); background: var(--win-2); }
+.cc-wait p { margin: 0; }
+.cc-done { margin: 0; padding: 0.5rem 0.7rem; border-radius: 8px; background: var(--good-bg); color: var(--good-ink); box-shadow: inset 4px 0 0 var(--good-rule); font-weight: 700; }
+.cc-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+/* Mobile devices */
+.mdm { display: grid; gap: 0.7rem; padding: 0.8rem 1rem 1rem; }
+.mdm h2 { margin: 0; font-size: 1.15rem; }
+.mdm-tabs { display: flex; gap: 0.4rem; }
+.mdm-grid { display: grid; grid-template-columns: minmax(14rem, 22rem) 1fr; gap: 1rem; align-items: start; }
+@media (max-width: 900px) { .mdm-grid { grid-template-columns: 1fr; } }
+.mdm-3d { min-height: 380px; border-radius: 10px; background: #e9ebee; border: 1px solid var(--line); overflow: hidden; }
+.mdm-3d.off { min-height: 0; background: var(--win-2); padding: 0.6rem; }
+.mdm-info { display: grid; gap: 0.6rem; justify-items: start; }
+.mdm-info h3, .mdm-t h4 { margin: 0; }
+.mdm-t { display: grid; gap: 0.2rem; }
+.mdm-t th { font-weight: 700; }
+.mdm-sync { display: grid; gap: 0.3rem; }
+.mdm-res { margin: 0; padding: 0.35rem 0.6rem; border-radius: 6px; }
+.mdm-res.ok { background: var(--good-bg); color: var(--good-ink); box-shadow: inset 4px 0 0 var(--good-rule); }
+.mdm-res.bad { background: var(--bad-bg); color: var(--bad-ink); box-shadow: inset 4px 0 0 var(--bad-rule); }
