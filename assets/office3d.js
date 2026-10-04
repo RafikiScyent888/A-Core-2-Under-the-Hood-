@@ -22,6 +22,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 export function webglOK() {
   try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch (e) { return false; }
@@ -190,6 +191,87 @@ export async function mountOffice(host, opts) {
   const WALLS = PLAN.WALLS, AP = PLAN.AP, segs = PLAN.segs;
   const TABLET = { x: 30.2, z: 5.2 };
   
+  /* The microwave, from the owner's photograph of their own: brushed
+     stainless case with rounded edges and a black back, a smoked black
+     glass door with the perforated window screen, the lit inside with a
+     glass turntable on its roller ring and a glass bowl, a chrome bar
+     handle on standoffs, and a black glass control panel: a red 2:30, the
+     keypad, Start and Stop, and a knurled dial. About 20 x 12 x 15 in.
+     Built in its own frame (x across its front, y up, z out of the door),
+     then turned to face into the room (+x), the panel on the right. */
+  function microwaveAt(mx, mz) {
+    /* on the counter, or (once moved) on a small trolley at desk height */
+    const onCounter = mx < 20.3 && mz > 19.5 && mz < 24.5;
+    if (!onCounter) { box(mx - 0.75, mz - 1.0, mx + 0.75, mz + 1.0, 2.5, 2.6, M("cart", { color: 0x3a3f46, metalness: 0.5, roughness: 0.4 })); box(mx - 0.75, mz - 1.0, mx + 0.75, mz + 1.0, 1.0, 1.08, M("cart")); [[-0.7, -0.95], [-0.7, 0.95], [0.7, -0.95], [0.7, 0.95]].forEach(([dx, dz]) => { cyl(mx + dx, mz + dz, 0.04, 0.55, 2.5, M("leg"), 8); cyl(mx + dx, mz + dz, 0.12, 0.4, 0.55, M("tyre", { color: 0x131313 }), 10); }); }
+    const Y = onCounter ? 3.25 : 2.6;
+    const W = 1.7, H = 1.0, D = 1.3, F = 0.05;                      /* F: the feet */
+    const g = new THREE.Group(); g.position.set(mx, Y, mz); g.rotation.y = Math.PI / 2; scene.add(g);
+    const add = (geo, mat, x, y, z, cast) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = cast !== false; m.receiveShadow = true; g.add(m); return m; };
+    const tex = (w, h, draw) => { const t = canvasTex(w, h, draw); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t; };
+    /* brushed stainless: fine streaks along the case */
+    const brushed = tex(512, 512, (c, w, h) => { c.fillStyle = "#c9cdd1"; c.fillRect(0, 0, w, h); const r = rnd(61); for (let i = 0; i < 5200; i++) { const y = r() * h, l = 30 + r() * 200; c.fillStyle = r() > 0.5 ? `rgba(255,255,255,${0.02 + r() * 0.05})` : `rgba(70,74,80,${0.02 + r() * 0.05})`; c.fillRect(r() * w - 40, y, l, 0.6); } });
+    const steel = new THREE.MeshPhysicalMaterial({ color: 0xffffff, map: brushed, metalness: 0.9, roughness: 0.34, clearcoat: 0.25, clearcoatRoughness: 0.4 });
+    const black = new THREE.MeshPhysicalMaterial({ color: 0x141518, roughness: 0.55, metalness: 0.2 });
+    const chrome = new THREE.MeshPhysicalMaterial({ color: 0xe6e8ea, metalness: 1, roughness: 0.12 });
+    const glossBlack = new THREE.MeshPhysicalMaterial({ color: 0x0b0c0e, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.03 });
+    /* the case: a rounded profile with the oven's opening cut through it,
+       run front to back, so the inside really is open behind the door */
+    const x0 = -W / 2, oL = -W / 2 + 0.1, oR = W / 2 - 0.56, oB = 0.1, oT = H - 0.1, rr = 0.07;
+    const prof = new THREE.Shape(); prof.moveTo(x0 + rr, 0); prof.lineTo(W / 2 - rr, 0); prof.quadraticCurveTo(W / 2, 0, W / 2, rr); prof.lineTo(W / 2, H - rr); prof.quadraticCurveTo(W / 2, H, W / 2 - rr, H); prof.lineTo(x0 + rr, H); prof.quadraticCurveTo(x0, H, x0, H - rr); prof.lineTo(x0, rr); prof.quadraticCurveTo(x0, 0, x0 + rr, 0);
+    const hole = new THREE.Path(); hole.moveTo(oL, oB); hole.lineTo(oL, oT); hole.lineTo(oR, oT); hole.lineTo(oR, oB); hole.lineTo(oL, oB); prof.holes.push(hole);
+    const shellGeo = new THREE.ExtrudeGeometry(prof, { depth: D - 0.04, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.015, bevelSegments: 3, curveSegments: 8 });
+    add(shellGeo, steel, 0, F, -D / 2 + 0.02);
+    add(new RoundedBoxGeometry(W - 0.02, H - 0.02, 0.05, 2, 0.02), black, 0, F + H / 2, -D / 2 - 0.005);   /* the black back */
+    /* vent slots on the right side */
+    const vents = tex(256, 128, (c, w, h) => { c.fillStyle = "#c9cdd1"; c.fillRect(0, 0, w, h); c.fillStyle = "#1a1b1e"; for (let i = 0; i < 14; i++) c.fillRect(10 + i * 17, 18, 8, h - 36); });
+    const vp = add(new THREE.PlaneGeometry(0.6, 0.3), new THREE.MeshStandardMaterial({ map: vents, metalness: 0.7, roughness: 0.4 }), W / 2 + 0.018, F + H * 0.62, -0.1, false); vp.rotation.y = Math.PI / 2;
+    /* feet, and a soft shadow on the worktop */
+    [[-0.7, -0.5], [0.7, -0.5], [-0.7, 0.5], [0.7, 0.5]].forEach(([x, z]) => add(new THREE.CylinderGeometry(0.05, 0.055, F, 14), black, x, F / 2, z));
+    const blob = tex(128, 128, (c, w, h) => { const gr = c.createRadialGradient(w / 2, h / 2, 6, w / 2, h / 2, w / 2); gr.addColorStop(0, "rgba(0,0,0,0.55)"); gr.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = gr; c.fillRect(0, 0, w, h); });
+    const sh = add(new THREE.PlaneGeometry(W + 0.5, D + 0.45), new THREE.MeshBasicMaterial({ map: blob, transparent: true, depthWrite: false }), 0, 0.004, 0, false); sh.rotation.x = -Math.PI / 2; sh.castShadow = false;
+    /* inside: warm enamel, lit by its own small lamp */
+    const enamel = new THREE.MeshStandardMaterial({ color: 0xc9a86e, emissive: 0xffb23f, emissiveIntensity: 0.45, roughness: 0.6, envMapIntensity: 0.3, side: THREE.BackSide });
+    add(new THREE.BoxGeometry(oR - oL - 0.05, oT - oB - 0.05, D - 0.2), enamel, (oL + oR) / 2, F + (oB + oT) / 2, 0.0, false);   /* well inside the case's own walls, so the enamel, not the steel, is what shows */
+    const lamp = new THREE.PointLight(0xffb23f, 2.4, 1.6, 2); lamp.position.set((oL + oR) / 2 + 0.25, F + oT - 0.06, 0.1); g.add(lamp);
+    const tc = (oL + oR) / 2, ty = F + oB + 0.055;
+    add(new THREE.TorusGeometry(0.2, 0.012, 8, 40), black, tc, ty - 0.012, 0.02).rotation.x = Math.PI / 2;          /* the roller ring */
+    const plateGlass = new THREE.MeshPhysicalMaterial({ color: 0xe9e2cf, roughness: 0.03, metalness: 0, clearcoat: 1, transparent: true, opacity: 0.4 });
+    add(new THREE.CylinderGeometry(0.4, 0.38, 0.018, 48), plateGlass, tc, ty, 0.02, false);
+    add(new THREE.TorusGeometry(0.39, 0.012, 8, 48), plateGlass, tc, ty + 0.012, 0.02, false).rotation.x = Math.PI / 2;
+    const bowlPts = [[0, 0], [0.11, 0], [0.13, 0.008], [0.16, 0.06], [0.18, 0.13], [0.182, 0.15], [0.172, 0.15], [0.17, 0.13], [0.15, 0.065], [0.122, 0.014], [0, 0.012]].map(([x, y]) => new THREE.Vector2(x, y));
+    add(new THREE.LatheGeometry(bowlPts, 40), new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.03, clearcoat: 1, transparent: true, opacity: 0.42, side: THREE.DoubleSide }), tc, ty + 0.012, 0.0, false);
+    /* the door: smoked glass, opaque round the edge, with the window's perforated screen */
+    const dW = oR - x0 + 0.02 - 0.06, dH = H - 0.06, dx = (x0 + 0.03 + oR + 0.02) / 2;
+    const doorA = tex(512, 320, (c, w, h) => { c.fillStyle = "#ffffff"; c.fillRect(0, 0, w, h); const ix = 0.11 * w, iy = 0.13 * h; c.fillStyle = "#a0a0a0"; c.fillRect(ix, iy, w - 2 * ix, h - 2 * iy); c.fillStyle = "#6a6a6a"; for (let y = iy + 3; y < h - iy; y += 6) for (let x = ix + 3 + ((y / 6) % 2 ? 3 : 0); x < w - ix; x += 6) { c.beginPath(); c.arc(x, y, 1.6, 0, Math.PI * 2); c.fill(); } });
+    const doorMat = new THREE.MeshPhysicalMaterial({ color: 0x050506, roughness: 0.06, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.05, envMapIntensity: 0.18, transparent: true, alphaMap: doorA, depthWrite: false });
+    add(new RoundedBoxGeometry(dW, dH, 0.03, 2, 0.012), doorMat, dx, F + H / 2, D / 2 + 0.03, false);
+    /* the handle: a chrome bar on two standoffs, beside the panel */
+    const hx = oR - 0.035;
+    add(new THREE.CapsuleGeometry(0.028, 0.6, 6, 16), chrome, hx, F + H / 2, D / 2 + 0.13);
+    [F + 0.22, F + H - 0.22].forEach((y) => add(new THREE.CylinderGeometry(0.018, 0.018, 0.11, 12), chrome, hx, y, D / 2 + 0.08).rotation.x = Math.PI / 2);
+    /* the control panel: black glass, a red clock, the keypad, Start and Stop */
+    const pW = W / 2 - 0.03 - (oR + 0.04), pH = H - 0.08, px = (oR + 0.04 + W / 2 - 0.03) / 2;
+    const face = (glow) => tex(400, 980, (c, w, h) => {
+      c.fillStyle = glow ? "#000000" : "#0c0d10"; c.fillRect(0, 0, w, h);
+      if (!glow) { c.fillStyle = "#050506"; c.fillRect(34, 40, w - 68, 110); }
+      c.font = "700 84px 'Courier New', monospace"; c.textAlign = "center"; c.fillStyle = "#ff2626"; if (glow) { c.shadowColor = "#ff3b3b"; c.shadowBlur = 18; } c.fillText("2:30", w / 2, 124); c.shadowBlur = 0;
+      if (glow) return;
+      const lab = (t, x, y) => { c.fillStyle = "#c8cbd0"; c.font = "600 19px Arial"; c.fillText(t, x, y); };
+      const key = (x, y, bw, bh, t, col) => { const gr = c.createLinearGradient(0, y, 0, y + bh); gr.addColorStop(0, col || "#3a3d43"); gr.addColorStop(1, col ? "#7f1219" : "#24262b"); c.fillStyle = gr; c.beginPath(); c.roundRect(x, y, bw, bh, 7); c.fill(); c.strokeStyle = "rgba(255,255,255,0.18)"; c.lineWidth = 1.5; c.stroke(); c.fillStyle = "#eef0f2"; c.font = "700 " + (t.length > 2 ? 17 : 26) + "px Arial"; c.fillText(t, x + bw / 2, y + bh / 2 + (t.length > 2 ? 6 : 9)); };
+      const quick = [["POPCORN", "POTATO"], ["PIZZA", "REHEAT"], ["DEFROST", "POWER"]];
+      quick.forEach((row, i) => row.forEach((t, j) => key(40 + j * 165, 190 + i * 64, 150, 48, t)));
+      lab("— COOK —", w / 2, 395);
+      for (let r = 0; r < 4; r++) for (let k = 0; k < 3; k++) { const t = r < 3 ? String(r * 3 + k + 1) : ["CLOCK", "0", "TIMER"][k]; key(40 + k * 110, 415 + r * 66, 98, 52, t); }
+      key(40, 690, 150, 60, "STOP"); key(205, 690, 155, 60, "START", "#b8202a");
+    });
+    const pf = add(new THREE.PlaneGeometry(pW, pH), new THREE.MeshPhysicalMaterial({ map: face(false), emissive: 0xffffff, emissiveMap: face(true), emissiveIntensity: 1.6, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.03 }), px, F + H / 2, D / 2 + 0.03, false);
+    /* the dial: knurled, with a chrome ring */
+    const knurl = tex(256, 32, (c, w, h) => { c.fillStyle = "#2a2c30"; c.fillRect(0, 0, w, h); c.fillStyle = "#0f1012"; for (let x = 0; x < w; x += 8) c.fillRect(x, 0, 3, h); });
+    const knob = add(new THREE.CylinderGeometry(0.07, 0.072, 0.06, 40), [new THREE.MeshStandardMaterial({ map: knurl, roughness: 0.5 }), new THREE.MeshPhysicalMaterial({ color: 0x1c1d20, roughness: 0.25, clearcoat: 0.6 }), black], px, F + 0.16, D / 2 + 0.06);
+    knob.rotation.x = Math.PI / 2;
+    add(new THREE.TorusGeometry(0.078, 0.008, 8, 40), chrome, px, F + 0.16, D / 2 + 0.035, false);
+    add(new THREE.BoxGeometry(0.008, 0.045, 0.004), new THREE.MeshBasicMaterial({ color: 0xe6e8ea }), px, F + 0.19, D / 2 + 0.092, false);
+  }
   function buildOffice(roof, full) {
     /* site */
     const grass = texMat("grassM", TEX.grass, [1, 1]);
@@ -319,12 +401,14 @@ export async function mountOffice(host, opts) {
     /* the break counter along the closet wall, and the microwave on it
        (the Wireless Reliability job) */
     if (opts.microwave) {
-      box(18.25, 19.6, 20.2, 24.4, 0.4, 3.1, M("counter", { color: 0xd8d2c6, roughness: 0.7 }));
-      box(18.2, 19.5, 20.3, 24.5, 3.1, 3.25, M("worktop", { color: 0x5b5f66, roughness: 0.35 }));
-      const mx = opts.microwave.x, mz = opts.microwave.z;
-      box(mx - 0.75, mz - 0.95, mx + 0.75, mz + 0.95, 3.25, 4.3, M("mwbody", { color: 0xe9eaec, metalness: 0.3, roughness: 0.4 }));
-      box(mx + 0.74, mz - 0.85, mx + 0.79, mz + 0.45, 3.4, 4.15, M("mwdoor", { color: 0x1d232b, roughness: 0.15 }));
-      box(mx + 0.74, mz + 0.55, mx + 0.79, mz + 0.85, 3.6, 4.0, M("mwpanel", { color: 0x3a4250, roughness: 0.4 }));
+      /* the counter: wood cabinets, a speckled stone worktop and white
+         tiles behind, as in the owner's photograph of their microwave */
+      uvBox(18.25, 19.6, 20.2, 24.4, 0.4, 3.1, texMat("woodM", TEX.wood, [1, 1], { roughness: 0.55 }), 6);
+      [20.0, 22.0].forEach((z) => box(20.2, z + 0.15, 20.24, z + 1.85, 0.7, 2.85, M("cabdoor", { color: 0x6e4a2f, roughness: 0.5 }), false));
+      [21.85, 23.85].forEach((z) => box(20.24, z - 0.06, 20.3, z + 0.06, 2.3, 2.7, M("knob", { color: 0xb8bcc2, metalness: 0.8, roughness: 0.3 }), false));
+      uvBox(18.2, 19.5, 20.3, 24.5, 3.1, 3.25, texMat("graniteM", () => canvasTex(256, 256, (g, w, h) => { noise(g, w, h, "#cfcac0", 0.10, 2500, 47); const r = rnd(59); for (let i = 0; i < 1400; i++) { const k = r(); g.fillStyle = k < 0.45 ? "rgba(70,66,60,0.55)" : k < 0.8 ? "rgba(150,140,128,0.5)" : "rgba(250,248,240,0.7)"; g.fillRect(r() * w, r() * h, 1 + r() * 2.5, 1 + r() * 2.5); } }), [1, 1], { roughness: 0.3, envMapIntensity: 0.4 }), 2);
+      uvBox(18.26, 19.6, 18.32, 24.4, 3.25, 5.3, texMat("tilesM", () => canvasTex(128, 128, (g, w, h) => { noise(g, w, h, "#f1f0ec", 0.04, 400, 53); g.strokeStyle = "rgba(150,150,145,0.7)"; g.lineWidth = 3; for (let y = 0; y <= h; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); } for (let y = 0; y < h; y += 32) for (let x = (y / 32) % 2 ? 32 : 0; x <= w; x += 64) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 32); g.stroke(); } }), [1, 1], { roughness: 0.25 }), 1);
+      microwaveAt(opts.microwave.x, opts.microwave.z);
     }
     /* plants */
     [[1.5, 15.5], [38.5, 15.5], [12, 1.2], [26, 11]].forEach(([x, z]) => { cyl(x, z, 0.55, 0.4, 1.6, M("pot", { color: 0xcfcac0 }), 14); shrub(x, z + 0, 0.9).position.y = 2.4; });
@@ -411,13 +495,54 @@ export async function mountOffice(host, opts) {
   
 
   /* ------------------------------------------------ the live model */
-  buildOffice(false, !!opts.walk);
-  const cam = new THREE.PerspectiveCamera(40, WIDTH() / HEIGHT, 1, 2000);
+  const HOUSES = opts.street ? buildStreet() : (buildOffice(false, !!opts.walk), null);
+  /* Indoors, the open sky above the roofless rooms tinted everything blue.
+     On the walk the office has its own lights: warm ceiling panels in each
+     room, and less of the sky. */
+  if (opts.walk && !opts.street) {
+    /* cheap light only: no per-room point lights, which slow every frame
+       on a weak graphics card (and stalled the software renderer) */
+    /* reflections from a neutral indoor room (three.js's RoomEnvironment),
+       not the sky: steel and glass then read as they do indoors */
+    scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture; scene.environmentIntensity = 0.7;
+    scene.add(new THREE.HemisphereLight(0xfff4e0, 0x8a7f6e, 0.6));
+    scene.add(new THREE.AmbientLight(0xfff1dc, 0.25));
+  }
+  const cam = new THREE.PerspectiveCamera(opts.street ? 36 : 40, WIDTH() / HEIGHT, 1, 2000);
   cam.position.set(-14, 62, 70);
   const controls = new OrbitControls(cam, canvas);
   controls.target.set(20, 0, 15); controls.enableDamping = false;
   controls.minDistance = 25; controls.maxDistance = 180; controls.maxPolarAngle = Math.PI * 0.46;
+  if (opts.street) { cam.position.set(6, 112, 168); controls.target.set(0, 0, 18); controls.minDistance = 60; controls.maxDistance = 420; }
   controls.update();
+
+  /* THE STREET'S WI-FI (the Neighboring Routers tickets): each router's
+     reach as a disc on the ground in its channel's colour, and where
+     Router 3 clashes with a neighbour, red stripes over the shared ground.
+     Drawn from what the routers are RUNNING; the words for it are in the
+     window around the canvas (streetview.js). */
+  const REACH = 115, GX = 380, GZ = 300, PX = 4;
+  let ground = null;
+  function drawStreetWifi(list) {
+    if (!HOUSES) return;
+    const c = document.createElement("canvas"); c.width = GX * PX; c.height = GZ * PX; const g = c.getContext("2d");
+    const at = (i) => [(HOUSES[i].x + GX / 2) * PX, (0 + GZ / 2) * PX];
+    const circle = (i, r) => { const [x, y] = at(i); g.beginPath(); g.arc(x, y, r * PX, 0, Math.PI * 2); };
+    list.forEach((rt) => { circle(rt.house, REACH); g.fillStyle = rt.fill + (rt.ours ? "40" : "26"); g.fill(); });
+    const ours = list.filter((x) => x.ours)[0];
+    if (ours) list.filter((x) => x.clash).forEach((n) => {
+      g.save(); circle(ours.house, REACH); g.clip(); circle(n.house, REACH); g.clip();
+      g.strokeStyle = "rgba(185,28,28,0.75)"; g.lineWidth = 3 * PX;
+      for (let k = -c.height; k < c.width; k += 9 * PX) { g.beginPath(); g.moveTo(k, c.height); g.lineTo(k + c.height, 0); g.stroke(); }
+      g.restore();
+    });
+    list.forEach((rt) => { circle(rt.house, REACH - 0.6); g.strokeStyle = rt.fill; g.lineWidth = (rt.ours ? 2.2 : 1.4) * PX; if (!rt.ours) g.setLineDash([6 * PX, 4 * PX]); else g.setLineDash([]); g.stroke(); g.setLineDash([]); });
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+    if (ground) { ground.material.map.dispose(); ground.material.map = t; ground.material.needsUpdate = true; }
+    else { ground = new THREE.Mesh(new THREE.PlaneGeometry(GX, GZ), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false })); ground.rotation.x = -Math.PI / 2; ground.position.set(0, 0.5, 0); ground.renderOrder = 2; scene.add(ground); }
+    /* each router, a small box with its aerials on a shelf by the front window */
+    if (!drawStreetWifi.boxes) { drawStreetWifi.boxes = true; HOUSES.forEach((h) => { box(h.x - 1, h.d / 2 - 3, h.x + 1, h.d / 2 - 1.8, 3.4, 3.8, M("rtr", { color: 0x1c1f24, roughness: 0.4 })); [-0.6, 0.6].forEach((dx) => box(h.x + dx - 0.05, h.d / 2 - 2.5, h.x + dx + 0.05, h.d / 2 - 2.3, 3.8, 4.8, M("rtr"))); }); }
+  }
 
   /* A clickable block over each desk, and a ring that marks the machine
      being worked on. The ring is yellow (royal palette) and the machine
@@ -456,7 +581,29 @@ export async function mountOffice(host, opts) {
   window.addEventListener("resize", resize);
   render();
 
+  /* the fly-in: from high over the street down to the view along it
+     (a plain cut for reduced motion) */
+  function flyIn(done) {
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const P0 = new THREE.Vector3(0, 520, 40), P1 = cam.position.clone(), T0 = new THREE.Vector3(0, 0, 0), T1 = controls.target.clone();
+    if (reduce) { render(); if (done) done(); return; }
+    const ease = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; let t0 = 0; controls.enabled = false;
+    function frame(now) { if (!t0) t0 = now; const u = Math.min(1, (now - t0) / 2600), e = ease(u);
+      cam.position.copy(P0).lerp(P1, e); cam.lookAt(T0.clone().lerp(T1, e)); composer.render(); if (opts.onView) opts.onView();
+      if (u < 1) requestAnimationFrame(frame); else { controls.enabled = true; controls.update(); render(); if (done) done(); } }
+    requestAnimationFrame(frame);
+  }
+  if (opts.onView) controls.addEventListener("change", opts.onView);
+
   return {
+    /* the street: [{ house: 0-2, fill: "#hex", ours, clash }] */
+    street: function (list) { drawStreetWifi(list); render(); },
+    flyIn: flyIn,
+    /* where a point over each house's roof is, in pixels inside the canvas */
+    houseAt: function (i) {
+      if (!HOUSES) return null; const h = HOUSES[i]; const v = new THREE.Vector3(h.x, h.wallH + h.roofH + 10, 0).project(cam);
+      return { x: (v.x + 1) / 2 * canvas.clientWidth, y: (1 - v.y) / 2 * canvas.clientHeight, behind: v.z > 1 };
+    },
     select: function (id) {
       const mc = (opts.machines || []).filter(function (x) { return x.id === id; })[0];
       if (mc && mc.desk) { ring.visible = true; ring.position.set(mc.desk[0], 0.5, mc.desk[1] + 2.4); } else ring.visible = false;

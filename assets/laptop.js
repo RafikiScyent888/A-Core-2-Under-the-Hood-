@@ -25,6 +25,7 @@ import { drawExam } from "./examui.js";
 import { EXAMS } from "./exams.js";
 import { drawRouter } from "./routerui.js";
 import { drawFloorPlan } from "./floorplan.js";
+import { drawStreetView } from "./streetview.js";
 import * as RT from "./router.js";
 import { staffOf, emailById, part as mailPart, emailDone, CATS } from "./tickets-mail.js";
 
@@ -100,7 +101,8 @@ const APPS = {
   exam: { title: "Exam Practice — the sims, laid out as the exam shows them", mini: "EX", cls: "g-exam", geo: [0.04, 0.02, 0.92, 0.95], draw: drawExamWin },
   router: { title: "92 Series — routers you manage", mini: "92", cls: "g-rt", geo: [0.10, 0.03, 0.72, 0.92], draw: drawRouterWin },
   browser: { title: "Browser — 192.168.1.1", mini: "WB", cls: "g-web", geo: [0.14, 0.04, 0.70, 0.90], draw: drawBrowserWin },
-  floor: { title: "Floor plan — Rafiki's office", mini: "FP", cls: "g-fp", geo: [0.05, 0.03, 0.62, 0.93], draw: drawFloorWin }
+  floor: { title: "Floor plan — Rafiki's office", mini: "FP", cls: "g-fp", geo: [0.05, 0.03, 0.62, 0.93], draw: drawFloorWin },
+  street: { title: "Street view — Router 3 and its neighbours", mini: "SV", cls: "g-sv", geo: [0.06, 0.03, 0.66, 0.93], draw: drawStreetWin }
 };
 function appOf(id) { return id.indexOf("rdp:") === 0 ? { title: rosterOf(id.slice(4)).host + " — Remote support", mini: "RS", cls: "g-rdp", geo: [0.08, 0.03, 0.86, 0.92], draw: drawRdp } : APPS[id]; }
 function openWin(id) {
@@ -147,7 +149,7 @@ function drag(w) {
   w.bar.addEventListener("dblclick", function (e) { if (!e.target.closest("button")) { w.max = !w.max; place(w); } });
 }
 function redraw(id) { const w = W[id]; if (w) w.a.draw(w); }
-function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); redraw("floor"); drawTask(); coachTick(); }
+function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); redraw("floor"); redraw("street"); drawTask(); coachTick(); }
 
 /* ------------------------------------------------ desktop and taskbar */
 function drawDesk() {
@@ -170,7 +172,7 @@ function drawTask() {
   const ids = pinned.concat(Object.keys(W).filter(function (k) { return pinned.indexOf(k) < 0; }));
   ids.forEach(function (id) {
     const a = appOf(id); const w = W[id];
-    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : id === "floor" ? "Floor plan" : rosterOf(id.slice(4)).host;
+    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : id === "floor" ? "Floor plan" : id === "street" ? "Street view" : rosterOf(id.slice(4)).host;
     const b = btn("", "tb" + (w ? " open" : "") + (front === id && w && !w.min ? " front" : ""), function () {
       if (!w) return openWin(id);
       if (front === id && !w.min) { w.min = true; place(w); front = null; drawTask(); } else { w.min = false; place(w); focusWin(id); }
@@ -416,6 +418,7 @@ function drawTicket(t) {
     acts.appendChild(coachTag("escalate", btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); })));
   } else if (st.stage === "work" && rt) {
     acts.appendChild(coachTag("open-router", btn("Open the 92 Series app", "b pri", function () { openWin("router"); })));
+    if (streetRouter()) acts.appendChild(coachTag("open-street", btn("Look at the street in 3D", "b", lookAtStreet)));
     acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: " + t.who + " confirms it works" : "Tried to resolve: " + (x.say || "not fixed yet")); after(); })));
     acts.appendChild(coachTag("escalate", btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); })));
   } else if (st.stage === "work" && em) {
@@ -632,6 +635,17 @@ function drawFloorWin(w) {
   w.ui = w.ui || {}; w.body.innerHTML = ""; w.body.classList.add("fp-host");
   drawFloorPlan(w.body, { router: planRouter, onSite: function () { const t = E.ticket(); return !!(t && L.onSite[t.id]); },
     move: function (x, z) { routerAct("router-microwave", function (f, rr) { return RT.moveMicrowave(f, rr, x, z); }); } }, w.ui);
+}
+/* The street (Neighboring Routers): the three houses in 3D with each
+   router's reach and channel, from what the routers are running. Looking
+   is recorded on the router (a view, never a wrong move). */
+function streetRouter() { const t = E.ticket(), st = E.T(); return t && st && st.stage !== "done" && t.sim === "Neighboring Routers Configuration" ? RT.get(E.fleet(), t.id) : null; }
+function lookAtStreet() { routerAct("router-view", function (f, rr) { RT.note(f, rr, "view", { tab: "street" }); }, { tab: "street", quiet: true }); openWin("street"); }
+function drawStreetWin(w) {
+  w.ui = w.ui || {}; const keep = w.body.scrollTop; w.body.classList.add("sv-host");
+  drawStreetView(w.body, { router: streetRouter, street: function () { const t = E.ticket(); return t && t.site ? (t.site.split(", ")[1] || t.site) : "The street"; } }, w.ui);
+  w.body.scrollTop = keep;
+  w.onClose = function () { if (w.ui.office) w.ui.office.dispose(); };
 }
 /* Everything done in the 92 Series app goes through here: the change to
    the router, then the engine (which judges it), the ticket's activity,
@@ -1407,6 +1421,11 @@ WALKS.N1 = { machine: "TECH", steps: [
     say: "Press Open the 92 Series app.",
     target: function () { return W.router ? null : document.querySelector('[data-coach="open-router"]'); },
     done: function () { return !!W.router; } },
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Press Look at the street in 3D. Router 3 is Jamie's, the blue house at the end. Each disc is a router's reach, in its channel's colour; where Jamie's reach meets a neighbour on an overlapping channel, the ground is striped red. The labels and the list underneath say the same in words.",
+    why: "Wi-Fi goes through walls into the houses next door, so routers on overlapping channels share the air and take turns: that's the evening drop-outs.",
+    target: function () { return document.querySelector('[data-coach="open-street"]'); },
+    done: function () { return rAt("N1", function (e) { return e.kind === "view" && e.tab === "street"; }) >= 0; } },
   { tag: "Find the evidence", win: "router",
     say: "Read Status. The Wi-Fi scan shows Router 1 on channel 1 and Router 2 on channel 6, and the line under it says this router overlaps them. There's also an unknown tablet on Jamie's Wi-Fi. Now open Wireless.",
     why: "On 2.4 GHz only channels 1, 6 and 11 don't overlap. With the neighbours on 1 and 6, only one is left.",
@@ -1439,6 +1458,10 @@ WALKS.N1 = { machine: "TECH", steps: [
     say: "Read Status again: no overlap with the neighbours, the family's four connected, the unknown tablet blocked.",
     target: function () { return rTab("Status"); },
     done: function () { return lookedAfterRestart("N1"); } },
+  { tag: "Test it", win: "helpdesk",
+    say: "Look at the street again (Look at the street in 3D): Jamie's reach is green now, channel 11, and the red stripes are gone.",
+    target: function () { return document.querySelector('[data-coach="open-street"]'); },
+    done: function () { const boot = rAt("N1", function (e) { return e.kind === "reboot"; }); return boot >= 0 && rAt("N1", function (e) { return e.kind === "view" && e.tab === "street"; }) > boot; } },
   { tag: "Close it out", win: "helpdesk",
     say: "Press Resolve on Jamie's ticket.",
     target: function () { return document.querySelector('[data-coach="resolve"]'); },

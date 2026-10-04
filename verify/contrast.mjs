@@ -38,6 +38,9 @@ const ROOT = new URL("..", import.meta.url).pathname;
 const lum = (c) => { const f = (v) => (v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
 const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 
+/* "Walk back" takes up to ~9 s to answer under this container's software
+   renderer (resizing the 3D canvas); on a real graphics card it's
+   immediate. Those clicks get 60 s, so a slow machine isn't a failure. */
 export async function run(extraCss) {
   const S = serve(ROOT);
   const B = await browser();
@@ -221,7 +224,7 @@ export async function run(extraCss) {
     await page.evaluate(() => window.__LAP.walkOver("WS2"));
     await page.waitForSelector(".wo-desk", { timeout: 90000 }); await page.getByRole("button", { name: "Check the network cable" }).click();
     await sweep(tag + ": walked over to WS2, at the desk");
-    await page.getByRole("button", { name: "Walk back to your desk" }).click(); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+    await page.getByRole("button", { name: "Walk back to your desk" }).click({ timeout: 60000 }); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
 
     /* the Malware incident: Devices, the new Windows tools, the cutscene,
        the USB stick at the desk, a session ended by quarantine */
@@ -257,7 +260,7 @@ export async function run(extraCss) {
     await mon.getByRole("button", { name: /Go to the USB drive/ }).click(); await mon.getByRole("button", { name: "File mpam-fe.exe" }).click();
     await sweep(tag + ": at WS2's desk, USB stick in, File Explorer on E:");
     await page.getByRole("button", { name: "Unplug the network cable" }).click(); await page.waitForTimeout(300);
-    await page.getByRole("button", { name: "Walk back to your desk" }).click(); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+    await page.getByRole("button", { name: "Walk back to your desk" }).click({ timeout: 60000 }); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
     await page.evaluate(() => { const w = window.__LAP.W["rdp:WS2"]; if (w) { w.min = false; } window.__LAP.openWin("rdp:WS2"); });
     await page.waitForTimeout(300);
     await sweep(tag + ": WS2's remote session ended by quarantine");
@@ -374,13 +377,20 @@ export async function run(extraCss) {
     await rw.getByRole("button", { name: "Wireless", exact: true }).click(); await rw.locator("#rt-mac").click(); await rw.getByRole("button", { name: "Allow Laptop" }).click(); await page.waitForTimeout(150);
     await rw.locator("#rt-mac").scrollIntoViewIfNeeded();
     await sweep(tag + ": 92 Series app, MAC filtering and the allowed list");
+    /* the street in 3D, with Router 3 overlapping both neighbours: the labels over the houses, then the band chart and the list */
+    await toFront("helpdesk"); await hd.getByRole("button", { name: "Look at the street in 3D" }).click(); await page.waitForTimeout(3600);
+    const svw = page.locator("[data-win=street]");
+    await sweep(tag + ": the street in 3D, with an overlap");
+    await svw.locator(".sv-list").scrollIntoViewIfNeeded(); await page.waitForTimeout(150);
+    await sweep(tag + ": the street, the band chart and the list");
+    await svw.getByRole("button", { name: /^Close Street view/ }).click();
     /* the lunchtime job: the break counter, and the floor plan */
     await toFront("helpdesk"); await hd.getByRole("button", { name: /Wi-Fi drops every lunchtime/ }).first().click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
     await toFront("helpdesk"); await hd.locator("[data-coach=walk-break]").click(); await page.waitForTimeout(800);
     if (await page.locator(".wo-skip").count()) await page.locator(".wo-skip").click().catch(() => {});
     await page.waitForSelector(".wo-desk", { timeout: 90000 }); await page.waitForTimeout(400);
     await sweep(tag + ": the break counter, with the floor plan");
-    await page.locator(".wo-back").click(); await page.waitForTimeout(600); if (await page.locator(".wo-skip").count()) await page.locator(".wo-skip").click().catch(() => {});
+    await page.locator(".wo-back").click({ timeout: 60000 }); await page.waitForTimeout(600); if (await page.locator(".wo-skip").count()) await page.locator(".wo-skip").click().catch(() => {});
     await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
     await toFront("helpdesk"); await hd.locator("[data-coach=open-floor]").click(); await page.waitForTimeout(300);
     await sweep(tag + ": the floor plan from the desk");
@@ -415,7 +425,8 @@ const PLANTS = {
   "a process's file path in a faint grey": ".ex-tmp { color: #8b93a1 !important; }",
   "the diagram's numbered slots in a pale blue": ".ex-slot { background: #7fb2ff !important; }",
   "the Wi-Fi scan's overlap line in a pale red": ".rt-clash.bad { color: #e08a8a !important; }",
-  "the footer, below the fold, in a faint grey": "footer.under p { color: #5b6270 !important; }"
+  "the footer, below the fold, in a faint grey": "footer.under p { color: #5b6270 !important; }",
+  "the street's band chart in pale bars": ".sv-bar { background: #8da2d6 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

@@ -29,6 +29,10 @@ on the laptop:
   access point is really giving, room by room and device by device, in
   words as well as colour. On the lunchtime job you walk to the break room
   and drag the microwave across it, and the coverage changes.
+- **Street view:** the three houses of the Neighboring Routers sim in 3D,
+  each router's reach in its channel's colour, red stripes where yours
+  overlaps a neighbour, and the 2.4 GHz band drawn as a Wi-Fi analyzer
+  shows it, with every part also said in words.
 - **Exam Practice** shows each sim laid out the way the exam shows it: the
   Port Forwarding diagram, the Wi-Fi office map, the three houses of
   Neighboring Routers, the Tier 1 Router scenario, the Wireless

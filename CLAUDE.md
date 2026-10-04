@@ -1389,7 +1389,7 @@ so it is safe on GitHub, then the tickets).
 
   | | Level | Customer | Neighbours | Channel | MAC filtering |
   |---|---|---|---|---|---|
-  | N1 | Crawl (12 steps) | the Carters, the sim itself | 1, 6 | 11 | on: family's four |
+  | N1 | Crawl (14 steps, with the street) | the Carters, the sim itself | 1, 6 | 11 | on: family's four |
   | N2 | Walk (7 items) | the Garcias | 6, 11 | 1 | on |
   | N3 | Run | the blue house | 1, 11 | 6 | on |
   | N4 | Run | the Carters again: grandchildren visit | 1, 6 | 11 | off: the password is enough |
@@ -1419,8 +1419,7 @@ so it is safe on GitHub, then the tickets).
   - Two new plants: the overlap line, which the sweep now scrolls into
     view (its first "catch" had been that stray row), and the footer below
     the fold.
-- **Still to come in the router build:** the 3D street showing each
-  router's reach and channel.
+- **The 3D street** came after the Wireless Reliability build (below).
 
 ### The Wireless Reliability tickets as built (3 October 2026, live)
 
@@ -1495,6 +1494,96 @@ so it is safe on GitHub, then the tickets).
     title bars off the top of the screen (`scrollIntoView` with
     `block: "center"` scrolls every container, the page included). It now
     uses `nearest`, which scrolls only what's needed to show the target.
-- **The counter and microwave are a new 3D model,** placed by Claude, not
-  from a photo. OPEN: the owner may want them somewhere else, or built
-  from photos of a real break counter.
+- **The counter and microwave:** the spot is SETTLED (owner, 4 October
+  2026: "The spot is fine"). The microwave is now built from the owner's
+  photograph of their own (see below).
+
+### The microwave from the owner's photograph (4 October 2026, live)
+
+The owner sent a photograph of their own microwave. On the first attempt
+they said: "Come on, you can do so much better with the microwave. You
+have built me better renderings before." So it was rebuilt properly:
+
+- **Light:** walk-overs now take their reflections from a neutral indoor
+  room (three.js's `RoomEnvironment`, MIT, copied into
+  `assets/three/addons/environments/`), not the outdoor sky. The sky had
+  tinted steel, tiles and walls blue-lavender.
+- **The case:** brushed stainless (a fine-streak texture) on a rounded
+  profile run front to back, with the oven's opening cut through it, so
+  it really is hollow behind the door. It also has vent slots on the
+  side, a black back, rubber feet, and a soft shadow on the worktop.
+- **The door:** smoked black glass, opaque round the edge, with the
+  window's perforated metal screen. A chrome bar handle sits on two
+  standoffs.
+- **Inside:** warm enamel lit by its own small lamp, a glass turntable on
+  its roller ring, and a lathe-turned glass bowl.
+  - The warm glow is amber, like the photo's: the one colour outside the
+    royal six, shown to the owner in the preview renders.
+- **The panel:** glossy black glass with a glowing red 2:30, the keypad
+  (Popcorn, Potato, Pizza, Reheat, Defrost, Power, the digits, Clock,
+  Timer), Stop and Start, and a knurled dial with a chrome ring.
+- **The counter, from the photo:** wood cabinets with handles, a speckled
+  stone worktop, and white tiles behind.
+- **Moved off the counter** on the floor plan, it sits on a small trolley
+  at desk height.
+- **Found while building:**
+  - Cutting the opening through the case also lined it with steel walls,
+    flush with the enamel, so the steel showed instead of the glow. The
+    enamel now sits well inside them.
+  - The door's clear coat mirrored the bright room, so the smoked glass
+    looked pale grey. Its reflections are turned down.
+
+### The street (4 October 2026, live)
+
+The owner, 30 September: "The three houses from Router_houses.png get a
+3D street. It shows each router's reach and channel." On 4 October:
+"keep going with the 3D street".
+
+- **New file:** `streetview.js`. `office3d.js` gains a street mode
+  (`mountOffice({ street: true })`), drawing the three houses already
+  built for the preview, plus each router on a shelf.
+- **Which house is which** (as the exam view labels them):
+  - Router 1: the orange house
+  - Router 2: the tan house
+  - Router 3: the blue house at the end. This is the customer's, the one
+    the student sets.
+  - Two briefs had it wrong: N1 said "between two neighbours" and N2 "in
+    the middle of the street". Both now say the blue house at the end.
+- **"Street view", a window on the laptop,** opened from the Neighboring
+  Routers tickets ("Look at the street in 3D"). Looking is recorded as a
+  view, which never counts as a wrong move.
+- **What it shows, all from the routers' RUNNING settings:**
+  - Each router's reach as a disc in its channel's colour: channel 1
+    blue, 6 purple, 11 green, any other channel yellow.
+  - Red stripes over the ground where Router 3 overlaps a neighbour.
+  - A label over each house: its channel, and for Router 3 its width and
+    "✕ Overlaps …" or "✓ No overlap".
+  - A 2.4 GHz band chart, as a Wi-Fi analyzer draws it.
+  - A list in words.
+  - Neighbours are drawn on their main channel, as the model and the
+    sim's key judge them.
+- **It opens with a fly-in** from high over the street, and a plain cut
+  for reduced motion.
+- **Without WebGL,** the band chart and the list say the same thing.
+- **N1's crawl has two new steps (14 in all):** look at the street before
+  the fix (the stripes), and again after the restart (green, no stripes).
+- **Checks:**
+  - page NR: N4's street shows the overlap, still shows it once settings
+    are typed but not saved, and shows clear after save and restart. Two
+    plants: the street drawn from the typed settings, and a street that
+    never shows an overlap.
+  - contrast: the street with an overlap (the labels over the 3D) and the
+    band chart and list, with a plant (pale bars).
+- **Found while checking: "Walk back" freezes the page for several
+  seconds in this container.**
+  - Under the software renderer the checks use, about 9 s of native work
+    (resizing the 3D canvas) passes before anything moves.
+  - It isn't new: the last pushed commit does exactly the same. On the
+    previous container it finished inside the sweep's 20 s limit.
+  - The contrast sweep now gives those clicks 60 s.
+  - On a real graphics card a canvas resize is near-instant. OPEN: worth
+    watching on the students' slowest school machines.
+- **Two first tries that were dropped,** because they slowed every frame
+  on a weak graphics card: warm point lights in every room (cheap whole
+  room light instead), and a "transmission" glass turntable (plain
+  see-through glass instead).

@@ -502,10 +502,18 @@ async function run(rewrites, groups) {
       await front("helpdesk"); await hd.getByRole("button", { name: /grandchildren can't get on/ }).first().click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
       await hd.getByRole("button", { name: "Open the 92 Series app" }).click(); await p.waitForTimeout(150);
       if (!/✕ Overlapping/.test(await rw.locator(".rt-page").innerText())) F("NR: N4's status doesn't show the overlap with the neighbours");
-      await rw.getByRole("button", { name: "Wireless", exact: true }).click();
+      /* the street: Router 3's overlap, from what it's running */
+      const sv = p.locator("[data-win=street]"), svText = async () => (await sv.locator(".sv-list").innerText()).replace(/\s+/g, " ");
+      await front("helpdesk"); await hd.getByRole("button", { name: "Look at the street in 3D" }).click(); await p.waitForTimeout(300);
+      if (!/Router 3[^.]*running channel 6 at 40 MHz[^✕✓]*✕ Overlaps Router 1 \(channel 1\) and Router 2 \(channel 6\)/.test(await svText())) F("NR: N4's street doesn't show Router 3 overlapping both neighbours: " + (await svText()).slice(0, 300));
+      if ((await sv.locator(".sv-tag").count()) !== 3) F("NR: the street doesn't label all three houses");
+      await front("router"); await rw.getByRole("button", { name: "Wireless", exact: true }).click();
       for (const [k, v] of [["rt-ssid", "HomeWiFi"], ["rt-wpass", "MyCCR0ck2!"]]) { await rw.locator("#" + k).fill(v); await rw.locator("#" + k).dispatchEvent("change"); }
       for (const [k, v] of [["rt-sec", "WPA3"], ["rt-chan", "11"], ["rt-width", "20"]]) await rw.locator("#" + k).selectOption(v);
-      await rw.getByRole("button", { name: /^Save: write/ }).click(); await rw.getByRole("button", { name: /^Restart the router/ }).click(); await rw.getByRole("button", { name: "Status", exact: true }).click(); await p.waitForTimeout(150);
+      if (!/✕ Overlaps/.test(await svText())) F("NR: the street shows settings typed but not saved, not what the router is running");
+      await rw.getByRole("button", { name: /^Save: write/ }).click(); await rw.getByRole("button", { name: /^Restart the router/ }).click(); await p.waitForTimeout(150);
+      if (!/Router 3[^.]*running channel 11 at 20 MHz[^✕✓]*✓ Clear of both neighbours/.test(await svText())) F("NR: after the restart the street doesn't show Router 3 clear on channel 11: " + (await svText()).slice(0, 300));
+      await front("router"); await rw.getByRole("button", { name: "Status", exact: true }).click(); await p.waitForTimeout(150);
       const st = await rw.locator(".rt-page").innerText();
       if (!/✓ No overlap/.test(st) || !/Grandchild's tablet[^\n]*✓ Connected/.test(st)) F("NR: after the fix the status doesn't show no overlap and the visitors connected: " + st.replace(/\s+/g, " ").slice(0, 600));
       await front("helpdesk"); await hd.getByRole("button", { name: "Resolve", exact: true }).click();
@@ -625,6 +633,8 @@ const PLANTS = [
   ["WIFI", "the access point never asks you to sign in again after a restart", { "assets/router.js": [["r.running = copy(r.saved); r.form = copy(r.saved); r.signedIn = false;\n  note(fleet, r, \"reboot\"", "r.running = copy(r.saved); r.form = copy(r.saved);\n  note(fleet, r, \"reboot\""]] }],
   ["WIFI", "a crowded room shows as connected", { "assets/routerui.js": [["j.ok ? (R.crowded(r) ? \"rt-bad\" : \"rt-ok\")", "j.ok ? (false ? \"rt-bad\" : \"rt-ok\")"], ["j.ok ? (R.crowded(r) ? \"✕ Connected but crawling", "j.ok ? (false ? \"✕ Connected but crawling"]] }],
   ["PF", "the customer's test from outside always fails", { "assets/router.js": [["if (!x || x.to !== pc.ip) return { ok: false", "if (true) return { ok: false"]] }],
+  ["NR", "the street drawn from the settings typed, not the ones running", { "assets/streetview.js": [["const run = r.running.wifi, clash = R.interference(r);", "const run = r.form.wifi, clash = R.interference({ running: r.form, neighbours: r.neighbours });"]] }],
+  ["NR", "the street never shows an overlap", { "assets/streetview.js": [["const run = r.running.wifi, clash = R.interference(r);", "const run = r.running.wifi, clash = [];"]] }],
   ["NR", "the status never shows an overlap", { "assets/routerui.js": [["const clash = R.interference(r), ln", "const clash = [], ln"]] }],
   ["WR", "windows open before Mason's panel stay under it", { "assets/laptop.js": [["desk.style.right = \"var(--coach-w)\"; fitWins(); }", "desk.style.right = \"var(--coach-w)\"; }"]] }],
   ["WR", "the microwave can be moved without walking there", { "assets/laptop.js": [["onSite: function () { const t = E.ticket(); return !!(t && L.onSite[t.id]); }", "onSite: function () { return true; }"]] }],

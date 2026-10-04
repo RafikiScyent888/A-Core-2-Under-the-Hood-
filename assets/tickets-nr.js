@@ -62,7 +62,7 @@ const CHAN_Q = function (n1, n2, mine) { return { prompt: "Why channel " + mine 
 export const NR = [
   nrTicket({ id: "N1", base: true, title: "Router 3: set it up so it plays nicely with the neighbours",
     from: "Jamie Carter, home customer", site: "The Carter house, 3 Willow Street",
-    brief: ["Jamie Carter. We're house number 3 on Willow Street, between two neighbours with their own routers, and our Wi-Fi drops out every evening. It's shared with you in the app.",
+    brief: ["Jamie Carter. We're number 3 Willow Street, the blue house at the end. Both neighbours have their own routers, and our Wi-Fi drops out every evening. It's shared with you in the app.",
       "Please set the network name to \"HomeWiFi\", use the most secure wireless protection available, and set the password to \"MyCCR0ck2!\". Keep interference down with the channel width. We only want our own devices on it: our laptop, our two phones and the TV. And pick a channel that doesn't overlap the neighbours'."],
     target: { ssid: "HomeWiFi", pass: "MyCCR0ck2!", mac: true, chan: 11 }, n1: [1, 40], n2: [6, 40],
     family: ["Family laptop", "Jamie's phone", "Sam's phone", "Living room TV"], others: [{ name: "Unknown tablet (Galaxy-Tab)" }],
@@ -70,7 +70,7 @@ export const NR = [
     note: { must: [["homewifi"], ["wpa3"], ["20 mhz", "20mhz"], ["mac"], ["channel 11", "ch 11"]], tip: "say what you set, and why that channel, width and filtering." } }),
   nrTicket({ id: "N2", title: "The Garcias' router, between two busy neighbours",
     from: "Maria Garcia, home customer", site: "The Garcia house, 3 Ash Grove",
-    brief: ["Maria Garcia. Router 3 is ours, in the middle of the street. Please set it up: name \"Garcia-Home\", the most secure protection there is, password \"Casa#2026Net\". It's in the app.",
+    brief: ["Maria Garcia. Router 3 is ours, the blue house at the end of the street. Please set it up: name \"Garcia-Home\", the most secure protection there is, password \"Casa#2026Net\". It's in the app.",
       "Keep interference low with the channel width. Only the family's own devices may join: the laptop, the two tablets and the printer. And choose a channel clear of both neighbours."],
     target: { ssid: "Garcia-Home", pass: "Casa#2026Net", mac: true, chan: 1 }, n1: [6, 40], n2: [11, 40],
     family: ["Family laptop", "Maria's tablet", "Luis's tablet", "Printer"], others: [{ name: "Unknown phone (Pixel-7)" }],
