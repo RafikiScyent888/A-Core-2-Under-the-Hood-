@@ -424,7 +424,7 @@ export async function run(extraCss) {
     await w4.locator(".w-dialog").getByRole("button", { name: "Close" }).click(); await w4.getByRole("button", { name: "Properties of Q3-budget.xlsx" }).click();
     await w4.getByRole("tab", { name: "Previous Versions tab" }).click(); await w4.locator(".ev-row").nth(1).click(); await page.waitForTimeout(150);
     await sweep(tag + ": X1, Previous Versions with a copy selected");
-    await w4.getByRole("button", { name: /^Restore the version/ }).click(); await page.waitForTimeout(150);
+    await w4.getByRole("button", { name: /^Restore the version modified .*\d$/ }).click(); await page.waitForTimeout(150);
     await sweep(tag + ": X1, Previous Versions asks before restoring");
     await w4.locator(".w-dialog").getByRole("button", { name: "Cancel" }).click();
     await open("WS4", "restore", "Open System Properties"); await w4.getByRole("button", { name: "System Restore…" }).click(); await w4.locator(".sr-list button").first().click(); await page.waitForTimeout(150);
@@ -441,6 +441,24 @@ export async function run(extraCss) {
     await sweep(tag + ": X1, File History on, the first copy made");
     await fhb("Restore personal files").click(); await page.waitForTimeout(150);
     await sweep(tag + ": X1, File History's Restore personal files");
+    /* X2: the backup browser, Restore to, Replace; X4: the missing drive; X5: the driver crash */
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20477" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
+    const w3 = page.locator('[data-win="rdp:WS3"]');
+    await open("WS3", "file history", "Open File History"); await w3.locator(".filehist .ev-nav button", { hasText: "Restore personal files" }).click();
+    await w3.getByRole("button", { name: "Show the older backup" }).click(); await w3.locator(".filehist .ev-row", { hasText: "deploy.yml" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X2, File History's backups, an older one, a file selected");
+    await w3.getByRole("button", { name: "Restore a copy of deploy.yml to another folder" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X2, Restore to, choosing a folder");
+    await w3.locator(".w-dialog").getByRole("button", { name: "Cancel" }).click();
+    await w3.getByRole("button", { name: "Restore deploy.yml to its original location" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X2, Replace or Skip Files");
+    await w3.locator(".w-dialog").getByRole("button", { name: "Skip this file" }).click();
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20479" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
+    await open("WS5", "file history", "Open File History"); await page.waitForTimeout(150);
+    await sweep(tag + ": X4, File History asking to reconnect the drive");
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20480" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
+    await page.locator('[data-win="rdp:WS2"]').getByRole("button", { name: "Open the ScanEasy shortcut on the desktop" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X5, ScanEasy stopped working");
   }
 
   try {
@@ -478,7 +496,9 @@ const PLANTS = {
   "Mobile devices' failed sync in a pale red": ".mdm-res.bad { color: #e08a8a !important; }",
   "the extra-training badge in a faint purple": ".badge.b-extra { color: #9b87c9 !important; }",
   "Previous Versions' rows in a faint grey": ".props .ev-table td { color: #9ca3af !important; }",
-  "File History's message in a faint grey": ".fh-msg, .dlg-error { color: #8b93a1 !important; }"
+  "File History's message in a faint grey": ".fh-msg, .dlg-error { color: #8b93a1 !important; }",
+  "the reconnect-your-drive warning in a dim amber": ".fh-warn { color: #a08a30 !important; }",
+  "the backup's date in a faint grey": ".fh-nav .fh-state { color: #9ca3af !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

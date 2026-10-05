@@ -51,7 +51,7 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480" };
 const NOTES = {
   X1: "Restored Q3-budget.xlsx from the 3 October 11:58 previous version, from a restore point. Set up File History to \\\\FS01\\Backups, every hour, turned it on, and tested it: her file is in Restore personal files.",
   R1: "Replaced the default admin password from the sticker with a strong one on Administration, saved it, and restarted the router. Leah's laptop and printer still connect.",
@@ -75,7 +75,7 @@ const NOTES = {
   E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT", "EXTRA"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT", "EXTRA", "BACKUP"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -144,9 +144,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 67) F("LOAD: the queue shows " + items.length + " tickets, not 67");
+      if (items.length !== 72) F("LOAD: the queue shows " + items.length + " tickets, not 72");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 12 || count(/Walk: checklist/) !== 11 || count(/Run: on your own/) !== 44) F("LOAD: the queue's labels are not 12 crawl, 11 walk, 44 run");
+      if (count(/Crawl: guided/) !== 12 || count(/Walk: checklist/) !== 12 || count(/Run: on your own/) !== 48) F("LOAD: the queue's labels are not 12 crawl, 12 walk, 48 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
     });
 
@@ -159,7 +159,7 @@ async function run(rewrites, groups) {
       const order = await p.evaluate(() => Array.from(document.querySelectorAll(".hd2-q h3.qsec, .hd2-q .qi")).map((e) => e.tagName === "H3" ? "H" : (e.querySelector(".badge") ? e.querySelector(".badge").textContent : "NONE")));
       const hx = order.indexOf("H", 1); const sims = order.slice(1, hx), extra = order.slice(hx + 1);
       if (sims.length !== 66 || sims.some((x) => !/^Exam sim · /.test(x))) F("EXTRA: the sims section does not hold 66 tickets each badged Exam sim");
-      if (extra.length !== 1 || extra[0] !== "Extra training · Backup and recovery") F("EXTRA: the extra-training section is not X1 badged with its objective: " + JSON.stringify(extra));
+      if (extra.length !== 6 || extra.some((x) => x !== "Extra training · Backup and recovery")) F("EXTRA: the extra-training section is not X1–X6 badged with their objective: " + JSON.stringify(extra));
       if (await p.locator(".qi .badge").evaluateAll((bs) => bs.some((b) => !b.querySelector("svg.ico")))) F("EXTRA: a badge has no icon");
       await p.locator(".hd2-jb", { hasText: "Extra training" }).click();
       if (!(await p.locator(".qi", { hasText: INC.X1 }).isVisible())) F("EXTRA: Jump to Extra training does not bring X1 into view");
@@ -170,6 +170,52 @@ async function run(rewrites, groups) {
         if (st.guesses) F("EXTRA: following Mason's rings cost " + st.guesses + " wrong moves");
         if (!/Extra training · Backup and recovery/.test(await hd(p).locator(".hd2-t").innerText())) F("EXTRA: the ticket page does not name its objective");
       }
+    });
+
+    /* X2 (the walk) through the screens, with a wrong move and a revert;
+       X5 through System Restore's restart and a reconnect */
+    await step("BACKUP", async (p) => {
+      await signIn(p); await take(p, "X2"); const r3 = await connect(p, "WS3");
+      const fhb = (n) => r3.locator(".filehist .ev-nav button", { hasText: n });
+      await tool(r3, "files", "Open File Explorer"); await r3.getByRole("button", { name: "Folder Documents" }).click(); await r3.getByRole("button", { name: "File deploy.yml" }).click();
+      await r3.getByRole("button", { name: "Open deploy.yml" }).click(); await r3.locator(".w-dialog").getByRole("button", { name: "Close" }).click();
+      await tool(r3, "file history", "Open File History"); await fhb("Restore personal files").click();
+      await r3.getByRole("button", { name: "Show the older backup" }).click(); await r3.getByRole("button", { name: "Show the older backup" }).click();
+      if (!/Backup from 1 October 2026 17:00/.test(await r3.locator(".fh-nav").innerText())) F("BACKUP: Older backup did not step back to 1 October");
+      await r3.locator(".filehist .ev-row", { hasText: "deploy.yml" }).click();
+      await r3.getByRole("button", { name: "Open the backed-up copy of deploy.yml" }).click(); await r3.locator(".w-dialog").getByRole("button", { name: "Close" }).click();
+      await r3.getByRole("button", { name: "Restore deploy.yml to its original location" }).click();
+      await r3.locator(".w-dialog.replace").getByRole("button", { name: "Replace the file in the destination" }).click(); await p.waitForTimeout(150);
+      if ((await guesses(p)) !== 1) F("BACKUP: restoring over today's deploy.yml was not counted");
+      if (!/this morning's work is gone/.test(await hd(p).locator(".say").innerText().catch(() => ""))) F("BACKUP: the overwrite was not explained");
+      await p.locator('[data-win="rdp:WS3"]').getByRole("button", { name: "Revert to snapshot" }).click(); await p.waitForTimeout(300);
+      if ((await p.evaluate(() => window.__LAP.engine.machine("WS3").fs["c:\\users\\dev\\documents"].files.find((f) => f.name === "deploy.yml").doc.id)) !== "y240") F("BACKUP: revert did not put today's deploy.yml back");
+      await tool(r3, "file history", "Open File History"); await fhb("Restore personal files").click();
+      await r3.getByRole("button", { name: "Show the older backup" }).click(); await r3.getByRole("button", { name: "Show the older backup" }).click();
+      await r3.locator(".filehist .ev-row", { hasText: "deploy.yml" }).click();
+      await r3.getByRole("button", { name: "Restore a copy of deploy.yml to another folder" }).click();
+      await r3.getByRole("button", { name: "Restore a copy to Desktop" }).click(); await p.waitForTimeout(150);
+      await tool(r3, "files", "Open File Explorer"); await r3.getByRole("button", { name: "Folder Desktop" }).click(); await r3.getByRole("button", { name: "File deploy.yml" }).click();
+      await r3.getByRole("button", { name: "Open deploy.yml" }).click(); await p.waitForTimeout(150);
+      if (!/2\.3\.1/.test(await r3.locator(".w-dialog").innerText())) F("BACKUP: the Desktop copy is not the hotfix version");
+      await r3.locator(".w-dialog").getByRole("button", { name: "Close" }).click();
+      const st2 = await p.evaluate(() => { const E = window.__LAP.engine; return { stage: E.ticket().stage(E.fleet()), g: E.T().guesses }; });
+      if (st2.stage !== "done" || st2.g !== 1) F("BACKUP: X2 is not done with exactly one wrong move: " + JSON.stringify(st2));
+      const did = await p.locator(".coach-list li.did").count(); if (did < 6) F("BACKUP: X2's checklist ticked only " + did + " of its first six items");
+      /* X5 */
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await take(p, "X5"); const r2 = await connect(p, "WS2");
+      await r2.getByRole("button", { name: "Open the ScanEasy shortcut on the desktop" }).click(); await p.waitForTimeout(150);
+      if (!/sedrv30\.dll/.test(await r2.locator(".w-dialog").innerText())) F("BACKUP: ScanEasy's crash doesn't name the driver's module");
+      await ok(r2);
+      await tool(r2, "restore", "Open System Properties"); await r2.getByRole("button", { name: "System Restore…" }).click();
+      await r2.getByRole("button", { name: "Restore point: 3 October 2026, Installed ScanEasy Driver 3.0" }).click(); await r2.getByRole("button", { name: "Finish" }).click();
+      const c = r2.locator(".w-dialog.uac-creds"); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); await p.waitForTimeout(300);
+      await p.getByRole("button", { name: "Reconnect to WS2-SALES" }).click(); await p.waitForTimeout(1800);
+      await r2.getByRole("button", { name: "Open the ScanEasy shortcut on the desktop" }).click(); await p.waitForTimeout(150);
+      const st5 = await p.evaluate(() => { const E = window.__LAP.engine; return { stage: E.ticket().stage(E.fleet()), g: E.T().guesses }; });
+      if (st5.stage !== "done" || st5.g) F("BACKUP: X5 is not done with no wrong moves after System Restore and a test: " + JSON.stringify(st5));
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click();
+      if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("BACKUP: X5's Resolve was refused");
     });
 
     await step("CRAWL", async (p) => {
@@ -681,8 +727,10 @@ const PLANTS = [
   ["LOAD", "a ticket missing from the queue", { "assets/laptop.js": [["    sc.list.forEach(function (x) {", "    sc.list.slice(1).forEach(function (x) {"]] }],
   ["EXTRA", "badges in colour alone, no words", { "assets/laptop.js": [["b.appendChild(el(\"span\", null, badgeText(t)));", "b.appendChild(el(\"span\", null, \"\"));"]] }],
   ["EXTRA", "extra training mixed into the sims section", { "assets/laptop.js": [["list: all.filter(function (x) { return !x.t.extra; }) }", "list: all.filter(function (x) { return true; }) }"]] }],
-  ["EXTRA", "Previous Versions' Restore does nothing", { "assets/backup.js": [["M.putFile(m.fs, p[0], Object.assign({}, v.file, { name: p[1] }));", ""]] }],
+  ["EXTRA", "Previous Versions' Restore does nothing", { "assets/backup.js": [["M.putFile(m.fs, dir, Object.assign({}, M.clone(f), { name: p[1] }));", ""]] }],
   ["EXTRA", "turning File History on makes no copy", { "assets/backup.js": [["const r = runNow(m); return", "const r = { text: \"\" }; return"]] }],
+  ["BACKUP", "Restore to… ignores the folder chosen", { "assets/backup.js": [["const p = split(path), dir = folder || p[0];", "const p = split(path), dir = p[0];"]] }],
+  ["BACKUP", "System Restore doesn't roll the driver back", { "assets/backup.js": [["M.note(m, \"driver-rolled-back\", { app: a.name, driver: a.driverBad.driver }); a.driverBad = null;", ""]] }],
   ["CRAWL", "Mason's rings never drawn", { "assets/laptop.js": [["if (t) t.classList.add(\"coach-target\");", ""]] }],
   ["WALK", "the walk ticks only in strict order", { "assets/laptop.js": [["(walk.mode === \"walk\" || i <= firstOpen(walk, c))", "(i <= firstOpen(walk, c))"]] }],
   ["RUN", "Mason never checks in after wrong moves", { "assets/laptop.js": [["if (g.rung > last.rung || (g.rung === 3 && n > last.n)) {", "if (false) {"]] }],

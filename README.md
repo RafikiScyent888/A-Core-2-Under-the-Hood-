@@ -71,7 +71,7 @@ Live: https://rafikiscyent888.github.io/A-Core-2-Under-the-Hood-/
 | | Tickets | How much help |
 |---|---|---|
 | **Crawl** | L1, D1, M1, E1, R1, W1, P1, N1, WR1, CE1, CR1: the sims themselves; X1, the first extra-training ticket | Mason walks you through every step and rings what to press |
-| **Walk** | L2, D2, M2, E2, R2, W2, P2, N2, WR2, CE2, CR2 | A checklist that ticks itself off as you work, with "How?" pointers |
+| **Walk** | L2, D2, M2, E2, R2, W2, P2, N2, WR2, CE2, CR2, X2 | A checklist that ticks itself off as you work, with "How?" pointers |
 | **Run** | the rest, 3 to 6 of each | On your own, as in the exam. Mason checks in after your third wrong move |
 
 The L tickets come from the Application Launch sim (Tier 1), the D
@@ -115,10 +115,21 @@ consequences, and hands-on checks on the phone or the router itself.
 
 **Extra training** covers what the Core 2 objectives ask for and no sim
 does. Each ticket names the objective it covers.
-- **X, Backup and recovery** (Operational procedures): a spreadsheet saved
-  over by mistake. Bring one file back from Previous Versions (System
-  Restore never touches documents), then set up File History to the file
-  server, as often as the user can afford to lose, and test it.
+- **X, Backup and recovery** (Operational procedures), six tickets:
+  - X1: a spreadsheet saved over by mistake. One file back from Previous
+    Versions (System Restore never touches documents), then File History
+    to the file server, as often as the user can afford to lose, tested.
+  - X2: an old copy wanted beside today's: Restore to another folder, not
+    over the original.
+  - X3: a file deleted six weeks ago, backups kept for a month. It can't
+    come back at Tier 1: set the retention policy needs, and escalate.
+  - X4: the backup drive walked off with a temp. Move the backup to the
+    file server, run it, test it.
+  - X5: a driver update broke the scanner software. Here System Restore is
+    the right tool: the newest point before the change, documents
+    untouched.
+  - X6: the auditors' two numbers: how often (every 15 minutes) and how
+    long (two years, and no longer).
 
 The program's rules apply throughout:
 - unlimited tries

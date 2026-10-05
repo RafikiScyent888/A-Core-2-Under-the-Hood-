@@ -326,9 +326,9 @@ function nextStepAdvice(t, st) {
     if (!W.router) return "Open the 92 Series app from " + who + "'s ticket: they've shared their router with us. Read the Status page first: is the internet up, and which devices are on?";
     return "Read the router's Status page word for word, then the page that matches what " + who + " asked about. Remember a router has three versions of its settings: what's typed on the page, what's saved, and what it's running. Anything only someone standing at the router can see, ask " + who + " with the Call panel on the ticket."; }
   if (t.kind === "backup") {
-    if (st.stage === "close") return "Farah's file is back and her backup is tested. Now answer her question on the ticket: why wasn't today's rescue a backup?";
-    if (!W["rdp:" + t.machine] && !ev.length) return "Connect to " + r.host + " from the ticket, and look at the file first: open Q3-budget.xlsx in her Documents and see what's in it now.";
-    return "Two jobs on this ticket, in this order: get her spreadsheet back, then make sure she can never lose more than she said she can afford. Read her message again for the times she gives you, and Mason's note for where backups go.";
+    if (st.stage === "close") return t.id === "X1" ? "Farah's file is back and her backup is tested. Now answer her question on the ticket: why wasn't today's rescue a backup?" : "The job's done. Now answer " + who + "'s question on the ticket.";
+    if (!W["rdp:" + t.machine] && !ev.length) return t.adviceStart || "Connect to " + r.host + " from the ticket, and look at the file first: open Q3-budget.xlsx in her Documents and see what's in it now.";
+    return t.adviceWork || "Two jobs on this ticket, in this order: get her spreadsheet back, then make sure she can never lose more than she said she can afford. Read her message again for the times she gives you, and Mason's note for where backups go.";
   }
   if (t.kind === "malware") return "Work through CompTIA's malware-removal steps, in order, on every PC that needs them: investigate and verify, quarantine, disable System Restore, remediate (update the definitions, then scan and remove), schedule scans and run updates, enable System Restore and create a restore point, educate the user. Where are you in that list? The Devices list on the ticket shows which PCs you've checked.";
   if (!W["rdp:" + t.machine] && !ev.length) return "Start by seeing it for yourself. On the ticket in Help Desk, press Connect to " + r.host + ". When " + who + "'s screen opens, run the program they're having trouble with and read exactly what it says.";
@@ -853,7 +853,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl" };
+const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -1686,6 +1686,19 @@ WALKS.X1 = { machine: "WS4", steps: [
     target: function () { return document.querySelector("#res-note"); },
     done: function () { const st = E.state().tickets.X1; return !!(st && st.stage === "done"); } }
 ], end: "That's backup and recovery: one file back from Previous Versions (not System Restore, which leaves documents alone), then a real backup on another device, as often as the user can afford to lose, tested. More extra-training tickets follow once this one's shape is right." };
+/* ------------------------------------------------ X2: the walk */
+function x2m() { return E.machine("WS3"); }
+function x2ev(kind, test) { const m = x2m(); return !!m && (m.events || []).some(function (e) { return e.kind === kind && (!test || test(e)); }); }
+WALKS.X2 = { mode: "walk", machine: "WS3", steps: [
+  { goal: "Take the ticket and connect to Dev's PC", win: "helpdesk", how: "Assign it to yourself, then start a remote session from the ticket.", done: function () { return !!(W["rdp:WS3"] && W["rdp:WS3"].phase === "on" && E.ticket() && E.ticket().id === "X2"); } },
+  { goal: "Look at today's deploy.yml first", how: "File Explorer, his Documents: open it and read its version.", done: function () { return x2ev("doc-open", function (e) { return e.doc === "y240"; }); } },
+  { goal: "Find his backups", how: "Windows' own backup for a user's files is in Control Panel. Start search finds it.", done: function () { return x2ev("opened", function (e) { return e.app === "filehist"; }); } },
+  { goal: "Look through the backups for the hotfix version", how: "Step between older and newer backups, and open each copy of deploy.yml to read its notes.", done: function () { return x2ev("pv-open", function (e) { return e.doc === "y231"; }); } },
+  { goal: "Put a copy of it where Dev can compare, keeping today's", how: "Think about where the copy goes. He told you what not to overwrite.", done: function () { const t = E.ticket(); return !!t && t.id === "X2" && ["test", "done"].indexOf(t.stage(E.fleet())) >= 0; } },
+  { goal: "Check the copy you put back", how: "Open it from where you put it, and read its version.", done: function () { const t = E.ticket(); return !!t && t.id === "X2" && t.stage(E.fleet()) === "done"; } },
+  { goal: "Resolve the ticket", win: "helpdesk", how: "Back in Help Desk.", done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
+  { goal: "Answer Dev's question, and write the notes", win: "helpdesk", how: "Which copy, where it went, and that today's was kept.", done: function () { const st = E.state().tickets.X2; return !!(st && st.stage === "done"); } }
+], end: "That's the walk: the right copy, put where it couldn't overwrite today's work, and checked. The rest of the backup tickets are yours to run." };
 WALKS.CE2 = { mode: "walk", machine: "TECH", steps: [
   { goal: "Take the ticket and open the chat", how: "In Help Desk.", done: function () { const t = E.ticket(); return !!(t && t.id === "CE2" && W.custchat); } },
   { goal: "Open the chat professionally", how: "Acknowledge John and offer help.", done: function () { return chatAt("CE2") > 0; } },

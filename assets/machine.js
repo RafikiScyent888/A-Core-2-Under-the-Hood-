@@ -221,6 +221,13 @@ export function launchApp(m, name, via) {
     note(m, "launch", { app: a.name, result: "config" });
     return { ok: false, title: a.name, text: "Configuration error: the settings file config.ini could not be read. " + a.name + " will now close.", kind: "config" };
   }
+  /* a driver the program uses, broken by an update: the program's own
+     files are fine, so repairing or reinstalling it changes nothing */
+  if (a.driverBad) {
+    addLog(m, "Application", { level: "Error", source: "Application Error", id: 1000, text: "Faulting application name: " + a.exe + ", version: " + a.ver + ", Faulting module name: " + a.driverBad.module + " (" + a.driverBad.driver + ", installed " + a.driverBad.when + "), Exception code: 0xc0000005" });
+    note(m, "launch", { app: a.name, result: "driver" });
+    return { ok: false, title: a.name, text: a.name + " has stopped working. A problem caused the program to stop working correctly. Faulting module: " + a.driverBad.module + ".", kind: "crash" };
+  }
   if (a.brokenBeyondRepair) {
     addLog(m, "Application", { level: "Error", source: "Application Error", id: 1000, text: "Faulting application name: " + a.exe + ", version: " + a.ver + ", Faulting module name: " + a.exe + ", Exception code: 0xc0000005, Fault offset: 0x0004f2a1" });
     note(m, "launch", { app: a.name, result: "crash" });

@@ -1764,6 +1764,49 @@ badge wording, and X1 as the pattern for extra training.
     rerun after the change, and all were caught.
   - Running contrast plants three at a time killed the browsers in this
     container. Run them one at a time (about 15 minutes each).
-- **Next:** X2–X6, five more backup-and-recovery tickets (the five-more
-  rule). Then the owner picks the next objective: OS installation; file
+- **Next:** X2–X6 (built the same day, below).
+
+### Extra training, X2–X6: backup and recovery, five more (5 October 2026, live)
+
+The owner: "Yes to all, push it and build X2–X6." Each one turns on a
+different real decision:
+
+| | Level | Who | The job | What it teaches |
+|---|---|---|---|---|
+| X2 | Walk (8 items) | Dev, WS3 | 1 October's deploy.yml beside today's | Restore to another folder, not over the original |
+| X3 | Run, escalate | John, WS1 | a file deleted 24 August; File History keeps 1 month | retention: look at the oldest backup, set a year (HR policy), escalate to Tier 2 for FS01's nightly backup |
+| X4 | Run | Rosa, WS5 | "Reconnect your drive": the USB stick left with a temp | move the backup to \\FS01\Backups, Run now, test |
+| X5 | Run | Brenda, WS2 | ScanEasy crashes since a driver update | System Restore IS the tool: the point made just before the driver; older points also remove a security update, a later one keeps the driver; documents untouched |
+| X6 | Run | Farah, WS4 | the auditors: 15 minutes, two years and no longer | how often against how long; Forever is the near miss |
+
+- **The model gained** (`backup.js`): browsing every backup (older and
+  newer), Restore to original location (Windows asks before replacing)
+  and Restore to… another folder, from File History and from Previous
+  Versions; a backup drive that's missing ("Reconnect your drive"; runs
+  fail until a new location is chosen); a backup history that exists
+  before the ticket; retention compared by Windows' own list; System
+  Restore rolling back a driver installed after the point, and any other
+  system change since (a security update), named in its message.
+- **machine.js gained** a program whose driver is broken (`driverBad`): it
+  crashes naming the driver's module; Repair doesn't help, because the
+  program's own files are fine.
+- **Every ticket now has `stage(fleet)`**, and Mason's advice before and
+  during the job comes from the ticket (`adviceStart`, `adviceWork`).
+- **Found while building:** a backup view's index was stored on the event
+  as `at`, which is the event's own order: it would have broken every
+  "looked after the last copy" check, X1's included. Renamed `idx`.
+- **Checks:**
+  - logic: 72 tickets, 84 plants. X2–X6 table-driven: the fault exhibited,
+    the right path closes with the right outcome and no wrong moves, not
+    without its last step, each near miss costs one, looking costs nothing,
+    six moves and rung 3 and no leak at every stage, the close question,
+    the note. Six new plants.
+  - page: LOAD (72; 12 crawl, 12 walk, 48 run); EXTRA (six badged with the
+    objective); BACKUP (X2 through the screens, with a restore over the
+    original counted, explained and reverted, then Restore to the Desktop
+    and the checklist ticking; X5 through System Restore, the restart, a
+    reconnect and ScanEasy working). Two new plants.
+  - contrast: the backup browser, Restore to, Replace, the reconnect
+    warning, ScanEasy's crash. Two new plants.
+- **Next:** the owner picks the next objective: OS installation; file
   systems, updates and upgrades; mobile; or safety.

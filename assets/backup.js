@@ -71,9 +71,7 @@ export function version(m, path, id) { return versions(m, path).filter(function 
 /* Restore: the copy replaces the current file (Windows asks first). */
 export function restoreVersion(m, path, id) {
   const v = version(m, path, id); if (!v) return { ok: false, text: "That version is no longer available." };
-  const p = split(path); M.putFile(m.fs, p[0], Object.assign({}, v.file, { name: p[1] }));
-  M.note(m, "pv-restore", { path: path, id: id, doc: v.file.doc.id, from: v.from });
-  return { ok: true, text: "The file was restored from the version saved " + v.file.doc.saved + ".", doc: v.file.doc.id };
+  return put(m, path, v.file, null, id, v.from);
 }
 
 /* ---------------------------------------------------- File History */
@@ -85,14 +83,15 @@ export function setTarget(m, typed) {
   const s = SHARES[k] || SHARES[k.split("\\").slice(0, 4).join("\\")];
   if (!s) return { ok: false, typo: true, text: "We couldn't find " + v + ". Check the spelling and that the server is on the network." };
   if (!s.ok) return { ok: false, refused: true, text: s.text };
-  m.bk.fh.target = v.length > s.label.length ? v : s.label;
+  m.bk.fh.target = v.length > s.label.length ? v : s.label; m.bk.fh.missing = false;
   M.note(m, "fh-target", { target: m.bk.fh.target });
   return { ok: true, text: "File History will save copies of your files to " + m.bk.fh.target + "\\FileHistory\\" + m.user + "\\" + m.host + "." };
 }
 export function setEvery(m, mins) { ready(m); m.bk.fh.every = Number(mins); M.note(m, "fh-every", { every: m.bk.fh.every }); return { ok: true }; }
 export function setKeep(m, keep) { ready(m); m.bk.fh.keep = keep; M.note(m, "fh-keep", { keep: keep }); return { ok: true }; }
 export function turnOn(m) {
-  ready(m); if (!m.bk.fh.target) return { ok: false, text: "Select a drive first. File History needs somewhere to save copies of your files." };
+  ready(m); if (m.bk.fh.missing) return { ok: false, text: "File History can't find " + m.bk.fh.target + ". Reconnect it, or select a different drive." };
+  if (!m.bk.fh.target) return { ok: false, text: "Select a drive first. File History needs somewhere to save copies of your files." };
   m.bk.fh.on = true; M.note(m, "fh-on");
   const r = runNow(m); return { ok: true, text: "File History is on. " + r.text };
 }
@@ -100,6 +99,7 @@ export function turnOff(m) { ready(m); m.bk.fh.on = false; M.note(m, "fh-off"); 
 /* A run copies the user's folders as they are now. */
 export function runNow(m) {
   ready(m); const fh = m.bk.fh; if (!fh.on) return { ok: false, text: "File History is off." };
+  if (fh.missing) { M.note(m, "fh-run-failed", { target: fh.target }); return { ok: false, text: "Reconnect your drive. File History can't find " + fh.target + ", so your files are being copied to this PC's own drive until you reconnect it or select a different one." }; }
   const files = {}, base = "C:\\Users\\" + m.user;
   ["Documents", "Desktop"].forEach(function (sub) { const d = M.dirOf(m, base + "\\" + sub); if (d) d.files.forEach(function (f) { files[full(base + "\\" + sub, f.name)] = M.clone(f); }); });
   m.bk.seq++; const when = "4 October 2026 " + (11 + Math.floor((20 + m.bk.seq) / 60)) + ":" + String((20 + m.bk.seq) % 60).padStart(2, "0");
@@ -109,12 +109,35 @@ export function runNow(m) {
 }
 /* "Restore personal files": what the backup really holds. Looking is a
    view, and it is how a backup is tested. */
-export function backupView(m) {
-  ready(m); const fh = m.bk.fh; const last = fh.runs[fh.runs.length - 1];
-  M.note(m, "fh-view", { runs: fh.runs.length });
-  if (last) fh.checked = true;
-  return last ? { when: last.when, files: Object.keys(last.files).map(function (k) { return { path: k, file: last.files[k] }; }) } : null;
+export function backupView(m, i) {
+  ready(m); const fh = m.bk.fh; if (!fh.runs.length) { M.note(m, "fh-view", { runs: 0 }); return null; }
+  const at = i == null ? fh.runs.length - 1 : Math.max(0, Math.min(fh.runs.length - 1, i)), run = fh.runs[at];
+  M.note(m, "fh-view", { runs: fh.runs.length, idx: at });
+  if (!fh.missing) fh.checked = true;
+  return { at: at, of: fh.runs.length, when: run.when, files: Object.keys(run.files).map(function (k) { return { path: k, file: run.files[k] }; }) };
 }
+/* Put a copy back: over the original (Windows asks first if it's still
+   there), or into another folder, leaving the original as it is. */
+export function restoreFromRun(m, at, path, folder) {
+  ready(m); const run = m.bk.fh.runs[at]; const f = run && run.files[path.toLowerCase()];
+  if (!f) return { ok: false, text: "That file isn't in this backup." };
+  return put(m, path, f, folder, "fh" + at, "File History, " + run.when);
+}
+export function restoreVersionTo(m, path, id, folder) {
+  const v = version(m, path, id); if (!v) return { ok: false, text: "That version is no longer available." };
+  return put(m, path, v.file, folder, id, v.from);
+}
+function put(m, path, f, folder, id, from) {
+  const p = split(path), dir = folder || p[0];
+  M.putFile(m.fs, dir, Object.assign({}, M.clone(f), { name: p[1] }));
+  M.note(m, "pv-restore", { path: path, id: id, doc: f.doc && f.doc.id, from: from, to: dir, inPlace: !folder || folder.toLowerCase() === p[0].toLowerCase() });
+  return { ok: true, doc: f.doc && f.doc.id, inPlace: !folder || folder.toLowerCase() === p[0].toLowerCase(), text: (!folder || folder.toLowerCase() === p[0].toLowerCase() ? "Restored " + p[1] + " to its original location" : "Restored a copy of " + p[1] + " to " + dir) + " (the version saved " + (f.doc ? f.doc.saved : "earlier") + ")." };
+}
+/* A backup history that already exists when the ticket starts: each run
+   is { when, stamp, files: { path: file } }. */
+export function seedRuns(m, runs) { ready(m); m.bk.fh.runs = runs.map(function (r) { return { when: r.when, stamp: r.stamp, files: M.clone(r.files) }; }); }
+/* Is a retention setting at least as long as `want` (Windows' own list)? */
+export function keepsAtLeast(keep, want) { const i = KEEP.indexOf(keep); return keep === "Forever (default)" || (i >= 0 && i >= KEEP.indexOf(want) && keep !== "Until space is needed"); }
 /* Is this file, as it is now, in the latest backup? */
 export function inBackup(m, path) { const fh = ready(m).bk.fh; const last = fh.runs[fh.runs.length - 1]; return !!last && same(last.files[path.toLowerCase()], fileAt(m, path)); }
 
@@ -123,6 +146,13 @@ export function inBackup(m, path) { const fh = ready(m).bk.fh; const last = fh.r
    that's the point the exam makes, and the near miss here. */
 export function systemRestore(m, i) {
   ready(m); const p = m.restore.points[i]; if (!p) return { ok: false, text: "Choose a restore point." };
-  M.note(m, "sys-restore", { point: p.name, date: p.date });
-  return { ok: true, text: "System Restore completed successfully. The system has been restored to " + p.date + " (" + p.name + "). Your documents have not been affected." };
+  M.note(m, "sys-restore", { point: p.name, date: p.date, stamp: p.stamp });
+  /* a driver or program change made after the point is rolled back; one
+     made before it stays (and a restore point after it changes nothing) */
+  (m.apps || []).forEach(function (a) { if (a.driverBad && p.stamp && a.driverBad.since > p.stamp) { M.note(m, "driver-rolled-back", { app: a.name, driver: a.driverBad.driver }); a.driverBad = null; } });
+  /* other system changes since the point go too: a security update, say */
+  const lost = (m.bk.changes || []).filter(function (c) { return p.stamp && c.stamp > p.stamp && !c.undone; });
+  lost.forEach(function (c) { c.undone = true; });
+  M.note(m, "sys-restore-undid", { what: lost.map(function (c) { return c.what; }) });
+  return { ok: true, undid: lost.map(function (c) { return c.what; }), stamp: p.stamp, text: "System Restore completed successfully. The system has been restored to " + p.date + " (" + p.name + "). Your documents have not been affected." + (lost.length ? " Removed since then: " + lost.map(function (c) { return c.what; }).join("; ") + "." : "") };
 }

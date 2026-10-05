@@ -175,6 +175,11 @@ const NOTES = {
   CR4: "Firmware 1.0.4 had an update. Grace saved settings and installed 1.1.2 from Administration without unplugging it; it restarted with her settings. A security update.",
   CR5: "WPA3 only locked out Mia's old WPA2-only laptop. Set WPA2/WPA3 transition so the laptop uses WPA2 and newer devices WPA3; saved, restarted, all connected.",
   CR6: "The router was on channel 6 at 40 MHz, overlapping the café on 1 and the flat on 6. Ben set channel 11 at 20 MHz; saved, restarted, no overlap on the scan.",
+  X2: "Opened File History's backups: the 1 October copy of deploy.yml is version 2.3.1, the hotfix. Used Restore to put a copy on Dev's Desktop; today's 2.4.0 in Documents was kept, not overwritten. Opened it to check.",
+  X3: "File History's oldest backup was 4 September because Keep saved versions was 1 month, so the 24 August interview notes were already gone. Set retention to 1 year for HR's policy. Escalated to Tier 2 to restore from FS01's nightly backup.",
+  X4: "File History was set to a KINGSTON USB stick that left with the temp. Changed the drive to \\\\FS01\\Backups, pressed Run now, then checked Restore personal files: today's visitor log is backed up.",
+  X5: "ScanEasy crashed in sedrv30.dll after ScanEasy Driver 3.0 went in yesterday at 14:10. Used System Restore to the restore point made just before it. Her proposal and documents are untouched. Tested: ScanEasy opens and works.",
+  X6: "Set Save copies of files to every 15 minutes and Keep saved versions to 2 years, not Forever, as data protection says no longer. Checked Restore personal files afterwards: her files are there.",
   X1: "Restored Q3-budget.xlsx from the 3 October 11:58 previous version, from a restore point. Set up File History to \\\\FS01\\Backups, every hour, turned it on and tested it: her file is in Restore personal files.",
   E6: "Brady Tag's new bank details came from bradytag-co.com, a lookalike domain with a reply-to on another domain: phishing, reported, purged, blocked, lookalike policy on. Farah's order shipped notice was genuine. John's DocuSign was phishing. Brenda's timesheet xlsm macro was malicious."
 };
@@ -337,6 +342,7 @@ export function check(D) {
   routerChecks(D, F);
   chatChecks(D, F);
   extraChecks(D, F);
+  extraMore(D, F);
   return fails;
 }
 
@@ -446,6 +452,106 @@ function extraChecks(D, F) {
   /* NOTE */
   if (!D.noteOK(t, D.NOTES.X1).ok) F("EXTRA X1: NOTE: the model note is refused: " + D.noteOK(t, D.NOTES.X1).missing.join("; "));
   if (D.noteOK(t, "I looked at the computer for a while and then it was working again, so I closed it.").ok) F("EXTRA X1: NOTE: a note that says nothing specific is accepted");
+}
+/* ---- EXTRA, X2–X6: the five more, table-driven. Each: the fault is
+   on the machine at the start; the right path closes it (with the right
+   outcome) and costs nothing; each near miss costs one; looking costs
+   nothing; at every stage of the right path, six moves, rung 3 leaves the
+   right one alive, and no hint names the answer; the close question is
+   six and the right one isn't the longest; the note check holds. ---- */
+const XP = { WS1: "C:\\Users\\jdoe\\Documents", WS2: "C:\\Users\\bsmith\\Documents", WS3: "C:\\Users\\dev\\Documents", WS4: "C:\\Users\\finance\\Documents", WS5: "C:\\Users\\recept\\Documents" };
+function xr(E, mid, a, fn) { const b = E.before(); const res = fn(E.fleet()[mid]); E.onAct(Object.assign({ machine: mid, before: b, res }, a)); return res; }
+const XT_ = {
+  X2: { mid: "WS3", leak: [/1 october/i, /restore to/i, /desktop/i, /2\.3\.1/, /hotfix version/i],
+    exh: (B, m) => (B.fileAt(m, XP.WS3 + "\\deploy.yml") || {}).doc.id !== "y240" ? "today's deploy.yml isn't there" : !m.bk.fh.runs.some((r) => (r.files[(XP.WS3 + "\\deploy.yml").toLowerCase()] || {}).doc.id === "y231") ? "no backup holds the hotfix version" : B.fileAt(m, "C:\\Users\\dev\\Desktop\\deploy.yml") ? "a copy is already on the Desktop" : null,
+    solve: [(E, B) => xr(E, "WS3", { type: "fh", op: "view" }, (w) => B.backupView(w, 1)),
+      (E, B) => xr(E, "WS3", { type: "pv-open" }, () => null),
+      (E, B) => xr(E, "WS3", { type: "pv-restore" }, (w) => B.restoreFromRun(w, 1, XP.WS3 + "\\deploy.yml", "C:\\Users\\dev\\Desktop")),
+      (E, B) => xr(E, "WS3", { type: "doc-open" }, (w) => { M.note(w, "doc-open", { doc: "y231" }); return null; })],
+    after: (B, f) => (B.fileAt(f.WS3, XP.WS3 + "\\deploy.yml") || {}).doc.id !== "y240" ? "today's deploy.yml was overwritten" : null,
+    near: [["restoring over the original", (E, B) => xr(E, "WS3", { type: "pv-restore" }, (w) => B.restoreFromRun(w, 1, XP.WS3 + "\\deploy.yml", null))],
+      ["restoring the abandoned draft", (E, B) => xr(E, "WS3", { type: "pv-restore" }, (w) => B.restoreFromRun(w, 2, XP.WS3 + "\\deploy.yml", "C:\\Users\\dev\\Desktop"))],
+      ["System Restore", (E, B) => xr(E, "WS3", { type: "sys-restore" }, (w) => B.systemRestore(w, 0))]],
+    look: [(E, B) => xr(E, "WS3", { type: "fh", op: "view" }, (w) => B.backupView(w, 0)), (E, B) => xr(E, "WS3", { type: "pv-open" }, () => null), (E, B) => xr(E, "WS3", { type: "doc-open" }, () => null)] },
+  X3: { mid: "WS1", leak: [/1 year/i, /one year/i, /escalat/i, /tier 2/i, /4 september/i],
+    exh: (B, m) => m.bk.fh.keep !== "1 month" ? "retention isn't one month" : m.bk.fh.runs.some((r) => Object.keys(r.files).some((k) => /interview-notes/.test(k))) ? "a backup still holds the deleted file" : null,
+    solve: [(E, B) => xr(E, "WS1", { type: "fh", op: "view" }, (w) => B.backupView(w, 0)),
+      (E, B) => xr(E, "WS1", { type: "fh", op: "keep", keep: "1 year" }, (w) => B.setKeep(w, "1 year"))],
+    near: [["a shorter retention", (E, B) => xr(E, "WS1", { type: "fh", op: "keep", keep: "3 months" }, (w) => B.setKeep(w, "3 months"))],
+      ["System Restore", (E, B) => xr(E, "WS1", { type: "sys-restore" }, (w) => B.systemRestore(w, 0))],
+      ["Resolve instead of escalate", (E) => E.submit("resolve")]],
+    look: [(E, B) => xr(E, "WS1", { type: "fh", op: "view" }, (w) => B.backupView(w))] },
+  X4: { mid: "WS5", leak: [/fs01/i, /run now/i, /\\\\/],
+    exh: (B, m) => !m.bk.fh.missing ? "the backup drive isn't missing" : B.inBackup(m, XP.WS5 + "\\Visitor-log-Oct.xlsx") ? "today's visitor log is already backed up" : null,
+    solve: [(E, B) => xr(E, "WS5", { type: "fh", op: "target" }, (w) => B.setTarget(w, "\\\\FS01\\Backups")),
+      (E, B) => xr(E, "WS5", { type: "fh", op: "run" }, (w) => B.runNow(w)),
+      (E, B) => xr(E, "WS5", { type: "fh", op: "view" }, (w) => B.backupView(w))],
+    near: [["File History off", (E, B) => xr(E, "WS5", { type: "fh", op: "off" }, (w) => B.turnOff(w))],
+      ["the read-only Software share", (E, B) => xr(E, "WS5", { type: "fh", op: "target" }, (w) => B.setTarget(w, "\\\\FS01\\Software"))],
+      ["System Restore", (E, B) => xr(E, "WS5", { type: "sys-restore" }, (w) => B.systemRestore(w, 0))]],
+    look: [(E, B) => xr(E, "WS5", { type: "fh", op: "run" }, (w) => B.runNow(w)), (E, B) => xr(E, "WS5", { type: "fh", op: "view" }, (w) => B.backupView(w))] },
+  X5: { mid: "WS2", leak: [/scaneasy driver/i, /14:09/, /system restore/i, /3 october/i],
+    exh: (B, m) => M.launchApp(clone(m), "ScanEasy", "start").kind !== "crash" ? "ScanEasy doesn't crash" : (B.fileAt(m, XP.WS2 + "\\Client-proposal.docx") || {}).doc ? null : "her proposal isn't there",
+    solve: [(E, B) => xr(E, "WS2", { type: "launch", app: "ScanEasy" }, (w) => M.launchApp(w, "ScanEasy", "start")),
+      (E, B) => xr(E, "WS2", { type: "sys-restore" }, (w) => B.systemRestore(w, 2)),
+      (E, B) => xr(E, "WS2", { type: "launch", app: "ScanEasy" }, (w) => M.launchApp(w, "ScanEasy", "start"))],
+    after: (B, f) => (B.fileAt(f.WS2, XP.WS2 + "\\Client-proposal.docx") || {}).doc.id !== "prop" ? "System Restore changed her proposal" : null,
+    near: [["restoring to before the security update", (E, B) => xr(E, "WS2", { type: "sys-restore" }, (w) => B.systemRestore(w, 1))],
+      ["restoring to a point after the driver", (E, B) => xr(E, "WS2", { type: "sys-restore" }, (w) => B.systemRestore(w, 3))],
+      ["Repair", (E) => xr(E, "WS2", { type: "repair", app: "ScanEasy" }, (w) => M.repairApp(w, "ScanEasy", "repair"))],
+      ["uninstalling ScanEasy", (E) => xr(E, "WS2", { type: "cmd", line: "uninstall ScanEasy" }, (w) => { M.appByName(w, "ScanEasy").installed = false; return { kind: "change" }; })]],
+    look: [(E, B) => xr(E, "WS2", { type: "launch", app: "ScanEasy" }, (w) => M.launchApp(w, "ScanEasy", "start"))] },
+  X6: { mid: "WS4", leak: [/15 minutes/i, /2 years/i, /two years/i],
+    exh: (B, m) => m.bk.fh.every !== 60 || m.bk.fh.keep !== "Forever (default)" ? "the settings already match" : null,
+    solve: [(E, B) => xr(E, "WS4", { type: "fh", op: "every", every: 15 }, (w) => B.setEvery(w, 15)),
+      (E, B) => xr(E, "WS4", { type: "fh", op: "keep", keep: "2 years" }, (w) => B.setKeep(w, "2 years")),
+      (E, B) => xr(E, "WS4", { type: "fh", op: "view" }, (w) => B.backupView(w))],
+    near: [["every 30 minutes", (E, B) => xr(E, "WS4", { type: "fh", op: "every", every: 30 }, (w) => B.setEvery(w, 30))],
+      ["keep Forever", (E, B) => xr(E, "WS4", { type: "fh", op: "keep", keep: "Forever (default)" }, (w) => B.setKeep(w, "Forever (default)"))],
+      ["keep 1 year", (E, B) => xr(E, "WS4", { type: "fh", op: "keep", keep: "1 year" }, (w) => B.setKeep(w, "1 year"))]],
+    look: [(E, B) => xr(E, "WS4", { type: "fh", op: "view" }, (w) => B.backupView(w))] }
+};
+function extraMore(D, F) {
+  const B = D.BK;
+  Object.keys(XT_).forEach((id) => {
+    const t = D.TICKETS.find((x) => x.id === id), X = XT_[id], P = "EXTRA " + id + ": ";
+    if (!t) { F(P + "missing"); return; }
+    if (t.machine !== X.mid) F(P + "on the wrong machine");
+    /* EXHIBITED */
+    const f = D.makeFleet(); t.setup(f);
+    if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts");
+    const ex = X.exh(B, f[X.mid]); if (ex) F(P + "EXHIBITED: " + ex);
+    /* SOLVABLE, with SIX, LADDER and NO LEAK at each stage on the way */
+    const E = D.createEngine(memStore()); E.openTicket(id); const tt = E.ticket();
+    const stageCheck = () => {
+      const s = tt.stage(E.fleet()), mv = t.moves(E.fleet());
+      if (!mv || mv.length !== 6 || mv.filter((x) => x.correct).length !== 1 || mv.some((x) => !x.correct && !String(x.why || "").trim()) || new Set(mv.map((x) => x.label)).size !== 6) { F(P + "SIX: the moves at stage " + s + " are not six, one right, a reason on each wrong one"); return; }
+      const rm = mv.find((x) => x.correct).label.toLowerCase(), h = t.hints(E.fleet());
+      if (!h || h.length < 2) F(P + "NO LEAK: no rung 1 and rung 2 at stage " + s);
+      (h || []).forEach((line, i) => { if (String(line).toLowerCase().indexOf(rm) >= 0) F(P + "NO LEAK: rung " + (i + 1) + " at stage " + s + " contains the right move"); X.leak.forEach((re) => { if (re.test(line)) F(P + "NO LEAK: rung " + (i + 1) + " at stage " + s + " names the answer (" + re + ")"); }); });
+      const saved = E.T().guesses; E.T().guesses = 7; const g = E.guidance(); E.T().guesses = saved;
+      const alive = (g.moves || []).filter((x) => !x.struck);
+      if (g.rung !== 3 || alive.length !== 2 || !alive.some((x) => x.correct)) F(P + "LADDER: rung 3 at stage " + s + " does not leave two alive with the right one among them");
+    };
+    stageCheck(); X.solve.forEach((go) => { go(E, B); stageCheck(); });
+    if (!t.goal(E.fleet())) F(P + "SOLVABLE: the right path does not meet the goal (stage " + tt.stage(E.fleet()) + ")");
+    if (E.T().guesses) F(P + "SOLVABLE: the right path cost " + E.T().guesses + " wrong moves");
+    if (X.after) { const a = X.after(B, E.fleet()); if (a) F(P + "SOLVABLE: " + a); }
+    if (!E.submit(t.outcome).ok) F(P + "SOLVABLE: " + t.outcome + " refused after the right path");
+    { /* the path without its last step doesn't close it */
+      const E2 = D.createEngine(memStore()); E2.openTicket(id); X.solve.slice(0, -1).forEach((go) => go(E2, B));
+      if (t.goal(E2.fleet())) F(P + "SOLVABLE: closes without the last step of the path"); }
+    /* JUDGE */
+    X.near.forEach(([label, go]) => { const E3 = D.createEngine(memStore()); E3.openTicket(id); go(E3, B); if (E3.T().guesses !== 1) F(P + "JUDGE: " + label + " gave " + E3.T().guesses + " wrong moves, should be 1"); });
+    { const E4 = D.createEngine(memStore()); E4.openTicket(id); X.look.forEach((go) => go(E4, B)); if (E4.T().guesses) F(P + "JUDGE: looking cost " + E4.T().guesses + " wrong moves"); }
+    /* close question, note, objective */
+    const co = t.close.options;
+    if (co.length !== 6 || co.filter((x) => x.correct).length !== 1 || co.some((x) => !x.correct && !x.why) || new Set(co.map((x) => x.label)).size !== 6) F(P + "SIX: the close question is not six, one right, a reason on each wrong one");
+    const L = co.map((x) => x.label.length), cl = co.find((x) => x.correct).label.length;
+    if (cl === Math.max(...L)) F(P + "SPREAD: the right close answer is the longest option");
+    if (!D.noteOK(t, D.NOTES[id] || "").ok) F(P + "NOTE: the model note is refused: " + D.noteOK(t, D.NOTES[id] || "").missing.join("; "));
+    if (D.noteOK(t, "I looked at the computer for a while and then it was working again, so I closed it.").ok) F(P + "NOTE: a note that says nothing specific is accepted");
+  });
 }
 function chatChecks(D, F) {
   D_ = D;
@@ -1023,11 +1129,17 @@ const PLANTS = [
   ["CHAT RESTART", "starting again shows the same six", () => ({ CH: Object.assign({}, CHM, { restart: (f, t) => { const c = CHM.get(f, t.id); c.step = 0; c.out = {}; c.said = {}; if (t.restore) t.restore(f); } }) })],
   ["EXTRA X1: EXHIBITED", "her spreadsheet starts already restored", () => ({ TICKETS: withTicket("X1", (t) => ({ setup: (f) => { t.setup(f); const P = "C:\\Users\\finance\\Documents\\Q3-budget.xlsx"; BKM.restoreVersion(f.WS4, P, BKM.versions(f.WS4, P).find((v) => v.file.doc.id === "q3rev").id); } })) })],
   ["EXTRA X1: JUDGE", "the read-only Software share passes as a typo", () => ({ BK: Object.assign({}, BKM, { setTarget: (w, v) => (/software/i.test(v) ? { ok: false, typo: true, text: "not found" } : BKM.setTarget(w, v)) }) })],
-  ["EXTRA X1: System Restore brought", "System Restore puts her document back", () => ({ BK: Object.assign({}, BKM, { systemRestore: (w, i) => { const P = "C:\\Users\\finance\\Documents\\Q3-budget.xlsx"; BKM.restoreVersion(w, P, BKM.versions(w, P).find((v) => v.file.doc.id === "q3rev").id); return BKM.systemRestore(w, i); } }) })],
+  ["EXTRA X1: System Restore brought", "System Restore puts her document back", () => ({ BK: Object.assign({}, BKM, { systemRestore: (w, i) => { const P = "C:\\Users\\finance\\Documents\\Q3-budget.xlsx"; const v = BKM.versions(w, P).find((x) => x.file.doc && x.file.doc.id === "q3rev"); if (v) BKM.restoreVersion(w, P, v.id); return BKM.systemRestore(w, i); } }) })],
   ["EXTRA X1: NO LEAK", "a hint names the copy to restore", () => ({ TICKETS: withTicket("X1", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0] + " Try the 3 October copy.", h[1]]; } })) })],
   ["EXTRA X1: SOLVABLE", "the backup never has to be tested", () => ({ TICKETS: withTicket("X1", () => ({ goal: (f) => ["test", "done"].indexOf(XTM.stage(f.WS4)) >= 0 })) })],
   ["EXTRA X1: SPREAD", "the right close answer padded to be the longest", () => ({ TICKETS: withTicket("X1", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.map((x) => (x.correct ? Object.assign({}, x, { label: x.label + ", and a fire takes the lot" }) : x)) }) })) })],
   ["EXTRA X1: does not name", "the objective reworded", () => ({ TICKETS: withTicket("X1", () => ({ objective: "making backups" })) })],
+  ["EXTRA X2: SOLVABLE", "Restore to… puts the copy over the original anyway", () => ({ BK: Object.assign({}, BKM, { restoreFromRun: (w, at, p) => BKM.restoreFromRun(w, at, p, null) }) })],
+  ["EXTRA X3: EXHIBITED", "retention already a year", () => ({ TICKETS: withTicket("X3", (t) => ({ setup: (f) => { t.setup(f); f.WS1.bk.fh.keep = "1 year"; } })) })],
+  ["EXTRA X4: SOLVABLE", "a new location leaves the old drive marked missing", () => ({ BK: Object.assign({}, BKM, { setTarget: (w, v) => { const r = BKM.setTarget(w, v); w.bk.fh.missing = true; return r; } }) })],
+  ["EXTRA X5: SOLVABLE", "System Restore leaves the driver in place", () => ({ BK: Object.assign({}, BKM, { systemRestore: (w, i) => { const keep = (w.apps || []).map((a) => a.driverBad); const r = BKM.systemRestore(w, i); (w.apps || []).forEach((a, k) => { a.driverBad = keep[k]; }); return r; } }) })],
+  ["EXTRA X6: NO LEAK", "a hint names the number", () => ({ TICKETS: withTicket("X6", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0], h[1] + " Every 15 minutes will do."]; } })) })],
+  ["EXTRA X6: SPREAD", "the right close answer padded longest", () => ({ TICKETS: withTicket("X6", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.map((x) => (x.correct ? Object.assign({}, x, { label: x.label + ", and the auditors check both" }) : x)) }) })) })],
 ];
 
 const plant = process.argv.includes("--plant");
