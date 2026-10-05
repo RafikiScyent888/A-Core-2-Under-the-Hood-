@@ -185,6 +185,7 @@ const NOTES = {
   MB5: "PDF Scanner Free, installed from a website through Chrome, was adware. Uninstalled it, turned off Install unknown apps for Chrome, and a Play Protect scan found nothing else. Told Farah to use the Play Store.",
   OI2: "PC Health Check said TPM 2.0 must be supported and enabled: the TPM was switched off in the firmware. Turned it on with F2, saved; Health Check passed. Upgraded in place with setup.exe from the USB, keep personal files and apps. Now Windows 11 Pro; Brenda signed in and PayWise opens.",
   OI3: "PC Health Check on WS5: the processor isn't currently supported (Core i5-7500, 7th gen, not on the supported list). TPM 2.0, Secure Boot, memory and disk all pass. Changed nothing and forced nothing: escalated for a replacement or ESU decision.",
+  OI4: "Shrank C: by 100 GB in Disk Management, left unallocated. Booted the Ubuntu 24.04 USB with F12, chose Install Ubuntu alongside Windows Boot Manager (not Erase disk), ext4, named ws3-dev-ubuntu, user dev. GRUB lists both: Ubuntu signed in, Windows starts.",
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB6: "Outlook's background battery use was Restricted and its background data was off, so mail waited until it opened. Set battery to Optimized and turned background data on. A test email arrived by itself.",
   X2: "Opened File History's backups: the 1 October copy of deploy.yml is version 2.3.1, the hotfix. Used Restore to put a copy on Dev's Desktop; today's 2.4.0 in Documents was kept, not overwritten. Opened it to check.",
@@ -779,6 +780,44 @@ const XI = {
         ["Setup from the USB (refused: can't run Windows 11)", 0, [o("media-in", (m) => I.insertMedia(m, "win11")), restart, o("key", (m) => I.key(m, "F12"), { key: "F12" }), o("bootfrom", (m) => I.bootFrom(m, "usb"), { entry: "usb" }), o("ws-lang", (m) => I.ws(m, "lang")), o("ws-option", (m) => I.ws(m, "option", { choice: "install", agree: true }), { choice: "install" })]],
         ["the firmware opened and left", 0, [restart, o("key", (m) => I.key(m, "F2"), { key: "F2" }), o("fw-discard", (m) => I.discardFw(m))]]] }; }
 };
+XI.OI4 = (D) => { const I = D.IN, W = "WS3", o = (op, fn, a) => (E) => xr2(E, W, Object.assign({ type: "osinst", op }, a || {}), fn);
+  const restart = (E) => { const b = E.before(); const m = E.fleet()[W]; M.shutdown(m); M.boot(m); E.onAct({ machine: W, type: "power", op: "restart", before: b }); };
+  const acct = (host) => o("ub-account", (m) => I.ub(m, "account", { name: "Dev Patel", host, user: "dev", pass: "Dev-Ubuntu-26" }), { host });
+  const S = [o("shrink", (m) => I.shrink(m, 1, 102400), { mb: 102400 }), o("media-in", (m) => I.insertMedia(m, "ubuntu")), restart,
+    o("key", (m) => I.key(m, "F12"), { key: "F12" }), o("bootfrom", (m) => I.bootFrom(m, "usb"), { entry: "usb" }),
+    o("ub-try", (m) => I.ub(m, "try")), o("ub-lang", (m) => I.ub(m, "lang")), o("ub-what", (m) => I.ub(m, "what", { what: "install" }), { what: "install" }),
+    o("ub-how", (m) => I.ub(m, "how", { how: "alongside" }), { how: "alongside" }), acct("ws3-dev-ubuntu"), o("ub-install", (m) => I.ub(m, "install")),
+    o("ub-restart", (m) => I.ub(m, "restart")), o("restart", (m) => I.restartPC(m)), o("key", (m) => I.key(m, "continue"), { key: "continue" }),
+    o("grub", (m) => I.grub(m, "ubuntu"), { pick: "ubuntu" }), o("ub-signin", (m) => I.lxSignIn(m)), o("ub-cmd", (m) => (I.lxCmd(m, "lsb_release -a"), { ok: true }), { line: "lsb_release -a" }),
+    o("restart", (m) => I.restartPC(m)), o("key", (m) => I.key(m, "continue"), { key: "continue" }), o("grub", (m) => I.grub(m, "windows"), { pick: "windows" })];
+  const fw = (k, v) => [o("key", (m) => I.key(m, "F2"), { key: "F2" }), o("fw-set", (m) => I.setFw(m, k, v), { key: k, value: v }), o("fw-save", (m) => I.saveFw(m))];
+  return { mid: W, S, leak: [/alongside/i, /disk management/i, /\bshrink/i, /\bF12\b/i, /hostnamectl/i, /ws3-dev-ubuntu/i, /\bgrub\b/i],
+    exh: (m) => (I.freeGB(m) >= 25 ? "there's already free space for Ubuntu" : !m.inst.os ? "there's no Windows to keep" : m.inst.lx ? "Ubuntu is already on it" : null),
+    after: (m) => (!m.inst.os ? "Windows was lost" : m.disks[0].parts.filter((p) => p.kind === "linux").length !== 1 ? "there isn't exactly one Linux partition" : m.inst.lx.host !== "ws3-dev-ubuntu" ? "Ubuntu's name is wrong" : null),
+    near: [["too small a shrink (20 GB)", 0, [o("shrink", (m) => I.shrink(m, 1, 20480), { mb: 20480 })]],
+      ["a new NTFS volume in the free space", 1, [o("newvol", (m) => I.newVolume(m, 2))]],
+      ["Erase disk", 8, [o("ub-how", (m) => I.ub(m, "how", { how: "erase" }), { how: "erase" })]],
+      ["manual, ext4 over the Windows partition", 8, [o("ub-how", (m) => I.ub(m, "how", { how: "manual" }), { how: "manual" }), o("ub-manual", (m) => I.ub(m, "manual", { i: 1, fs: "ext4", mount: "/" }), { i: 1, fs: "ext4" })]],
+      ["the wrong computer name", 9, [acct("ws3-dev")]],
+      ["Secure Boot off, saved", 3, fw("secureBoot", false)]],
+    look: [["Try Ubuntu", 7, [o("ub-what", (m) => I.ub(m, "what", { what: "try" }), { what: "try" })]],
+      ["manual with FAT32 for / (refused)", 8, [o("ub-how", (m) => I.ub(m, "how", { how: "manual" }), { how: "manual" }), o("ub-manual", (m) => I.ub(m, "manual", { i: 2, fs: "fat32", mount: "/" }), { i: 2, fs: "fat32" }), o("ub-back", (m) => I.ub(m, "back"))]],
+      ["deleting the Windows volume (refused)", 0, [o("delvol", (m) => I.deleteVolume(m, 1))]],
+      ["hostnamectl without sudo, and the firmware opened and left", 16, [o("ub-cmd", (m) => (I.lxCmd(m, "hostnamectl set-hostname x"), { ok: true }), { line: "hostnamectl set-hostname x" }), o("restart", (m) => I.restartPC(m)), o("key", (m) => I.key(m, "F2"), { key: "F2" }), o("fw-discard", (m) => I.discardFw(m))]]],
+    extra: (fresh, F, P, t) => {
+      /* a wrong name is put right from Ubuntu's own terminal, with sudo */
+      const E = fresh(); S.slice(0, 9).forEach((go) => go(E)); acct("ws3-dev")(E); S.slice(10).forEach((go) => go(E));
+      if (t.goal(E.fleet())) F(P + "SOLVABLE: closes with Ubuntu's name wrong");
+      o("ub-cmd", (m) => (I.lxCmd(m, "sudo hostnamectl set-hostname ws3-dev-ubuntu"), { ok: true }), { line: "sudo hostnamectl set-hostname ws3-dev-ubuntu" })(E);
+      if (!t.goal(E.fleet())) F(P + "SOLVABLE: a wrong name can't be put right with sudo hostnamectl (stage " + t.stage(E.fleet()) + ")");
+      /* Erase disk, installed, takes Windows and needs a revert */
+      const E2 = fresh(); S.slice(0, 8).forEach((go) => go(E2)); o("ub-how", (m) => I.ub(m, "how", { how: "erase" }), { how: "erase" })(E2); acct("ws3-dev-ubuntu")(E2); o("ub-install", (m) => I.ub(m, "install"))(E2);
+      if (t.stage(E2.fleet()) !== "wiped" || E2.fleet().WS3.inst.os) F(P + "MODEL: Erase disk left Windows on the drive");
+      E2.revert(); if (!E2.fleet().WS3.inst.os || E2.fleet().WS3.inst.lx) F(P + "SNAPSHOT: revert after Erase disk doesn't bring Windows back");
+      /* GRUB lists Windows only while it's there */
+      if (!I.grubEntries(E.fleet().WS3).some((e) => e[0] === "windows")) F(P + "MODEL: GRUB doesn't list Windows alongside Ubuntu");
+    } };
+};
 function instTable(D, F, t, X) {
   const P = "EXTRA " + t.id + ": ", fresh = () => { const E = D.createEngine(memStore()); E.openTicket(t.id); return E; };
   { const f = D.makeFleet(); t.setup(f); if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts"); const e = X.exh(f[X.mid]); if (e) F(P + "EXHIBITED: " + e); }
@@ -808,6 +847,7 @@ function instTable(D, F, t, X) {
   if (cl === Math.max(...L)) F(P + "SPREAD: the right close answer is the longest option");
   if (!D.noteOK(t, D.NOTES[t.id] || "").ok) F(P + "NOTE: the model note is refused: " + D.noteOK(t, D.NOTES[t.id] || "").missing.join("; "));
   if (D.noteOK(t, "I looked at the computer for a while and then it was working again, so I closed it.").ok) F(P + "NOTE: a note that says nothing specific is accepted");
+  if (X.extra) X.extra(fresh, F, P, t);
 }
 function installRun(D, F, t) {
   const P = "EXTRA OI1: ";
@@ -1491,6 +1531,12 @@ const PLANTS = [
   ["EXTRA OI3: EXHIBITED", "escalation ready without checking anything", () => ({ TICKETS: withTicket("OI3", (t) => ({ goal: (f) => f.WS5.power === "on" })) })],
   ["EXTRA OI3: JUDGE", "the registry bypass isn't counted", () => ({ TICKETS: withTicket("OI3", (t) => ({ judge: (a, f, b) => (a.type === "cmd" ? { guess: false } : t.judge(a, f, b)) })) })],
   ["EXTRA OI3: SPREAD", "the right close answer padded longest", () => ({ TICKETS: withTicket("OI3", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.map((x) => (x.correct ? Object.assign({}, x, { label: x.label + ", whatever the TPM and Secure Boot say" }) : x)) }) })) })],
+  ["EXTRA OI4: EXHIBITED", "the drive already has free space", () => ({ TICKETS: withTicket("OI4", (t) => ({ setup: (f) => { t.setup(f); INM.shrink(f.WS3, 1, 102400); } })) })],
+  ["EXTRA OI4: MODEL", "Erase disk keeps Windows", () => ({ IN: Object.assign({}, INM, { ub: (m, op, d) => { const os = m.inst.os; const r = INM.ub(m, op, d); if (op === "install") { m.inst.os = os; m.inst.signedIn = true; } return r; } }) })],
+  ["EXTRA OI4: JUDGE", "Erase disk isn't counted", () => ({ TICKETS: withTicket("OI4", (t) => ({ judge: (a, f, b) => (a.op === "ub-how" ? { guess: false } : t.judge(a, f, b)) })) })],
+  ["EXTRA OI4: SOLVABLE", "hostnamectl never renames", () => ({ IN: Object.assign({}, INM, { lxCmd: (m, line) => (/set-hostname/.test(line) ? "" : INM.lxCmd(m, line)) }) })],
+  ["EXTRA OI4: NO LEAK", "a hint names Disk Management", () => ({ TICKETS: withTicket("OI4", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0] + " Open Disk Management.", h[1]]; } })) })],
+  ["EXTRA OI4: SNAPSHOT", "the score climbs past Erase disk", () => ({ TICKETS: withTicket("OI4", (t) => ({ scoreFn: (f) => (t.stage(f) === "wiped" ? 99 : OIM.oi4State(f.WS3).score) })) })],
 ];
 
 const plant = process.argv.includes("--plant");
@@ -1501,7 +1547,8 @@ if (!plant) {
   process.exit(f.length ? 1 : 0);
 } else {
   let bad = 0;
-  for (const [by, what, make] of PLANTS) {
+  /* ONLY=text runs just the plants whose check names it */
+  for (const [by, what, make] of PLANTS.filter((x) => !process.env.ONLY || x[0].indexOf(process.env.ONLY) >= 0)) {
     const f = check(Object.assign({}, BASE, make()));
     const caught = f.filter((x) => x.startsWith(by));
     if (caught.length) console.log("caught  [" + by + "] " + what + "  ← " + caught[0]);

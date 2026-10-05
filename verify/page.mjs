@@ -51,7 +51,7 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491" };
 const NOTES = {
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB1: "Weather Live topped the Battery page at 52% in the background, with location Allow all the time and Unrestricted battery. Set location to Allow only while using the app and background battery to Restricted. The Battery page now shows about 23 hours.",
@@ -148,10 +148,13 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 81) F("LOAD: the queue shows " + items.length + " tickets, not 81");
+      if (items.length !== 82) F("LOAD: the queue shows " + items.length + " tickets, not 82");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 14 || count(/Walk: checklist/) !== 14 || count(/Run: on your own/) !== 53) F("LOAD: the queue's labels are not 14 crawl, 14 walk, 53 run");
+      if (count(/Crawl: guided/) !== 14 || count(/Walk: checklist/) !== 14 || count(/Run: on your own/) !== 54) F("LOAD: the queue's labels are not 14 crawl, 14 walk, 54 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
+      /* Windows 11: the taskbar's icons sit in a cluster in the middle of the screen, Start first */
+      const tbc = await p.evaluate(() => { const b = Array.from(document.querySelectorAll(".task-mid .tb")); const l = b[0].getBoundingClientRect(), r = b[b.length - 1].getBoundingClientRect(); return { off: (l.left + r.right) / 2 - innerWidth / 2, first: b[0].getAttribute("aria-label") }; });
+      if (Math.abs(tbc.off) > 30 || tbc.first !== "Start") F("LOAD: the laptop's taskbar isn't a centred cluster with Start first (" + Math.round(tbc.off) + "px off centre, first: " + tbc.first + ")");
     });
 
     /* Extra training (owner's ruling 11): two headed sections, a worded
@@ -163,7 +166,7 @@ async function run(rewrites, groups) {
       const order = await p.evaluate(() => Array.from(document.querySelectorAll(".hd2-q h3.qsec, .hd2-q .qi")).map((e) => e.tagName === "H3" ? "H" : (e.querySelector(".badge") ? e.querySelector(".badge").textContent : "NONE")));
       const hx = order.indexOf("H", 1); const sims = order.slice(1, hx), extra = order.slice(hx + 1);
       if (sims.length !== 66 || sims.some((x) => !/^Exam sim · /.test(x))) F("EXTRA: the sims section does not hold 66 tickets each badged Exam sim");
-      if (extra.length !== 15 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12).some((x) => x !== "Extra training · OS installation")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6 and OI1–OI3 badged with their objectives: " + JSON.stringify(extra));
+      if (extra.length !== 16 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12).some((x) => x !== "Extra training · OS installation")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6 and OI1–OI3 badged with their objectives: " + JSON.stringify(extra));
       if (await p.locator(".qi .badge").evaluateAll((bs) => bs.some((b) => !b.querySelector("svg.ico")))) F("EXTRA: a badge has no icon");
       await p.locator(".hd2-jb", { hasText: "Extra training" }).click();
       if (!(await p.locator(".qi", { hasText: INC.X1 }).isVisible())) F("EXTRA: Jump to Extra training does not bring X1 into view");
@@ -285,13 +288,15 @@ async function run(rewrites, groups) {
       await mon.getByRole("button", { name: "Accept" }).click();
       await mon.locator(".ws-part").first().click(); await mon.getByRole("button", { name: "Install Windows on the selected location" }).click();
       if (!/MBR partition style/.test(await mon.locator(".ins-err").innerText())) F("INSTALL: Setup's refusal of the MBR disk isn't on the screen in words");
-      await p.locator(".wo-back").click(); await p.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+      await p.locator(".wo-back").click({ timeout: 60000 }); await p.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
       /* OI2, the walk, through the screens: Health Check, the TPM switched
          on, setup.exe keeping files and apps, Brenda signs in, PayWise */
       await take(p, "OI2"); await p.waitForTimeout(200);
       await p.getByRole("button", { name: /^Walk to Brenda's desk/ }).first().click(); await p.waitForSelector(".wo-desk", { timeout: 90000 });
       const b = (n) => mon.getByRole("button", { name: n, exact: true });
       const app = async (q, n) => { await b("Start menu").click(); await mon.locator(".sm-search").fill(q); await b("Open " + n).click(); await p.waitForTimeout(150); };
+      const pcbar = () => p.evaluate(() => { const bar = document.querySelector(".wo-monitor .taskbar").getBoundingClientRect(), st = document.querySelector(".wo-monitor .tb-start").getBoundingClientRect(); return { fromLeft: st.left - bar.left, half: bar.width / 2 }; });
+      { const t = await pcbar(); if (t.fromLeft > 40) F("INSTALL: a Windows 10 PC's Start isn't at the left of its taskbar (" + Math.round(t.fromLeft) + "px in)"); }
       await app("health", "PC Health Check"); await b("Check now: does this PC meet Windows 11's requirements?").click();
       if (!/TPM 2\.0 must be supported and enabled/.test(await mon.innerText())) F("INSTALL: OI2's Health Check doesn't say the TPM fails");
       await b("Start menu").click(); await mon.getByRole("button", { name: "Restart", exact: true }).click();
@@ -305,17 +310,44 @@ async function run(rewrites, groups) {
       await b("Start menu").click(); await mon.locator(".sm-search").fill("paywise"); await b("Open PayWise").click(); await p.waitForTimeout(200);
       const s2 = await p.evaluate(() => { const E = window.__LAP.engine; return { st: E.ticket().stage(E.fleet()), g: E.T().guesses, ticks: document.querySelectorAll(".coach .walk-item.done, .coach li.done").length }; });
       if (s2.st !== "done" || s2.g) F("INSTALL: OI2 through the screens ends at " + s2.st + " with " + s2.g + " wrong moves");
-      await p.locator(".wo-back").click(); await p.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+      await p.locator(".wo-back").click({ timeout: 60000 }); await p.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
       /* OI3, the run: Health Check names the processor; escalating is right */
       await take(p, "OI3"); await p.waitForTimeout(200);
       await p.getByRole("button", { name: /^Walk to Rosa's desk/ }).first().click(); await p.waitForSelector(".wo-desk", { timeout: 90000 });
       await app("health", "PC Health Check"); await b("Check now: does this PC meet Windows 11's requirements?").click();
       const t3 = await mon.innerText();
       if (!/processor isn't currently supported/.test(t3) || !/i5-7500/.test(t3) || !/TPM 2\.0 is enabled/.test(t3)) F("INSTALL: OI3's Health Check doesn't name the processor, or fails the TPM too");
-      await p.locator(".wo-back").click(); await p.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+      await p.locator(".wo-back").click({ timeout: 60000 }); await p.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
       await hd(p).getByRole("button", { name: "Escalate to Tier 2" }).click(); await p.waitForTimeout(200);
       const s3 = await p.evaluate(() => ({ stage: window.__LAP.engine.T().stage, g: window.__LAP.engine.T().guesses }));
       if (s3.stage !== "close" || s3.g) F("INSTALL: OI3's escalation after the check was refused or counted (" + JSON.stringify(s3) + ")");
+      /* OI4, Ubuntu alongside Windows, through the screens: Disk Management,
+         the Ubuntu USB, the installer, GRUB, Ubuntu's terminal, then Windows */
+      await take(p, "OI4"); await p.waitForTimeout(200);
+      await p.getByRole("button", { name: /^Walk to Dev's desk/ }).first().click(); await p.waitForSelector(".wo-desk", { timeout: 90000 });
+      await app("disk", "Disk Management"); await mon.locator('.dm-row[aria-label*="(C:)"]').click(); await b("Shrink the selected volume").click();
+      const uac = mon.locator(".w-dialog.uac-creds"); if (await uac.count()) { await uac.locator("input").nth(0).fill("RAFIKI\\itadmin"); await uac.locator("input").nth(1).fill("Bench-Tech-2026"); await uac.getByRole("button", { name: "Yes" }).click(); } else await mon.locator(".w-dialog.uac").getByRole("button", { name: "Yes" }).click();
+      await mon.locator('[id^="shrink-mb-"]').fill("102400"); await b("Shrink C: by this amount").click(); await mon.locator(".w-dialog").getByRole("button", { name: "OK" }).click();
+      if (!/Unallocated/.test(await mon.locator(".dm-t").innerText())) F("INSTALL: OI4's shrink left no unallocated space in Disk Management");
+      await p.locator('.wo-hands [data-coach="inst-usb-in"]').click();
+      await b("Start menu").click(); await mon.getByRole("button", { name: "Restart", exact: true }).click();
+      await b("Press F12 for the Boot Menu").click(); await b("Boot from UEFI: UBUNTU_24_04 (USB)").click();
+      await b("Try or Install Ubuntu").click(); await b("Next").click(); await mon.getByRole("radio", { name: "Install Ubuntu" }).click(); await b("Next").click();
+      await mon.getByRole("radio", { name: "Install Ubuntu alongside Windows Boot Manager" }).click(); await b("Next: install this way").click();
+      await mon.locator('[id^="ub-name-"]').fill("Dev Patel"); await mon.locator('[id^="ub-host-"]').fill("ws3-dev-ubuntu"); await mon.locator('[id^="ub-user-"]').fill("dev"); await mon.locator('[id^="ub-pass-"]').fill("Dev-Ubuntu-26");
+      await b("Next: create the account").click(); await b("Install Ubuntu").click(); await b("Restart now to finish installing Ubuntu").click(); await b("Press Enter to restart").click();
+      await b("Let the PC start from its boot order").click();
+      if (!/Windows Boot Manager/.test(await mon.locator(".grub-list").innerText())) F("INSTALL: OI4's GRUB menu doesn't list Windows");
+      await b("Ubuntu").click(); await b("Let Dev sign in to Ubuntu").click();
+      await mon.locator('[id^="ub-in-"]').fill("lsb_release -a"); await mon.locator('[id^="ub-in-"]').press("Enter");
+      if (!/Ubuntu 24\.04\.1 LTS/.test(await mon.locator(".ub-term-out").innerText())) F("INSTALL: Ubuntu's terminal doesn't report its release");
+      await b("Restart Ubuntu").click(); await b("Let the PC start from its boot order").click(); await b("Windows Boot Manager (on /dev/nvme0n1p1)").click();
+      if (!/signed in as/.test(await mon.locator(".sign-bar").innerText())) F("INSTALL: Windows didn't start from GRUB");
+      { const t = await p.evaluate(() => { const bar = document.querySelector(".wo-monitor .taskbar").getBoundingClientRect(), mid = Array.from(document.querySelectorAll(".wo-monitor .tb-mid > *")); const l = mid[0].getBoundingClientRect(), r = mid[mid.length - 1].getBoundingClientRect(); return { off: (l.left + r.right) / 2 - (bar.left + bar.width / 2), first: mid[0].className }; });
+        if (Math.abs(t.off) > 40 || !/tb-start/.test(t.first)) F("INSTALL: a Windows 11 PC's taskbar isn't centred with Start first (" + Math.round(t.off) + "px off centre)"); }
+      const s4 = await p.evaluate(() => { const E = window.__LAP.engine; return { st: E.ticket().stage(E.fleet()), g: E.T().guesses }; });
+      if (s4.st !== "done" || s4.g) F("INSTALL: OI4 through the screens ends at " + s4.st + " with " + s4.g + " wrong moves");
+      await p.locator(".wo-back").click({ timeout: 60000 }); await p.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
     });
 
     /* Instructor mode shows the answer on every ticket page; every ticket
@@ -855,6 +887,10 @@ const PLANTS = [
   ["INSTALL", "the domain join never takes effect at the restart", { "assets/install.js": [["if (I.joinPending) { I.joinPending = false;", "if (false) { I.joinPending = false;"]] }],
   ["INSTALL", "switching the TPM on in the firmware doesn't reach Windows", { "assets/install.js": [["const I = m.inst; const before = JSON.stringify(I.fw); I.fw = I.pending;", "const I = m.inst; const before = JSON.stringify(I.fw); I.fw = Object.assign({}, I.pending, { tpmOn: I.fw.tpmOn });"]] }],
   ["INSTALL", "the upgrade never finishes at the restart", { "assets/install.js": [["if (I.up && I.up.copied && !I.up.applied) { const r = applyUpgrade(m); if (r) return r; }", ""]] }],
+  ["LOAD", "the laptop's taskbar back at the left", { "assets/laptop.css": [[".task { display: grid; grid-template-columns: 1fr auto 1fr; }", ".task { display: flex; }"], [".task-mid { flex: 1; display: flex; justify-content: center;", ".task-mid { flex: 1; display: flex; justify-content: flex-start;"]] }],
+  ["INSTALL", "a Windows 11 PC's taskbar at the left", { "assets/style.css": [[".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: center;", ".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: flex-start;"]] }],
+  ["INSTALL", "GRUB never lists Windows", { "assets/install.js": [["if (m.inst.os) e.push([\"windows\"", "if (false) e.push([\"windows\""]] }],
+  ["INSTALL", "shrinking C: leaves no free space", { "assets/install.js": [["p.bytes -= n * MB; dk.parts.splice(i + 1, 0, { kind: \"unalloc\"", "p.bytes -= n * MB; dk.parts.splice(i + 1, 0, { kind: \"data\""]] }],
   ["INSTALL", "Setup's refusal shown without its words", { "assets/installui.js": [["const e = el(\"p\", \"ins-err\", \"✕ \" + I.error);", "const e = el(\"p\", \"ins-err\", \"✕ Error\");"]] }],
   ["CRAWL", "Mason's rings never drawn", { "assets/laptop.js": [["if (t) t.classList.add(\"coach-target\");", ""]] }],
   ["WALK", "the walk ticks only in strict order", { "assets/laptop.js": [["(walk.mode === \"walk\" || i <= firstOpen(walk, c))", "(i <= firstOpen(walk, c))"]] }],

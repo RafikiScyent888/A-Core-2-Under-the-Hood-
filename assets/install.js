@@ -29,7 +29,9 @@ import * as M from "./machine.js";
 const GB = 1073741824;
 export const EDITIONS = ["Windows 11 Home", "Windows 11 Home N", "Windows 11 Pro", "Windows 11 Pro N", "Windows 11 Education", "Windows 11 Pro for Workstations"];
 export const DOMAIN = { name: "RAFIKI", user: "itadmin", pass: "Bench-Tech-2026" };
-export const MEDIA = { win11: { id: "win11", label: "WIN11_24H2 (USB)", entry: "UEFI: WIN11_24H2 (USB)", os: "Windows 11, version 24H2" } };
+export const MEDIA = { win11: { id: "win11", label: "WIN11_24H2 (USB)", entry: "UEFI: WIN11_24H2 (USB)", os: "Windows 11, version 24H2", name: "Windows 11 installer" },
+  ubuntu: { id: "ubuntu", label: "UBUNTU_24_04 (USB)", entry: "UEFI: UBUNTU_24_04 (USB)", os: "Ubuntu 24.04.1 LTS", name: "Ubuntu 24.04 LTS installer", linux: true } };
+const MB = 1048576;
 
 export function managed(m) { return !!(m && m.inst && m.inst.managed); }
 /* a ticket puts a PC under this model: its hardware, firmware, disk and
@@ -56,8 +58,8 @@ export function screen(m) { return managed(m) && m.power === "on" ? m.inst.scree
 /* --------------------------------------------------------- power on */
 export function powerOn(m) { m.power = "on"; m.crashed = null; m.inst.screen = "post"; m.inst.error = null; hist(m, "post"); }
 const NAMES = { disk: "Windows Boot Manager", usb: "UEFI: USB", pxe: "Network boot (PXE)" };
-export function entryName(m, e) { return e === "disk" ? (m.disks[0] ? "Windows Boot Manager (" + m.disks[0].model + ")" : "Windows Boot Manager") : e === "usb" ? (m.inst.media ? MEDIA[m.inst.media].entry : "UEFI: USB (nothing inserted)") : NAMES.pxe; }
-function canBoot(m, e) { return e === "disk" ? !!m.inst.os || !!(m.inst.setup && m.inst.setup.copied) : e === "usb" ? !!m.inst.media : false; }
+export function entryName(m, e) { if (e === "ubuntu") return "ubuntu (" + (m.disks[0] ? m.disks[0].model : "disk") + ")"; return e === "disk" ? (m.disks[0] ? "Windows Boot Manager (" + m.disks[0].model + ")" : "Windows Boot Manager") : e === "usb" ? (m.inst.media ? MEDIA[m.inst.media].entry : "UEFI: USB (nothing inserted)") : NAMES.pxe; }
+function canBoot(m, e) { if (e === "ubuntu") return !!(m.inst.lx && m.inst.lx.installed); return e === "disk" ? !!m.inst.os || !!(m.inst.setup && m.inst.setup.copied) : e === "usb" ? !!m.inst.media : false; }
 /* let it boot: the first device in the order that can */
 export function autoBoot(m) {
   const first = m.inst.fw.order.filter(function (e) { return canBoot(m, e); })[0];
@@ -69,8 +71,11 @@ export function bootFrom(m, e) {
   if (e === "pxe") { I.screen = "pxe"; hist(m, "pxe"); return { ok: false }; }
   if (e === "usb") {
     if (!I.media) { I.screen = "nodevice"; return { ok: false }; }
+    if (MEDIA[I.media].linux) { I.ub = I.ub && !I.ub.copied ? I.ub : { step: "try" }; I.screen = "ub-" + I.ub.step; hist(m, "boot", { from: "usb", media: I.media }); return { ok: true }; }
     I.setup = I.setup && !I.setup.copied ? I.setup : { step: "lang" }; I.screen = "ws-" + I.setup.step; hist(m, "boot", { from: "usb" }); return { ok: true };
   }
+  /* Ubuntu's boot loader, GRUB, on the drive: it offers both systems */
+  if (e === "ubuntu") { if (!canBoot(m, "ubuntu")) { I.screen = "nodevice"; return { ok: false }; } I.screen = "grub"; hist(m, "grub-menu"); return { ok: true }; }
   /* the disk: Setup finishing, the first-run setup, or Windows */
   if (I.setup && I.setup.copied && !I.os) { I.os = { name: I.setup.edition, version: "24H2" }; I.oobe = { step: "region" }; I.screen = "oobe-region"; hist(m, "boot", { from: "disk", setup: true }); return { ok: true }; }
   if (!I.os) { I.screen = "nodevice"; return { ok: false }; }
@@ -200,7 +205,122 @@ function applyUpgrade(m) {
   I.signedIn = false; return null;
 }
 /* Setup's own restart: the PC goes back through its firmware */
-export function restartPC(m) { m.inst.screen = "post"; hist(m, "restart"); return { ok: true }; }
+export function restartPC(m) { m.inst.screen = "post"; if (m.inst.lx) m.inst.lx.signedIn = false; hist(m, "restart"); return { ok: true }; }
+
+/* ----------------------------------------- Disk Management (Windows) */
+/* the partitions as Disk Management lists them */
+export function volumes(m) {
+  const d = m.disks[0]; if (!d) return [];
+  return d.parts.map(function (p, i) { return { i: i, kind: p.kind, name: p.kind === "unalloc" ? "Unallocated" : p.letter ? (p.label || (p.kind === "os" ? "" : "")) + " (" + p.letter + ":)" : p.kind === "efi" ? "EFI System Partition" : p.kind === "recovery" ? "Recovery Partition" : p.kind === "msr" ? "Reserved" : p.kind === "linux" ? "(Linux partition)" : p.label || "Partition", fs: p.fs || "", gb: Math.round(p.bytes / GB * 100) / 100, status: p.kind === "unalloc" ? "Unallocated" : p.health || "Healthy" }; });
+}
+function mergeFree(dk) { for (let i = dk.parts.length - 1; i > 0; i--) if (dk.parts[i].kind === "unalloc" && dk.parts[i - 1].kind === "unalloc") { dk.parts[i - 1].bytes += dk.parts[i].bytes; dk.parts.splice(i, 1); } }
+/* Windows can shrink a volume only past its last unmovable file: about
+   half of its free space here */
+export function shrinkMax(m, i) { const p = m.disks[0].parts[i]; if (!p || p.kind !== "os") return 0; const used = (m.inst.usedGB || 180) * GB; return Math.max(0, Math.floor((p.bytes - used) * 0.6 / MB)); }
+export function freeGB(m) { const d = m.disks[0]; return d ? Math.max.apply(null, [0].concat(d.parts.filter(function (p) { return p.kind === "unalloc"; }).map(function (p) { return p.bytes / GB; }))) : 0; }
+export function shrink(m, i, mb) {
+  const dk = m.disks[0], p = dk.parts[i], n = Math.floor(Number(mb));
+  if (!p || p.kind !== "os") return { ok: false, text: "Shrink Volume is only available for the Windows volume here." };
+  if (!(n > 0)) return { ok: false, typo: true, text: "Enter the amount of space to shrink in MB." };
+  if (n > shrinkMax(m, i)) return { ok: false, typo: true, text: "The amount entered is more than the space available to shrink (" + shrinkMax(m, i) + " MB)." };
+  p.bytes -= n * MB; dk.parts.splice(i + 1, 0, { kind: "unalloc", bytes: n * MB, fs: "", label: "", letter: "", health: "" }); mergeFree(dk);
+  hist(m, "shrink", { mb: n }); return { ok: true, mb: n, text: "C: is " + Math.round(n / 1024) + " GB smaller. The space is now unallocated." };
+}
+export function newVolume(m, i) {
+  const p = m.disks[0].parts[i]; if (!p || p.kind !== "unalloc") return { ok: false };
+  p.kind = "data"; p.fs = "NTFS"; p.letter = "D"; p.label = "New Volume"; p.health = "Healthy (Basic Data Partition)"; hist(m, "newvol"); return { ok: true, text: "New Volume (D:) was created and formatted NTFS." };
+}
+export function deleteVolume(m, i) {
+  const dk = m.disks[0], p = dk.parts[i]; if (!p) return { ok: false };
+  if (p.kind !== "data") return { ok: false, refused: true, text: p.kind === "os" ? "Windows can't delete the volume it's running from." : "This partition is protected: Disk Management can't delete it." };
+  p.kind = "unalloc"; p.fs = ""; p.letter = ""; p.label = ""; p.health = ""; mergeFree(dk); hist(m, "delvol"); return { ok: true, text: "The volume was deleted. The space is unallocated." };
+}
+
+/* -------------------------------------------- Ubuntu's installer */
+export const LX = { host: "ws3-dev-ubuntu", release: "Ubuntu 24.04.1 LTS", kernel: "6.8.0-45-generic" };
+const UB_ORDER = ["try", "lang", "what", "how", "manual", "account", "review", "done"];
+export function ub(m, op, d) {
+  const I = m.inst, U = I.ub; d = d || {}; I.error = null; if (!U) return { ok: false };
+  const go = function (step) { U.step = step; I.screen = "ub-" + step; };
+  if (op === "try") { go("lang"); hist(m, "ub-try"); return { ok: true }; }
+  if (op === "lang") { go("what"); hist(m, "ub-lang"); return { ok: true }; }
+  if (op === "what") { if (d.what !== "install") { I.error = "Try Ubuntu runs it from the USB without changing the PC. Nothing is installed."; return { ok: false, typo: true }; } go("how"); hist(m, "ub-what"); return { ok: true }; }
+  if (op === "how") {
+    if (d.how === "alongside" && freeGB(m) < 25) { I.error = "There isn't enough unallocated space on this disk to install Ubuntu alongside Windows (25 GB or more)."; return { ok: false, typo: true }; }
+    U.how = d.how; U.target = null; if (d.how === "manual") { go("manual"); hist(m, "ub-how", { how: d.how }); return { ok: true }; }
+    go("account"); hist(m, "ub-how", { how: d.how }); return { ok: true, how: d.how };
+  }
+  if (op === "manual") {
+    const p = m.disks[0].parts[d.i];
+    if (!p) { I.error = "Select a partition or free space."; return { ok: false, typo: true }; }
+    if (d.mount !== "/") { I.error = "Ubuntu needs a root partition: set its mount point to /."; return { ok: false, typo: true }; }
+    if (d.fs !== "ext4") { I.error = "The root file system (/) must be a Linux file system, such as ext4."; return { ok: false, typo: true }; }
+    if (p.kind !== "unalloc" && p.kind !== "os" && p.kind !== "data") { I.error = "That partition is needed to start the PC: choose another."; return { ok: false, typo: true }; }
+    U.target = d.i; go("account"); hist(m, "ub-manual", { i: d.i, kind: p.kind }); return { ok: true, overWindows: p.kind === "os" };
+  }
+  if (op === "account") {
+    const host = String(d.host || "").trim(), user = String(d.user || "").trim();
+    if (!String(d.name || "").trim()) { I.error = "Enter your name."; return { ok: false, typo: true }; }
+    if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(host)) { I.error = "A computer name can use lower-case letters, numbers and hyphens, and can't start or end with a hyphen."; return { ok: false, typo: true }; }
+    if (!/^[a-z][a-z0-9_-]{0,31}$/.test(user)) { I.error = "A username must start with a lower-case letter, and can use lower-case letters, numbers, hyphens and underscores."; return { ok: false, typo: true }; }
+    if (!d.pass) { I.error = "Choose a password."; return { ok: false, typo: true }; }
+    U.host = host; U.user = user; go("review"); hist(m, "ub-account", { host: host, user: user }); return { ok: true, host: host };
+  }
+  if (op === "back") { const i = UB_ORDER.indexOf(U.step); let to = UB_ORDER[i - 1]; if (to === "manual" && U.how !== "manual") to = "how"; if (i > 0) go(to); return { ok: true }; }
+  if (op === "install") {
+    const dk = m.disks[0];
+    if (U.how === "erase") {
+      /* the whole disk: a new EFI partition and Ubuntu; Windows is gone */
+      dk.parts = [{ kind: "efi", bytes: 1073741824, fs: "FAT32", label: "", letter: "", health: "Healthy (EFI System Partition)" }, { kind: "linux", bytes: dk.bytes - 1073741824, fs: "ext4", label: "", letter: "", health: "Healthy" }];
+      I.os = null; I.signedIn = false;
+    } else {
+      let i = U.how === "manual" ? U.target : dk.parts.reduce(function (b, p, k) { return p.kind === "unalloc" && (b < 0 || p.bytes > dk.parts[b].bytes) ? k : b; }, -1);
+      const p = dk.parts[i]; if (!p) return { ok: false };
+      if (p.kind === "os") { I.os = null; I.signedIn = false; }
+      p.kind = "linux"; p.fs = "ext4"; p.letter = ""; p.label = ""; p.health = "Healthy";
+    }
+    I.lx = { installed: true, host: U.host, user: U.user, signedIn: false };
+    if (I.fw.order.indexOf("ubuntu") < 0) I.fw.order.unshift("ubuntu");
+    U.copied = true; go("done"); hist(m, "ub-install", { how: U.how, windows: !!I.os });
+    return { ok: true, text: "Ubuntu 24.04 LTS is installed and ready to use." };
+  }
+  if (op === "restart") { I.screen = "ub-remove"; hist(m, "ub-restart"); return { ok: true }; }
+  return { ok: false };
+}
+/* GRUB's menu: Ubuntu, and Windows if it's still on the disk */
+export function grubEntries(m) { const e = [["ubuntu", "Ubuntu"], ["advanced", "Advanced options for Ubuntu"]]; if (m.inst.os) e.push(["windows", "Windows Boot Manager (on /dev/nvme0n1p1)"]); e.push(["firmware", "UEFI Firmware Settings"]); return e; }
+export function grub(m, pick) {
+  const I = m.inst; hist(m, "grub", { pick: pick });
+  if (pick === "ubuntu" || pick === "advanced") { I.screen = I.lx.signedIn ? "ub-desktop" : "ub-login"; return { ok: true }; }
+  if (pick === "windows") { I.screen = null; return bootFrom(m, "disk"); }
+  if (pick === "firmware") return key(m, "F2");
+  return { ok: false };
+}
+export function lxSignIn(m) { const I = m.inst; I.lx.signedIn = true; I.screen = "ub-desktop"; hist(m, "ub-signin"); return { ok: true }; }
+/* Ubuntu's Terminal: the commands a technician checks an install with */
+export function lxCmd(m, line) {
+  const I = m.inst, L = I.lx, raw = String(line || "").trim(), c = raw.replace(/\s+/g, " ");
+  hist(m, "ub-cmd", { line: c.toLowerCase() });
+  const dk = m.disks[0], gb = function (b) { return Math.round(b / GB) + "G"; };
+  if (!c) return "";
+  if (c === "lsb_release -a") return "No LSB modules are available.\nDistributor ID:\tUbuntu\nDescription:\t" + LX.release + "\nRelease:\t24.04\nCodename:\tnoble";
+  if (c === "uname -r") return LX.kernel;
+  if (c === "hostname" || c === "hostnamectl") return c === "hostname" ? L.host : " Static hostname: " + L.host + "\nOperating System: " + LX.release + "\n          Kernel: Linux " + LX.kernel;
+  const hn = c.match(/^(sudo )?hostnamectl (set-hostname|hostname) (\S+)$/);
+  if (hn) { if (!hn[1]) return "Could not set static hostname: Access denied"; if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(hn[3])) return "Invalid hostname '" + hn[3] + "'"; L.host = hn[3]; hist(m, "ub-hostname", { host: hn[3] }); return ""; }
+  if (c === "whoami") return L.user;
+  if (c === "pwd") return "/home/" + L.user;
+  if (c === "ls") return "Desktop  Documents  Downloads  Music  Pictures  Public  Templates  Videos";
+  if (c === "lsblk" || c === "lsblk -f") { let n = 0; return "NAME          SIZE TYPE MOUNTPOINTS\nnvme0n1     " + gb(dk.bytes) + " disk\n" + dk.parts.filter(function (p) { return p.kind !== "unalloc"; }).map(function (p) { n++; return "├─nvme0n1p" + n + "  " + gb(p.bytes).padStart(5) + " part " + (p.kind === "efi" ? "/boot/efi  (vfat)" : p.kind === "linux" ? "/  (ext4)" : p.kind === "os" ? "   (ntfs: Windows)" : p.kind === "recovery" ? "   (ntfs: Recovery)" : "   (" + (p.fs || "").toLowerCase() + ")"); }).join("\n"); }
+  if (c === "df -h" || c === "df -h /") { const p = dk.parts.filter(function (x) { return x.kind === "linux"; })[0]; return "Filesystem      Size  Used Avail Use% Mounted on\n/dev/nvme0n1p" + (dk.parts.indexOf(p) + 1) + "   " + gb(p.bytes) + "  9.8G  " + gb(p.bytes - 10.5 * GB) + "  11% /"; }
+  if (/^sudo apt(-get)? update$/.test(c)) return "Hit:1 http://archive.ubuntu.com/ubuntu noble InRelease\nReading package lists... Done\nAll packages are up to date.";
+  if (/^sudo apt(-get)? (full-)?upgrade( -y)?$/.test(c)) return "Reading package lists... Done\nCalculating upgrade... Done\n0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.";
+  if (/^apt(-get)? (update|upgrade)/.test(c)) return "E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)\nE: Unable to acquire the dpkg frontend lock, are you root?";
+  if (c === "clear") return "\f";
+  if (c === "help") return "Try: lsb_release -a · uname -r · hostnamectl · lsblk · df -h · whoami · sudo apt update";
+  if (c === "reboot" || c === "sudo reboot") { restartPC(m); return ""; }
+  return c.split(" ")[0] + ": command not found";
+}
 
 /* ---------------------------------------------- the first-run setup */
 /* Windows 11's own order: region, the PC's name, then (Pro) personal or

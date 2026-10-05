@@ -174,7 +174,9 @@ let pop = null;
 function drawTask() {
   task.innerHTML = "";
   const mid = el("div", "task-mid");
-  const st = btn("", "tb", function () { togglePop("start"); }, "Start"); st.appendChild(el("span", "mini g-hd", "⊞")); st.appendChild(el("span", null, "Start")); st.setAttribute("aria-expanded", String(pop === "start"));
+  /* Windows 11: a cluster of icons in the middle of the taskbar, Start
+     first; each name is there for screen readers and as a tooltip */
+  const st = btn("", "tb", function () { togglePop("start"); }, "Start"); st.appendChild(el("span", "mini g-hd", "⊞")); st.appendChild(el("span", "tb-name", "Start")); st.title = "Start"; st.setAttribute("aria-expanded", String(pop === "start"));
   mid.appendChild(st);
   const pinned = ["helpdesk", "exam", "chat", "mail", "mailadmin", "router", "browser", "mstsc"];
   const ids = pinned.concat(Object.keys(W).filter(function (k) { return pinned.indexOf(k) < 0; }));
@@ -185,7 +187,7 @@ function drawTask() {
       if (!w) return openWin(id);
       if (front === id && !w.min) { w.min = true; place(w); front = null; drawTask(); } else { w.min = false; place(w); focusWin(id); }
     }, label + (w ? (w.min ? ", minimized" : ", open") : ""));
-    b.appendChild(el("span", "mini " + a.cls, a.mini)); b.appendChild(el("span", null, label));
+    b.appendChild(el("span", "mini " + a.cls, a.mini)); b.appendChild(el("span", "tb-name", label)); b.title = label;
     if (id === "chat" && L.unread) { const g = el("span", "badge", String(L.unread)); g.setAttribute("aria-label", L.unread + " unread"); b.appendChild(g); }
     mid.appendChild(b);
   });
@@ -884,8 +886,23 @@ function osLog(a) {
     "oobe-back": function () { return "First-run setup: went back a screen"; },
     "oobe-opts": function () { return "First-run setup: " + (r.ok ? "opened or closed Sign-in options" : "Sign-in options"); },
     rename: function () { return ok ? "System Properties: " + (a.member === "domain" ? "joined the RAFIKI domain, named " : "named it ") + String(a.name || "").trim().toUpperCase() + " (takes effect at a restart)" : "System Properties: " + (r.text || "not changed"); },
-    signin: function () { return ok ? "Dev signed in with RAFIKI\\dev" : "The sign-in was refused"; },
-    "media-in": function () { return "Plugged in the Windows 11 installer USB"; },
+    signin: function () { return ok ? "The user signed in with their own domain account" : "The sign-in was refused"; },
+    "media-in": function () { return "Plugged in the installer USB"; },
+    shrink: function () { return ok ? "Disk Management: shrank C: by " + a.mb + " MB" : "Disk Management: " + (r.text || "the shrink was refused"); },
+    newvol: function () { return "Disk Management: made a new NTFS volume in the free space"; },
+    delvol: function () { return ok ? "Disk Management: deleted a volume" : "Disk Management: " + (r.text || "refused"); },
+    grub: function () { return "GRUB: chose " + ({ ubuntu: "Ubuntu", advanced: "Advanced options for Ubuntu", windows: "Windows Boot Manager", firmware: "UEFI Firmware Settings" })[a.pick]; },
+    "ub-try": function () { return "Ubuntu USB: Try or Install Ubuntu"; },
+    "ub-lang": function () { return "Ubuntu installer: language and keyboard"; },
+    "ub-what": function () { return ok ? "Ubuntu installer: Install Ubuntu" : "Ubuntu installer: Try Ubuntu (nothing installed)"; },
+    "ub-how": function () { return ok ? "Ubuntu installer: " + ({ alongside: "install alongside Windows Boot Manager", erase: "erase disk and install Ubuntu", manual: "manual installation" })[a.how] : "Ubuntu installer: " + (r.text || "not enough free space to install alongside"); },
+    "ub-manual": function () { return ok ? "Ubuntu installer: chose a partition for /" : "Ubuntu installer: that partition setup was refused"; },
+    "ub-account": function () { return ok ? "Ubuntu installer: account, computer name " + a.host : "Ubuntu installer: the account details weren't accepted"; },
+    "ub-back": function () { return "Ubuntu installer: went back a screen"; },
+    "ub-install": function () { return "Ubuntu installer: installed Ubuntu 24.04.1 LTS"; },
+    "ub-restart": function () { return "Ubuntu installer: restarted"; },
+    "ub-signin": function () { return "Ubuntu: the user signed in"; },
+    "ub-cmd": function () { return "Ubuntu Terminal: $ " + a.line; },
     "media-out": function () { return "Took the Windows 11 installer USB out"; }
   }[a.op];
   return L2 ? L2() : "Setup: " + a.op;
@@ -2421,12 +2438,13 @@ function walkOver(id) {
       }
       /* installing an OS: the installer USB from the bench */
       if (t3 && t3.kind === "install" && INS.managed(m)) {
-        const media = function (on) { const b = E.before(); if (on) INS.insertMedia(m, "win11"); else INS.removeMedia(m); const a = { type: "osinst", op: on ? "media-in" : "media-out", machine: id, before: b }; E.onAct(a); actLog(a, r.host + " (at the desk)"); local.draw(); refresh(); drawHands(); };
+        const mid = t3.media || "win11";
+        const media = function (on) { const b = E.before(); if (on) INS.insertMedia(m, mid); else INS.removeMedia(m); const a = { type: "osinst", op: on ? "media-in" : "media-out", machine: id, before: b }; E.onAct(a); actLog(a, r.host + " (at the desk)"); local.draw(); refresh(); drawHands(); };
         row.appendChild(m.inst.media ? coachTag("inst-usb-out", btn("Take the installer USB out", "b", function () { media(false); }))
-          : coachTag("inst-usb-in", btn("Plug in the Windows 11 installer USB (from your bench)", "b", function () { media(true); })));
+          : coachTag("inst-usb-in", btn("Plug in the " + INS.MEDIA[mid].name + " USB (from your bench)", "b", function () { media(true); })));
       }
       hands.appendChild(row);
-      if (INS.managed(m) && m.inst.media) hands.appendChild(el("p", "wo-state", "The Windows 11 installer USB (" + INS.MEDIA[m.inst.media].label + ") is in the front of the tower."));
+      if (INS.managed(m) && m.inst.media) hands.appendChild(el("p", "wo-state", "The " + INS.MEDIA[m.inst.media].name + " USB (" + INS.MEDIA[m.inst.media].label + ") is in the front of the tower."));
       if (MW.ready(m).usb) hands.appendChild(el("p", "wo-state", "The USB stick is in: it shows in File Explorer as " + m.usb.label + "."));
     }
     drawHands();

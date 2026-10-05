@@ -157,6 +157,9 @@ does. Each ticket names the objective it covers.
     keeping files and apps; PayWise must still work.
   - OI3: a 7th-gen processor that isn't on Windows 11's supported list.
     Check it, force nothing, escalate.
+  - OI4: Ubuntu alongside Windows on Dev's PC: shrink C: in Disk
+    Management, install alongside Windows (never Erase disk), and check
+    both start from GRUB's menu.
 
 The program's rules apply throughout:
 - unlimited tries

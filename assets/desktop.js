@@ -22,9 +22,9 @@ import { drawInstall } from "./installui.js";
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function btn(label, cls, fn, aria) { const b = el("button", cls || "w-btn", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
 
-const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update", mail: "Mail", filehist: "File History", props: "Properties", health: "PC Health Check", w11setup: "Windows 11 Setup (setup.exe)" };
+const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update", mail: "Mail", filehist: "File History", props: "Properties", health: "PC Health Check", diskmgmt: "Disk Management", w11setup: "Windows 11 Setup (setup.exe)" };
 const TOOLS = ["mail", "cmd", "ps", "taskmgr", "eventvwr", "settings", "softcenter", "explorer", "edge", "security", "sysprot", "netconn", "winupdate", "filehist"];
-const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point system restore rstrui computer name rename domain join workgroup", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check", mail: "email outlook inbox messages", filehist: "file history backup back up control panel restore personal files", health: "pc health check windows 11 requirements upgrade tpm secure boot processor", w11setup: "setup.exe usb upgrade install windows 11 win11_24h2" };
+const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point system restore rstrui computer name rename domain join workgroup", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check", mail: "email outlook inbox messages", filehist: "file history backup back up control panel restore personal files", health: "pc health check windows 11 requirements upgrade tpm secure boot processor", diskmgmt: "disk management diskmgmt.msc partitions volumes shrink extend format drive", w11setup: "setup.exe usb upgrade install windows 11 win11_24h2" };
 
 export function createDesktop(host, ctx) {
   let wins = [], active = null, wid = 1, start = false, run = null, dialog = null, bootNote = null;
@@ -140,17 +140,20 @@ export function createDesktop(host, ctx) {
     return d;
   }
 
+  function w10() { return /Windows 10/.test(m().edition || ""); }
   function drawTaskbar() {
-    const tb = el("div", "taskbar");
-    const s = btn("Start", "tb-start", function () { start = !start; run = null; draw(); }, "Start menu"); s.setAttribute("aria-expanded", String(start)); tb.appendChild(s);
-    tb.appendChild(btn("Desktop", "tb-app" + (active === null ? " on" : ""), function () { active = null; draw(); }, "Show the desktop"));
-    wins.forEach(function (w) { const b = btn(winTitle(w), "tb-app" + (w.id === active ? " on" : ""), function () { active = w.id; draw(); if (w.shell) focusConsole(w.id); }); b.setAttribute("aria-pressed", String(w.id === active)); tb.appendChild(b); });
+    /* Windows 11 centres Start and the taskbar's buttons; Windows 10 has
+       them at the left */
+    const tb = el("div", "taskbar" + (w10() ? " w10" : "")), mid = el("div", "tb-mid"); tb.appendChild(mid);
+    const s = btn("Start", "tb-start", function () { start = !start; run = null; draw(); }, "Start menu"); s.setAttribute("aria-expanded", String(start)); mid.appendChild(s);
+    mid.appendChild(btn("Desktop", "tb-app" + (active === null ? " on" : ""), function () { active = null; draw(); }, "Show the desktop"));
+    wins.forEach(function (w) { const b = btn(winTitle(w), "tb-app" + (w.id === active ? " on" : ""), function () { active = w.id; draw(); if (w.shell) focusConsole(w.id); }); b.setAttribute("aria-pressed", String(w.id === active)); mid.appendChild(b); });
     tb.appendChild(el("span", "tb-clock", ctx.clock ? ctx.clock() : m().clock));
     return tb;
   }
 
   function drawStart() {
-    const sm = el("div", "startmenu"); sm.setAttribute("role", "dialog"); sm.setAttribute("aria-label", "Start menu");
+    const sm = el("div", "startmenu" + (w10() ? " w10" : "")); sm.setAttribute("role", "dialog"); sm.setAttribute("aria-label", "Start menu");
     sm.appendChild(el("h3", "sm-h", "Start"));
     /* Search, as Windows has it: type part of a name and the list narrows. */
     const q = el("input", "w-input sm-search"); q.id = "sm-q-" + m().id; q.placeholder = "Type here to search"; q.setAttribute("aria-label", "Search for apps, settings and documents");
@@ -160,7 +163,7 @@ export function createDesktop(host, ctx) {
     setTimeout(function () { q.focus(); }, 0);
     const items = TOOLS.slice(); if (ctx.isTech) items.unshift("helpdesk");
     /* a PC under the install model: PC Health Check, and setup.exe while the installer USB is in it */
-    if (INS.managed(m()) && m().inst.os) { items.push("health"); if (m().inst.media && /Windows 10/.test(m().inst.os.name)) items.push("w11setup"); }
+    if (INS.managed(m()) && m().inst.os) { items.push("diskmgmt"); items.push("health"); if (m().inst.media && /Windows 10/.test(m().inst.os.name)) items.push("w11setup"); }
     items.forEach(function (a) {
       const li = el("li", "sm-app"); li.dataset.find = (NAME[a] + " " + a + " " + (FIND[a] || "")).toLowerCase(); li.appendChild(el("span", "sm-name", NAME[a]));
       const acts = el("span", "sm-acts");
@@ -234,6 +237,7 @@ export function createDesktop(host, ctx) {
     if (w.app === "props") body.appendChild(drawProps(w));
     if (w.app === "filehist") body.appendChild(drawFileHistory(w));
     if (w.app === "health") body.appendChild(drawHealth(w));
+    if (w.app === "diskmgmt") body.appendChild(drawDiskMgmt(w));
     if (w.app === "w11setup") body.appendChild(drawW11Setup(w));
     if (w.app === "mail") { w.ui = w.ui || {}; drawMail(body, { fleet: ctx.fleet, mid: m().id, helpdesk: false, act: function (a) { a.before = a.before || ctx.before(); act(a); draw(); }, draw: draw, noForward: ctx.noForward || function () { return false; } }, w.ui); }
     if (w.app === "helpdesk") ctx.helpdesk(body, { refresh: draw });
@@ -504,6 +508,30 @@ export function createDesktop(host, ctx) {
     }
     return wrap;
   }
+  /* ------------------------------------------------- Disk Management */
+  function drawDiskMgmt(w) {
+    const mm = m(), dk = mm.disks[0], rows = INS.volumes(mm); const wrap = el("div", "set dm");
+    wrap.appendChild(el("h4", "set-h", "Disk Management"));
+    const t = el("table", "ev-table dm-t"); const hr = el("tr"); ["Volume", "File system", "Status", "Capacity"].forEach(function (c) { const th = el("th", null, c); th.setAttribute("scope", "col"); hr.appendChild(th); });
+    const th0 = el("thead"); th0.appendChild(hr); t.appendChild(th0); const tb = el("tbody");
+    rows.forEach(function (r) { const on = w.sel === r.i; const tr = el("tr", "ev-row dm-row" + (on ? " sel" : "")); tr.tabIndex = 0; tr.setAttribute("aria-label", r.name + ", " + (r.fs || "no file system") + ", " + r.gb + " GB" + (on ? ", selected" : ""));
+      [r.name, r.fs, r.status, r.gb + " GB"].forEach(function (v) { tr.appendChild(el("td", null, v)); });
+      const pick = function () { w.sel = r.i; w.msg = null; draw(); }; tr.addEventListener("click", pick); tr.addEventListener("keydown", function (k) { if (k.key === "Enter" || k.key === " ") { k.preventDefault(); pick(); } }); tb.appendChild(tr); });
+    t.appendChild(tb); wrap.appendChild(t);
+    /* the disk as a strip, partitions in order */
+    const strip = el("div", "dm-strip"); strip.setAttribute("aria-hidden", "true");
+    rows.forEach(function (r) { const b = el("div", "dm-seg dm-" + r.kind); b.style.flex = String(Math.max(2, r.gb)); b.appendChild(el("span", null, r.kind === "unalloc" ? "Unallocated " + r.gb + " GB" : r.name)); strip.appendChild(b); });
+    wrap.appendChild(el("p", "dm-disk", "Disk 0 · Basic · " + Math.round(dk.bytes / 1073741824) + " GB · " + dk.style)); wrap.appendChild(strip);
+    const sel = rows.filter(function (r) { return r.i === w.sel; })[0];
+    const row = el("div", "dlg-row");
+    const sh = btn("Shrink Volume…", "w-btn", function () { askUAC("Disk Management", function () { dialog = { kind: "shrink", i: sel.i, err: "" }; draw(); }); }, "Shrink the selected volume"); sh.disabled = !sel || sel.kind !== "os";
+    const nv = btn("New Simple Volume…", "w-btn", function () { askUAC("Disk Management", function () { const before = ctx.before(); const r = INS.newVolume(mm, sel.i); w.msg = r.text; act({ type: "osinst", op: "newvol", res: r, before: before }); draw(); }); }, "Make a new simple volume in the selected space"); nv.disabled = !sel || sel.kind !== "unalloc";
+    const dv = btn("Delete Volume…", "w-btn", function () { askUAC("Disk Management", function () { const before = ctx.before(); const r = INS.deleteVolume(mm, sel.i); w.msg = r.text; act({ type: "osinst", op: "delvol", res: r, before: before }); draw(); }); }, "Delete the selected volume"); dv.disabled = !sel || sel.kind === "unalloc";
+    [sh, nv, dv].forEach(function (b) { row.appendChild(b); }); wrap.appendChild(row);
+    if (w.msg) { const p = el("p", "dlg-error", w.msg); p.setAttribute("role", "status"); wrap.appendChild(p); }
+    return wrap;
+  }
+
   /* ---------------------------- Windows 11 Setup, run inside Windows */
   function drawW11Setup(w) {
     const mm = m(), I = mm.inst, U = I.up; const wrap = el("div", "set w11s");
@@ -760,6 +788,15 @@ export function createDesktop(host, ctx) {
         dialog = { kind: "restart-now", text: r.text }; draw();
       }, "Join the domain with this account"));
       row.appendChild(btn("Cancel", "w-btn", function () { d.step = "form"; d.err = ""; draw(); }));
+    }
+    if (d.kind === "shrink") {
+      const max = INS.shrinkMax(mm, d.i), p = mm.disks[0].parts[d.i], tot = Math.floor(p.bytes / 1048576);
+      box.appendChild(el("h3", "dlg-h", "Shrink C:"));
+      const dl = el("dl", "doc-dl"); [["Total size before shrink in MB", String(tot)], ["Size of available shrink space in MB", String(max)]].forEach(function (kv) { dl.appendChild(el("dt", null, kv[0])); dl.appendChild(el("dd", null, kv[1])); }); box.appendChild(dl);
+      const l = el("label", null, "Enter the amount of space to shrink in MB"); const inp = el("input", "w-input"); inp.id = "shrink-mb-" + mm.id; l.setAttribute("for", inp.id); inp.setAttribute("inputmode", "numeric"); inp.setAttribute("autocomplete", "off"); box.appendChild(l); box.appendChild(inp);
+      if (d.err) { const e = el("p", "dlg-err", d.err); e.setAttribute("role", "alert"); box.appendChild(e); }
+      row.appendChild(btn("Shrink", "w-btn primary", function () { const before = ctx.before(); const r = INS.shrink(mm, d.i, inp.value.replace(/[, ]/g, "")); act({ type: "osinst", op: "shrink", mb: Number(inp.value.replace(/[, ]/g, "")), res: r, before: before }); if (!r.ok) { d.err = r.text; draw(); return; } dialog = { kind: "message", title: "Disk Management", text: r.text }; draw(); }, "Shrink C: by this amount"));
+      row.appendChild(btn("Cancel", "w-btn", close));
     }
     if (d.kind === "restart-now") {
       box.appendChild(el("h3", "dlg-h", "Computer Name/Domain Changes")); box.appendChild(el("p", null, d.text));

@@ -525,4 +525,142 @@ const OI3 = Object.assign({}, INSTALL, {
   closeAdvice: "Now write it up for Tier 2: exactly what stops WS5 moving to Windows 11.",
   advice: function () { return "Before you change anything on Rosa's PC, find out whether it can run Windows 11 at all, and exactly why not. Then decide whether that's something Tier 1 can fix."; }
 });
-export const INSTALL_TICKETS = [OI1, OI2, OI3];
+
+/* ---------------------------------------------------------------------
+   OI4 (run): Ubuntu 24.04 LTS alongside Windows on Dev's PC. Make room
+   from Windows (Disk Management: shrink C:, leave the space unallocated),
+   start the Ubuntu USB, Install Ubuntu alongside Windows Boot Manager
+   (never Erase disk), the computer name from Mason's note, then check
+   both systems start from GRUB's menu.
+   --------------------------------------------------------------------- */
+const WANT = 95;   /* GB: Dev asked for "about 100 GB" */
+export const ORDER4 = ["power", "space", "media", "boot", "installer", "type", "account", "install", "ubuntu", "windows", "done"];
+function freeOK(m) { return INS.freeGB(m) >= WANT; }
+function oi4core(m) {
+  const I = m.inst, U = I.ub || {}, L = I.lx;
+  if (m.power !== "on") return "power";
+  if (L && L.installed) {
+    const at = lastEv(m, function (e) { return e.kind === "inst-ub-install"; });
+    if (!(lastEv(m, function (e) { return e.kind === "inst-ub-signin"; }) > at)) return "ubuntu";
+    if (!(lastEv(m, function (e) { return e.kind === "inst-grub" && e.pick === "windows"; }) > at)) return "windows";
+    return "done";
+  }
+  if (!I.ub) { if (!freeOK(m)) return "space"; if (I.media !== "ubuntu") return "media"; return "boot"; }
+  if (["try", "lang", "what", "how", "manual"].indexOf(U.step) >= 0 && !freeOK(m)) return "space";
+  if (["try", "lang", "what"].indexOf(U.step) >= 0) return "installer";
+  if (U.step === "how" || U.step === "manual") return "type";
+  if (U.step === "account") return "account";
+  return "install";
+}
+function overWindows(m) { const U = m.inst.ub || {}, p = U.how === "manual" && U.target != null ? m.disks[0].parts[U.target] : null; return U.how === "erase" || !!(p && p.kind === "os"); }
+export function oi4State(m) {
+  const I = m.inst, U = I.ub || {}, L = I.lx, c = oi4core(m); let st = c, cap = ORDER4.length;
+  const ix = function (s) { return ORDER4.indexOf(s); };
+  if (L && L.installed && !I.os) { st = "wiped"; cap = ix("type"); }
+  else if (!L && overWindows(m)) { st = "type"; cap = ix("type"); }
+  else if (m.disks[0].parts.some(function (p) { return p.kind === "data" && p.label === "New Volume"; })) { st = "volume"; cap = ix("space"); }
+  else if (!I.fw.uefi || !I.fw.secureBoot) { st = "firmware"; cap = ix("boot"); }
+  else if (L && L.installed && L.host !== INS.LX.host) { st = "hostname"; cap = ix("account"); }
+  else if (!L && U.host && U.host !== INS.LX.host) { st = "account"; cap = ix("account"); }
+  return { stage: st, score: Math.min(ix(c), cap) };
+}
+function oi4(m) { return oi4State(m).stage; }
+const OI4 = Object.assign({}, INSTALL, {
+  id: "OI4", machine: "WS3", media: "ubuntu",
+  title: "Ubuntu alongside Windows on my PC, please",
+  from: "Dev Patel, Dev",
+  brief: ["Hi, Dev again. The new build pipeline needs Ubuntu, and I'd rather not have two PCs on my desk. Can you put Ubuntu 24.04 LTS on my PC alongside Windows? I still need Windows every day, with everything on it exactly as it is. About 100 GB for Ubuntu is plenty.",
+    "I'm in the design review all morning, so work at my desk. Leave both ready for me to sign in.",
+    "Mason's note on the ticket: the Ubuntu 24.04 LTS USB is on your bench. Ubuntu should only get space that Windows has given up. Its computer name is ws3-dev-ubuntu, username dev. Ubuntu starts fine with Secure Boot on, so leave the firmware's security settings alone."],
+  setup: function (fleet) {
+    INS.prepare(fleet.WS3, { os: { name: "Windows 11 Pro", version: "24H2" }, licence: "Windows 11 Pro" });
+    fleet.WS3.inst.usedGB = 180; fleet.WS3.clock = "Oct 7 09:05";
+  },
+  stage: function (fleet) { return oi4(fleet.WS3); },
+  goal: function (fleet) { return oi4(fleet.WS3) === "done"; },
+  scoreFn: function (fleet) { return oi4State(fleet.WS3).score; },
+  notReady: function (fleet) {
+    const s = oi4(fleet.WS3);
+    if (s === "wiped") return "Dev: \"Where's Windows? Where's everything I had?\"";
+    if (s === "ubuntu") return "Mason: \"Have you seen Ubuntu start and sign in yet?\"";
+    if (s === "windows") return "Mason: \"And Windows? Dev needs it every day. Have you seen it start since?\"";
+    if (s === "hostname") return "Mason checks the network: there's no ws3-dev-ubuntu on it.";
+    return "Dev's PC still only has Windows on it.";
+  },
+  judge: function (act, fleet, before) {
+    const m = fleet.WS3, I = m.inst;
+    if (act.machine && act.machine !== "WS3") return { guess: false };
+    if (act.type !== "osinst") return { guess: false };
+    const r = act.res || {};
+    if (act.op === "newvol" && r.ok) return { guess: true, say: "That gave the space back to Windows as an NTFS volume. Ubuntu's installer needs it left unallocated." };
+    if (act.op === "shrink" && r.ok && INS.freeGB(m) < WANT) return { guess: true, say: "That leaves " + Math.round(INS.freeGB(m)) + " GB unallocated. Dev asked for about 100 GB." };
+    if (act.op === "fw-save" && r.changed && (!I.fw.uefi || !I.fw.secureBoot)) return { guess: true, say: !I.fw.uefi ? "Legacy (CSM) boot: Windows was installed for UEFI and won't start this way." : "Ubuntu's boot loader is signed: it starts with Secure Boot on. Mason asked you to leave it alone." };
+    if (act.op === "ub-how" && act.how === "erase") return { guess: true, say: "Erase disk deletes everything on the drive, Windows and Dev's files included. Dev still needs Windows every day." };
+    if (act.op === "ub-manual" && r.ok && r.overWindows) return { guess: true, say: "That partition is Windows. Using it for Ubuntu would format it: Windows and everything on it would be gone." };
+    if (act.op === "ub-account" && r.ok && r.host !== INS.LX.host) return { guess: true, say: r.host + " isn't the computer name in Mason's note." };
+    return { guess: false };
+  },
+  hints: function (fleet) {
+    const H = {
+      power: ["Look at the tower's power light.", "Nothing happens on a switched-off PC."],
+      space: ["Ubuntu needs somewhere to go. Where is there free space on Dev's drive right now?", "Space for a second system comes from the first one giving some up, from inside that system, before the installer starts."],
+      volume: ["Look at what's in the space you made.", "The installer installs into space no system is using. A new volume is Windows using it again."],
+      media: ["The installer is on your bench.", "A PC can only start an installer that's plugged into it."],
+      boot: ["Read the start-up screen: one key lets you choose what to start from, just this once.", "Starting from a USB doesn't need the firmware's settings changed."],
+      firmware: ["Read Mason's note about the firmware, then look at it.", "Put back what you changed. A signed boot loader starts with the security settings on."],
+      installer: ["Read each screen of the installer.", "The first screens are about language and what you want to do: trying it changes nothing."],
+      type: ["Read each choice on this screen, and its warning, word for word.", "Only one choice here keeps what's already on the drive."],
+      account: ["Mason's note has the names.", "A computer's name is how the network finds it, so it has to be the one everybody uses."],
+      install: ["Check the summary against Dev's request, then go on.", "The summary is the last look before the installer writes to the drive."],
+      ubuntu: ["Is Ubuntu really working? Start it and see.", "An install isn't finished until you've seen the new system start and sign in."],
+      hostname: ["Compare Ubuntu's computer name with Mason's note.", "Linux sets its computer name from its own terminal, with administrator rights."],
+      windows: ["Dev needs Windows every day. Has it started since Ubuntu went on?", "After adding a second system, check the first one still starts too."],
+      wiped: ["What's left of Windows on the drive?", "Go back to the last point you had right."],
+      done: ["Both systems start. Close it out on Help Desk.", "The close question is about choosing between the two systems at start-up."]
+    };
+    return H[oi4(fleet.WS3)];
+  },
+  moves: function (fleet) {
+    const X = {
+      power: [opt("Press the power button", true), opt("Connect to it remotely", false, "It's off."), opt("Plug in the USB and wait", false, "It's off."), opt("Check the network cable", false, "It's off."), opt("Hold the power button for ten seconds", false, "That forces a running PC off."), opt("Escalate", false, "Switch it on.")],
+      space: [opt("Shrink C: by about 100 GB in Disk Management, leaving it unallocated", true),
+        opt("Make a 100 GB NTFS volume for Ubuntu", false, "Ubuntu can't install into a Windows volume; it needs the space unallocated."),
+        opt("Delete the Recovery partition to make room", false, "Windows needs it to repair itself, and it's under 1 GB."),
+        opt("Let Ubuntu's installer erase the disk", false, "That deletes Windows and everything on it."),
+        opt("Format C: to free up space", false, "That deletes Windows."),
+        opt("Turn off Secure Boot first", false, "Not needed: Ubuntu starts with it on, and it doesn't make space.")],
+      volume: [opt("Delete the new volume, so the space is unallocated again", true), opt("Install Ubuntu onto the new volume as NTFS", false, "Ubuntu's root needs a Linux file system."), opt("Let the installer erase the disk", false, "Windows would go."), opt("Shrink C: again", false, "There's enough space: it just isn't free."), opt("Format the new volume as FAT32", false, "Still a Windows volume, still in the way."), opt("Leave it: the installer will use it", false, "It won't offer it alongside Windows.")],
+      media: [opt("Plug in the Ubuntu 24.04 LTS USB", true), opt("Download Ubuntu in Edge", false, "The installer is on your bench."), opt("Install Ubuntu from the Microsoft Store", false, "That's WSL, inside Windows, not a second system."), opt("Restart and press F12 first", false, "There's nothing to start from yet."), opt("Use the Windows 11 USB", false, "Wrong installer."), opt("Escalate", false, "You have what you need.")],
+      boot: [opt("Restart, press F12 and choose the UEFI USB entry", true), opt("Turn off Secure Boot so the USB starts", false, "Ubuntu's boot loader is signed: it starts with Secure Boot on."), opt("Switch to Legacy (CSM) boot", false, "Windows was installed for UEFI and won't start that way."), opt("Move the USB to the top of the boot order for good", false, "The boot menu does it once, without changing the firmware."), opt("Run the installer from inside Windows", false, "Ubuntu's installer runs from the USB as the PC starts."), opt("Choose Network boot (PXE)", false, "No deployment server.")],
+      firmware: [opt("Set the firmware back as it was, and save", true), opt("Leave it: Ubuntu needs it off", false, "Ubuntu's boot loader is signed."), opt("Clear the TPM", false, "Not the problem."), opt("Reinstall Windows", false, "Put the setting back."), opt("Escalate", false, "Put the setting back."), opt("Resolve", false, "Nothing is installed yet.")],
+      installer: [opt("Work through the installer's first screens and choose Install Ubuntu", true), opt("Choose Try Ubuntu and copy it to the disk", false, "Trying runs it from the USB; it installs nothing."), opt("Choose Ubuntu (safe graphics)", false, "Only for a screen that won't display."), opt("Restart and boot Windows", false, "Ubuntu isn't installed yet."), opt("Turn off Secure Boot", false, "Not needed."), opt("Escalate", false, "It's going fine.")],
+      type: [opt("Choose Install Ubuntu alongside Windows Boot Manager", true),
+        opt("Choose Erase disk and install Ubuntu", false, "Deletes Windows and everything on it."),
+        opt("Manual: format the Windows partition as ext4 for /", false, "That's Windows: it would be wiped."),
+        opt("Manual: use the free space as FAT32 for /", false, "The root must be a Linux file system."),
+        opt("Manual: use the free space as swap", false, "Swap is memory overflow, not where Ubuntu lives."),
+        opt("Go back and Try Ubuntu", false, "Trying installs nothing.")],
+      account: [opt("Use the computer name and username in Mason's note", true), opt("Call it WS3-DEV, the same as Windows", false, "Two computers, one name: the network can't tell them apart. And Ubuntu names are lower case."), opt("Leave the name Ubuntu suggests", false, "The network won't know it."), opt("Use Dev's Windows password as the username", false, "Never. And it isn't a username."), opt("Make the username Administrator", false, "Not how Linux works: Dev's account gets sudo."), opt("Skip the account", false, "It can't be skipped.")],
+      install: [opt("Check the summary, then Install", true), opt("Go back and erase the disk instead", false, "Windows would go."), opt("Take the USB out first", false, "The installer copies from it."), opt("Restart without installing", false, "Nothing would be installed."), opt("Turn off Secure Boot first", false, "Not needed."), opt("Escalate", false, "It's ready.")],
+      ubuntu: [opt("Restart, choose Ubuntu in the boot menu, and let Dev sign in", true), opt("Resolve: the installer said it worked", false, "You haven't seen it start."), opt("Choose Windows first", false, "Check the new system first."), opt("Boot the USB again", false, "Ubuntu is on the drive now."), opt("Reinstall to be sure", false, "It's installed."), opt("Turn off Secure Boot to start it", false, "It starts with Secure Boot on.")],
+      hostname: [opt("Set the name with sudo hostnamectl set-hostname in the Terminal", true), opt("Reinstall Ubuntu with the right name", false, "One command renames it."), opt("Rename it in Windows' System Properties", false, "That renames Windows, not Ubuntu."), opt("Run hostnamectl set-hostname without sudo", false, "Access denied: it needs administrator rights."), opt("Ask Mason to change DNS instead", false, "The PC's name is what's wrong."), opt("Leave it", false, "The network can't find it.")],
+      windows: [opt("Restart, choose Windows Boot Manager in GRUB, and check Windows starts", true), opt("Resolve: Windows was there before", false, "Check it still starts now."), opt("Press F12 and boot the drive's Windows entry", false, "GRUB's menu is how Dev will choose."), opt("Reinstall Windows' boot loader", false, "Nothing is broken."), opt("Boot the Windows USB", false, "Not needed."), opt("Remove Ubuntu to be safe", false, "Dev asked for both.")],
+      wiped: [opt("Revert to your last snapshot", true), opt("Reinstall Windows from the USB", false, "Dev's files and apps would still be gone."), opt("Restore Dev's files from OneDrive", false, "The snapshot puts everything back."), opt("Resolve: Ubuntu works", false, "Windows is gone."), opt("Escalate", false, "The snapshot fixes it."), opt("Tell Dev to use the meeting room PC", false, "Put it back.")],
+      done: [opt("Resolve the ticket", true), opt("Reinstall Ubuntu to be sure", false, "It works."), opt("Turn off Secure Boot for speed", false, "Never."), opt("Delete the Recovery partition", false, "Windows needs it."), opt("Escalate", false, "It's done at Tier 1."), opt("Remove GRUB", false, "Then Ubuntu won't start.")]
+    };
+    return X[oi4(fleet.WS3)];
+  },
+  closeWhere: "Think about the first thing the PC shows now, each time it starts.",
+  close: { prompt: "Dev asks: \"When I switch it on, how do I choose Windows or Ubuntu?\" What do you tell Dev?", options: [
+    opt("GRUB, Ubuntu's boot loader, shows a menu of both every time it starts", true),
+    opt("Press F12 at start-up and pick the drive with the system you want", false, "Both are on the same drive. F12 picks a device; GRUB's menu picks the system."),
+    opt("Windows Boot Manager lists both now, because Ubuntu was added to it", false, "Ubuntu's GRUB starts first now, and it lists Windows, not the other way round."),
+    opt("Change the boot order in the firmware each time you want the other one", false, "Not needed: GRUB offers both every time."),
+    opt("Hold Shift while Windows starts to switch over to Ubuntu", false, "Shift with Restart opens Windows' recovery options, not Ubuntu."),
+    opt("Ubuntu runs inside Windows now, as an app in the Start menu", false, "That's WSL, which is different. This is a second system on its own partition.")] },
+  note: { must: [["shrink", "disk management"], ["alongside", "unallocated"], ["grub", "boot menu"], ["ws3-dev-ubuntu"], ["windows"]],
+    tip: "How you made room, how you installed (and why not Erase disk), the names, and that both systems start." },
+  closeAdvice: "Both systems start. Now answer Dev's question on the ticket.",
+  advice: function (fleet) { const s = oi4(fleet.WS3); return s === "space" || s === "volume" ? "Ubuntu needs a place of its own on Dev's drive, and right now Windows has all of it. Mason's note says where that space has to come from." : "Read every installer screen, and every warning on it, word for word. Dev needs Windows every day."; }
+});
+export const INSTALL_TICKETS = [OI1, OI2, OI3, OI4];

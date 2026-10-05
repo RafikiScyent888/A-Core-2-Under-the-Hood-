@@ -172,12 +172,19 @@ footer.bot p { max-width: 75ch; margin: 0.3rem 0; }
 .fx-dir:hover, .fx-f:hover { border-color: #9ca3af; }
 .fx-file.sel .fx-f { background: #0b3a82; color: #fff; }
 .fx-acts { display: flex; gap: 0.6rem; align-items: center; padding: 0.5rem 0.7rem; border-top: 1px solid #e5e7eb; }
-.taskbar { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; background: #f3f4f6; border-top: 1px solid #9ca3af; padding: 0.3rem 0.5rem; }
+.taskbar { display: flex; gap: 0.35rem; align-items: center; background: #f3f4f6; border-top: 1px solid #9ca3af; padding: 0.3rem 0.5rem; }
+.tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: center; min-width: 0; }
+.taskbar.w10 .tb-mid { justify-content: flex-start; }
+/* Windows 11: centred on the whole bar, the clock at the right */
+.taskbar:not(.w10) { display: grid; grid-template-columns: 1fr minmax(0, max-content) 1fr; }
+.taskbar:not(.w10) > .tb-mid { grid-column: 2; }
+.taskbar:not(.w10) > .tb-clock { grid-column: 3; justify-self: end; }
 .tb-start { font: inherit; font-weight: 700; min-height: 38px; padding: 0 0.9rem; background: #0b3a82; color: #fff; border: 0; border-radius: 5px; cursor: pointer; }
 .tb-app { font: inherit; min-height: 38px; padding: 0 0.7rem; background: #fff; color: #111827; border: 1px solid #9ca3af; border-radius: 5px; cursor: pointer; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tb-app.on { border-bottom: 3px solid #0b3a82; font-weight: 700; }
 .tb-clock { margin-left: auto; font-variant-numeric: tabular-nums; }
-.startmenu { position: absolute; left: 0.5rem; bottom: 3.3rem; width: min(30rem, calc(100% - 1rem)); max-height: calc(100% - 4rem); overflow: auto; background: #fff; color: #111827; border: 1px solid #6b7280; border-radius: 8px; padding: 0.7rem; z-index: 4; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.startmenu.w10 { left: 0.5rem; transform: none; }
+.startmenu { position: absolute; left: 50%; transform: translateX(-50%); bottom: 3.3rem; width: min(30rem, calc(100% - 1rem)); max-height: calc(100% - 4rem); overflow: auto; background: #fff; color: #111827; border: 1px solid #6b7280; border-radius: 8px; padding: 0.7rem; z-index: 4; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
 .sm-h { margin: 0 0 0.4rem; font-size: 1rem; }
 .sm-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
 .sm-app { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; justify-content: space-between; padding: 0.35rem 0.4rem; border: 1px solid #e5e7eb; border-radius: 6px; }
@@ -344,3 +351,36 @@ footer.bot p { max-width: 75ch; margin: 0.3rem 0; }
 .hc-row.hc-ok .hc-mark { color: #14532d; font-weight: 700; }
 .hc-row.hc-bad { background: #fdecea; border-color: #b91c1c; box-shadow: inset 5px 0 0 #b91c1c; color: #7f1d1d; } .hc-row.hc-bad .hc-mark { font-weight: 700; }
 .w11s .ws-radios { margin: 0.3rem 0; }
+/* Disk Management */
+.dm-row { cursor: pointer; } .dm-row.sel { background: #e6edfb; box-shadow: inset 6px 0 0 #0b3a82; font-weight: 700; }
+.dm-row:focus-visible { outline: 3px solid #4c1d95; outline-offset: -3px; }
+.dm-disk { margin: 0.5rem 0 0.2rem; font-weight: 600; }
+.dm-strip { display: flex; gap: 2px; min-height: 3rem; border: 1px solid #6b7280; border-radius: 6px; overflow: hidden; }
+.dm-seg { display: flex; align-items: center; padding: 0.2rem 0.4rem; font-size: 0.85rem; background: #dbeafe; color: #111827; border-top: 6px solid #1e3a8a; min-width: 0; } .dm-seg span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-seg.dm-unalloc { background: #f3f4f6; border-top-color: #111827; } .dm-seg.dm-linux { background: #ede9fe; border-top-color: #4c1d95; } .dm-seg.dm-data { background: #dcfce7; border-top-color: #14532d; }
+/* GRUB and Ubuntu */
+.grubm { flex: 1; background: #000000; color: #e5e7eb; padding: 1.4rem 1.6rem; font: 15px/1.5 Consolas, "Cascadia Mono", ui-monospace, monospace; display: grid; align-content: start; gap: 0.6rem; }
+.grub-h { margin: 0; text-align: center; color: #ffffff; }
+.grub-list { list-style: none; margin: 0; padding: 0.4rem; border: 1px solid #c8ced6; display: grid; gap: 0.35rem; }
+/* each row keeps its own line height, so dyslexia spacing can't spill one
+   row's text onto the next; only the selected row is inverted, as in GRUB */
+.grub-btn { font: inherit; line-height: 1.4; width: 100%; text-align: left; min-height: 40px; padding: 0.35rem 0.6rem; background: #000000; color: #ffffff; border: 1px solid transparent; cursor: pointer; }
+.grub-btn.first { background: #ffffff; color: #000000; }
+.grub-btn:hover:not(.first) { border-color: #ffffff; }
+.grub-btn:focus-visible { outline: 3px solid #ffe27a; outline-offset: 1px; }
+.grub-foot { margin: 0; color: #e5e7eb; }
+.ubuntu, .ubd { flex: 1; display: grid; place-items: center; padding: 1rem; background: #2b0b3f; }
+.ubd { place-items: stretch; align-content: start; gap: 0.6rem; padding: 0 0 0.8rem; }
+.ub-box { width: min(36rem, 100%); background: #ffffff; color: #111827; border: 1px solid #6b7280; border-radius: 10px; padding: 1rem 1.2rem; display: grid; gap: 0.55rem; justify-self: center; }
+.ub-box p { margin: 0; } .ub-box label { font-weight: 600; }
+.ub-brand { font-weight: 700; color: #4c1d95; }
+.ub-box .w-btn:focus-visible, .ub-box .w-input:focus-visible, .ub-box .fw-sel:focus-visible { outline: 3px solid #4c1d95; outline-offset: 2px; }
+.ub-box .fw-sel { border-color: #6b7280; }
+.ubd-bar { display: flex; justify-content: space-between; background: #000000; color: #ffffff; padding: 0.3rem 0.8rem; font-weight: 600; }
+.ub-term { margin: 0 0.8rem; background: #0c0c0c; color: #f2f2f2; border: 1px solid #6b7280; border-radius: 8px; font: 14.5px/1.45 "Ubuntu Mono", Consolas, ui-monospace, monospace; }
+.ub-term-h { margin: 0; padding: 0.3rem 0.7rem; background: #2d2d2d; color: #ffffff; border-radius: 8px 8px 0 0; }
+.ub-term-out { margin: 0; padding: 0.5rem 0.7rem 0; white-space: pre-wrap; word-break: break-word; max-height: 20rem; overflow: auto; font: inherit; }
+.ub-prompt { white-space: pre; color: #bbf7d0; font-weight: 700; }
+.ub-in { flex: 1; font: inherit; background: #0c0c0c; color: #ffffff; border: 0; outline: none; min-height: 30px; }
+.ub-in:focus-visible { outline: 3px solid #ffe27a; }
+.ubd > .ws-row { padding: 0 0.8rem; }

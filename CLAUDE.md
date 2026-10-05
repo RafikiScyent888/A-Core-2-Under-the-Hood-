@@ -2039,3 +2039,76 @@ Build 2 of OS installation.
     is accepted). Two new plants.
   - contrast: Health Check failing the TPM and the processor, Setup's
     refusal, Choose what to keep. One new plant.
+
+### Extra training, OI4: Ubuntu alongside Windows (5 October 2026)
+
+Build 3 of OS installation, part one. The objectives were re-read on
+5 October 2026; the Core 2 wording is unchanged. The owner chose, from
+the questions asked before building: OI4 is a dual boot on Dev's PC; OI5
+is wiping a leaver's Mac for a new starter; the Mac is a 3D model built
+like the phone and previewed first; both tickets run.
+
+- **New on the PC (install model only):**
+  - **Disk Management** in Start: the volumes, the disk as a strip in
+    partition order, and Shrink Volume (Windows' own dialog: total size,
+    the space available to shrink, the amount in MB). Windows can only
+    shrink past its last unmovable file, so about half the free space.
+    New Simple Volume and Delete Volume; Windows won't delete the volume
+    it's running from.
+  - **The Ubuntu 24.04 LTS USB.** Its own boot menu ("Try or Install
+    Ubuntu"), then the installer: welcome, Install or Try, "How do you
+    want to install Ubuntu?" (alongside Windows Boot Manager, only offered
+    when there's 25 GB or more unallocated; Erase disk with its warning;
+    Manual), the account (name, computer name, username, password),
+    review, install, restart, "Please remove the installation medium".
+    Manual refuses a root (/) that isn't a Linux file system.
+  - **GRUB**, Ubuntu's boot loader, first in the boot order once Ubuntu is
+    in: Ubuntu, Advanced options, Windows Boot Manager (only while Windows
+    is still on the disk), UEFI Firmware Settings.
+  - **Ubuntu itself:** the sign-in, and a Terminal with the commands a
+    technician checks an install with (`lsb_release -a`, `uname -r`,
+    `hostnamectl`, `sudo hostnamectl set-hostname`, `lsblk`, `df -h`,
+    `whoami`, `sudo apt update`); `apt` without sudo is refused, as it is.
+- **OI4 (run), Dev's WS3.** About 100 GB for Ubuntu, Windows kept exactly
+  as it is. The job: shrink C: in Disk Management (as administrator),
+  leave it unallocated; the Ubuntu USB; F12; Install Ubuntu alongside
+  Windows Boot Manager; the computer name in Mason's note
+  (ws3-dev-ubuntu); then see Ubuntu start and sign in, and Windows start
+  from GRUB.
+  - **Counted:** a shrink that leaves less than Dev asked for; a new NTFS
+    volume in the free space (delete it again: no revert needed); Erase
+    disk; Manual over the Windows partition; the wrong computer name (put
+    right with `sudo hostnamectl set-hostname`); Secure Boot off or
+    Legacy boot.
+  - **Never counted:** Try Ubuntu, Manual refusing FAT32 for /, Disk
+    Management refusing to delete C:, `hostnamectl` without sudo, opening
+    the firmware and leaving.
+  - Erase disk, once installed, takes Windows: only a revert brings it
+    back. The close question: how Dev chooses between the two at
+    start-up (GRUB's menu).
+- **Also:** the desk's USB hand uses each ticket's own installer; the
+  boot menu lists what's in the firmware's boot order (so Ubuntu once
+  it's installed); the ticket log's sign-in lines no longer assume Dev.
+- **The taskbars now match Windows 11** (the owner, 5 October 2026: "You
+  do realize the launch menu is the bottom of the screen and in the
+  middle, correct?"). Both had Start at the bottom left, the Windows 10
+  way.
+  - The laptop: a cluster of icons in the middle of the screen, Start
+    first, with the names kept for screen readers and as tooltips. Its
+    Start menu was already in the middle.
+  - Each PC's taskbar: Start and its windows in the middle, the clock at
+    the right, and the Start menu in the middle above it.
+  - A PC still on Windows 10 (OI2, OI3) keeps Start and its menu at the
+    left, as Windows 10 does.
+  - Page checks measure both (LOAD for the laptop; INSTALL for a Windows 10
+    PC and a Windows 11 PC), each with a plant.
+- **Found while building:** in dyslexia mode, GRUB's rows overlapped: the
+  bigger line spacing pushed each row's text onto its neighbour, so two
+  rows read white on white and black on black (1:1). Each row now keeps
+  its own line height and room, and only the selected row is inverted
+  (hover outlines a row instead), as GRUB does. Found by the contrast
+  sweep's dyslexia pass; `PASSES=dys` now runs that pass alone.
+- **Found while building:** the INSTALL page check failed now and then
+  at "Walk back": under the software renderer the walk back freezes the
+  page for several seconds (section 13's note), longer than the check's
+  8 s. Its walk-back clicks now get 60 s, as the contrast sweep's do.

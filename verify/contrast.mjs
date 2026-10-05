@@ -554,12 +554,46 @@ export async function run(extraCss) {
     await desk("INC20490", "WS5"); await dapp("health", "PC Health Check"); await db("Check now: does this PC meet Windows 11's requirements?").click(); await page.waitForTimeout(150);
     await sweep(tag + ": OI3, PC Health Check failing the processor");
     await page.locator(".wo-back").click({ timeout: 60000 }); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+    /* OI4: Disk Management and its shrink, GRUB, Ubuntu's installer, its terminal */
+    await desk("INC20491", "WS3"); await dapp("disk", "Disk Management"); await dm.locator('.dm-row[aria-label*="(C:)"]').click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, Disk Management with C: selected");
+    await db("Shrink the selected volume").click();
+    { const u = dm.locator(".w-dialog.uac-creds"); if (await u.count()) { await u.locator("input").nth(0).fill("RAFIKI\\itadmin"); await u.locator("input").nth(1).fill("Bench-Tech-2026"); await u.getByRole("button", { name: "Yes" }).click(); } }
+    await dm.locator('[id^="shrink-mb-"]').fill("999999"); await db("Shrink C: by this amount").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, the shrink dialog refusing too much");
+    await dm.locator('[id^="shrink-mb-"]').fill("102400"); await db("Shrink C: by this amount").click(); await dm.locator(".w-dialog").getByRole("button", { name: "OK" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, Disk Management with the space unallocated");
+    await page.locator('.wo-hands [data-coach="inst-usb-in"]').click(); await db("Start menu").click(); await dm.getByRole("button", { name: "Restart", exact: true }).click();
+    await db("Press F12 for the Boot Menu").click(); await db("Boot from UEFI: UBUNTU_24_04 (USB)").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, the Ubuntu USB's boot menu");
+    await db("Try or Install Ubuntu").click(); await db("Next").click(); await dm.getByRole("radio", { name: "Try Ubuntu" }).click(); await db("Next").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, Ubuntu's installer: Try Ubuntu explained");
+    await dm.getByRole("radio", { name: "Install Ubuntu" }).click(); await db("Next").click(); await dm.getByRole("radio", { name: "Erase disk and install Ubuntu" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, how to install, Erase disk's warning selected");
+    await dm.getByRole("radio", { name: "Manual installation" }).click(); await db("Next: install this way").click(); await dm.locator(".ws-part").nth(2).click(); await dm.locator('[id^="ub-fs-"]').selectOption("fat32"); await dm.locator('[id^="ub-mnt-"]').selectOption("/"); await db("Next: use this partition").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, manual installation refusing FAT32 for /");
+    await db("Back").click(); await dm.getByRole("radio", { name: "Install Ubuntu alongside Windows Boot Manager" }).click(); await db("Next: install this way").click();
+    await dm.locator('[id^="ub-name-"]').fill("Dev Patel"); await dm.locator('[id^="ub-host-"]').fill("WS3_DEV"); await dm.locator('[id^="ub-user-"]').fill("dev"); await dm.locator('[id^="ub-pass-"]').fill("x"); await db("Next: create the account").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, the account screen refusing a computer name");
+    await dm.locator('[id^="ub-name-"]').fill("Dev Patel"); await dm.locator('[id^="ub-host-"]').fill("ws3-dev-ubuntu"); await dm.locator('[id^="ub-user-"]').fill("dev"); await dm.locator('[id^="ub-pass-"]').fill("x"); await db("Next: create the account").click();
+    await sweep(tag + ": OI4, review your choices");
+    await db("Install Ubuntu").click(); await db("Restart now to finish installing Ubuntu").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, remove the installation medium");
+    await db("Press Enter to restart").click(); await db("Let the PC start from its boot order").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, GRUB with Ubuntu and Windows");
+    await db("Ubuntu").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, Ubuntu's sign-in");
+    await db("Let Dev sign in to Ubuntu").click(); await dm.locator('[id^="ub-in-"]').fill("lsblk"); await dm.locator('[id^="ub-in-"]').press("Enter"); await dm.locator('[id^="ub-in-"]').fill("apt update"); await dm.locator('[id^="ub-in-"]').press("Enter"); await page.waitForTimeout(150);
+    await sweep(tag + ": OI4, Ubuntu's terminal");
+    await page.locator(".wo-back").click({ timeout: 60000 }); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
   }
 
   try {
     /* PASSES=dark runs one theme, for chasing a failure quickly */
-    await pass("dark", false);
-    if (process.env.PASSES !== "dark") { await pass("light", false); await pass("dark", true); }
+    /* PASSES=dys runs only dark with dyslexia text */
+    if (process.env.PASSES !== "dys") await pass("dark", false);
+    if (process.env.PASSES !== "dark" && process.env.PASSES !== "dys") await pass("light", false);
+    if (process.env.PASSES !== "dark") await pass("dark", true);
   } catch (e) { await page.screenshot({ path: (process.env.SHOT || "/tmp") + "/contrast-drive-error.png" }).catch(() => {}); found.set("DRIVE ERROR", { key: "DRIVE ERROR after '" + where + "': " + String(e.message).split("\n")[0], worst: 0, need: 7, states: new Set(["-"]), sample: "" }); }
   await B.close(); S.close();
   return [...found.values()].sort((a, b) => a.worst - b.worst);
@@ -601,7 +635,9 @@ const PLANTS = {
   "Setup's partition rows in a faint grey": ".ws-table td { color: #9ca3af !important; }",
   "Setup's refusal in a pale red": ".ins-err { color: #e08a8a !important; }",
   "the first-run setup's Sign-in options link in a pale blue": ".oobe-link { color: #7fa6e0 !important; }",
-  "Health Check's failing rows in a pale red": ".hc-row.hc-bad { color: #e08a8a !important; }"
+  "Health Check's failing rows in a pale red": ".hc-row.hc-bad { color: #e08a8a !important; }",
+  "GRUB's menu in a dim grey": ".grub-btn:not(.first), .grub-foot { color: #6b7280 !important; }",
+  "the terminal's prompt in a dark green": ".ub-prompt { color: #166534 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {
