@@ -151,7 +151,7 @@ export function createEngine(storage) {
     if (st.stage === "close" && !st.closeOK) {
       const n = st.closeGuesses || 0, r = rungFor(n); if (!r) return { rung: 0 };
       const h = t.hints(S.fleet);
-      return { rung: r, where: "Go back over what you found on the machine: the message, the Event Viewer entry, and what fixed it.", principle: r >= 2 ? h[1] : null,
+      return { rung: r, where: t.closeWhere || "Go back over what you found on the machine: the message, the Event Viewer entry, and what fixed it.", principle: r >= 2 ? h[1] : null,
         strike: r === 3 ? strikeFor(t.close.options, st.picked) : null };
     }
     return { rung: 0 };

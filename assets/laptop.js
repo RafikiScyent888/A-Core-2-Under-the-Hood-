@@ -310,7 +310,7 @@ function askMason(q) {
 function nextStepAdvice(t, st) {
   const r = rosterOf(t.machine), who = t.from.split(" ")[0];
   const ev = evs(t.machine);
-  if (st.stage === "close") return t.kind === "malware" ? "Every PC is done. Last of CompTIA's steps: what do you tell the user, so it doesn't happen again? Pick it on the ticket." : "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
+  if (st.stage === "close" && t.kind !== "backup") return t.kind === "malware" ? "Every PC is done. Last of CompTIA's steps: what do you tell the user, so it doesn't happen again? Pick it on the ticket." : "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
   if (t.kind === "email") { const e = t.current(E.fleet()); if (!e) return "Every email is dealt with. Resolve the ticket."; const p = mailPart(E.fleet(), e), who = staffOf(e.to).first;
     return p === "cat" ? (e.noForward ? who + "'s email can't be forwarded, so go and look at it: connect to " + who + "'s PC from Devices, open Mail there, and read the message and its details. Then say what it is on the ticket." : "Open Mail from the taskbar and read " + who + "'s forward: who it's really from, where its links really go (point at them, don't click), and what it wants. Then say what it is on the ticket.")
       : p === "tell" ? "Now the giveaway: which one detail proves it? The address, a link's real destination, an attachment's full name, or (for one that can't be forwarded) the headers."
@@ -325,6 +325,11 @@ function nextStepAdvice(t, st) {
   if (t.kind === "router") { const rr = RT.get(E.fleet(), t.id), who = t.who;
     if (!W.router) return "Open the 92 Series app from " + who + "'s ticket: they've shared their router with us. Read the Status page first: is the internet up, and which devices are on?";
     return "Read the router's Status page word for word, then the page that matches what " + who + " asked about. Remember a router has three versions of its settings: what's typed on the page, what's saved, and what it's running. Anything only someone standing at the router can see, ask " + who + " with the Call panel on the ticket."; }
+  if (t.kind === "backup") {
+    if (st.stage === "close") return "Farah's file is back and her backup is tested. Now answer her question on the ticket: why wasn't today's rescue a backup?";
+    if (!W["rdp:" + t.machine] && !ev.length) return "Connect to " + r.host + " from the ticket, and look at the file first: open Q3-budget.xlsx in her Documents and see what's in it now.";
+    return "Two jobs on this ticket, in this order: get her spreadsheet back, then make sure she can never lose more than she said she can afford. Read her message again for the times she gives you, and Mason's note for where backups go.";
+  }
   if (t.kind === "malware") return "Work through CompTIA's malware-removal steps, in order, on every PC that needs them: investigate and verify, quarantine, disable System Restore, remediate (update the definitions, then scan and remove), schedule scans and run updates, enable System Restore and create a restore point, educate the user. Where are you in that list? The Devices list on the ticket shows which PCs you've checked.";
   if (!W["rdp:" + t.machine] && !ev.length) return "Start by seeing it for yourself. On the ticket in Help Desk, press Connect to " + r.host + ". When " + who + "'s screen opens, run the program they're having trouble with and read exactly what it says.";
   if (!ev.some(function (e) { return e.kind === "launch"; })) return "You're on " + who + "'s PC. Run the program they're having trouble with, from their desktop or Start (or type its name at a prompt), and read the message word for word. If Windows can't find it at all, that's evidence too.";
@@ -373,6 +378,18 @@ function statusOf(t, st) {
   if (st.status === "closed") return [t.outcome === "escalate" ? "Escalated" : "Resolved", "st-closed"];
   return ["In progress", "st-work"];
 }
+/* The badge that says which section a ticket belongs to, in words, with
+   an icon: never colour alone. */
+function badgeText(t) { return t.extra ? "Extra training · " + t.topic : "Exam sim · " + t.sim; }
+function icon(kind) {
+  const NS = "http://www.w3.org/2000/svg", s = document.createElementNS(NS, "svg");
+  s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("width", "18"); s.setAttribute("height", "18"); s.setAttribute("aria-hidden", "true"); s.setAttribute("focusable", "false"); s.setAttribute("class", "ico");
+  /* a clipboard with a tick (the sims); a wrench (real-world jobs) */
+  const D = { sim: ["M9 4h6v3H9z", "M7 5H5v16h14V5h-2", "M8.5 13.5l2.5 2.5 4.5-5"], extra: ["M14.7 6.3a4 4 0 0 0-5.4 5.1L4 16.7 7.3 20l5.3-5.3a4 4 0 0 0 5.1-5.4l-2.6 2.6-2.4-.6-.6-2.4z"] };
+  D[kind].forEach(function (d) { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); p.setAttribute("fill", "none"); p.setAttribute("stroke", "currentColor"); p.setAttribute("stroke-width", "2"); p.setAttribute("stroke-linejoin", "round"); p.setAttribute("stroke-linecap", "round"); s.appendChild(p); });
+  return s;
+}
+function badge(t) { const b = el("span", "badge " + (t.extra ? "b-extra" : "b-sim")); b.appendChild(icon(t.extra ? "extra" : "sim")); b.appendChild(el("span", null, badgeText(t))); return b; }
 function drawHelpdesk(w) {
   const b = w.body; const keepT = b.querySelector(".hd2-t") ? b.querySelector(".hd2-t").scrollTop : 0; const keepQ = b.querySelector(".hd2-q") ? b.querySelector(".hd2-q").scrollTop : 0;
   b.innerHTML = "";
@@ -380,13 +397,25 @@ function drawHelpdesk(w) {
   const g = el("div", "hd2");
   const q = el("nav", "hd2-q"); q.setAttribute("aria-label", "My queue");
   const qh = el("div", "hd2-qh"); qh.appendChild(el("h2", null, "My queue")); const open = E.tickets().filter(function (x) { return !x.st || x.st.status !== "closed"; }).length; qh.appendChild(el("span", "chip", open + " open")); q.appendChild(qh);
-  E.tickets().forEach(function (x) {
-    const s = statusOf(x.t, x.st);
-    const it = btn("", "qi" + (L.sel === x.t.id ? " sel" : ""), function () { L.sel = x.t.id; saveL(); redraw("helpdesk"); }, INC[x.t.id] + ": " + x.t.title + ", " + s[0]);
-    it.setAttribute("aria-current", String(L.sel === x.t.id));
-    const top = el("span", "qi-top"); top.appendChild(el("span", null, INC[x.t.id])); top.appendChild(el("span", "chip " + s[1], s[0])); top.appendChild(el("span", "chip", "Tier " + x.t.tier)); top.appendChild(el("span", "chip" + (LEVEL[x.t.id] ? " st-work" : ""), LEVEL[x.t.id] === "crawl" ? "Crawl: guided" : LEVEL[x.t.id] === "walk" ? "Walk: checklist" : "Run: on your own"));
-    it.appendChild(top); it.appendChild(el("span", "qi-sum", x.t.title)); it.appendChild(el("span", "qi-from", x.t.from));
-    q.appendChild(it);
+  /* Two headed sections (owner's ruling, 1 October 2026): the exam sims,
+     then extra training. Each ticket wears a worded badge with an icon,
+     never colour alone. */
+  const all = E.tickets(), SEC = [
+    { id: "sims", icon: "sim", head: "Exam sims", sub: "from your Core 2 practice sims", list: all.filter(function (x) { return !x.t.extra; }) },
+    { id: "extra", icon: "extra", head: "Extra training", sub: "real-world tickets beyond the sims", list: all.filter(function (x) { return x.t.extra; }) }];
+  const jump = el("div", "hd2-jump"); jump.setAttribute("aria-label", "Jump to a section");
+  SEC.forEach(function (sc) { const jb = btn("", "b small hd2-jb", function () { const h = q.querySelector("#qsec-" + sc.id); if (h) { q.scrollTop = h.offsetTop - qh.offsetHeight - 4; h.focus({ preventScroll: true }); } }, "Jump to " + sc.head + ", " + sc.list.length + " tickets"); jb.appendChild(icon(sc.icon)); jb.appendChild(el("span", null, sc.head + " (" + sc.list.length + ")")); jump.appendChild(jb); });
+  q.appendChild(jump);
+  SEC.forEach(function (sc) {
+    const sh = el("h3", "qsec qsec-" + sc.id); sh.id = "qsec-" + sc.id; sh.tabIndex = -1; sh.appendChild(icon(sc.icon)); const sw = el("span"); sw.appendChild(el("strong", null, sc.head + ": ")); sw.appendChild(el("span", null, sc.sub)); sh.appendChild(sw); q.appendChild(sh);
+    sc.list.forEach(function (x) {
+      const s = statusOf(x.t, x.st);
+      const it = btn("", "qi" + (L.sel === x.t.id ? " sel" : ""), function () { L.sel = x.t.id; saveL(); redraw("helpdesk"); }, INC[x.t.id] + ": " + x.t.title + ", " + badgeText(x.t) + ", " + s[0]);
+      it.setAttribute("aria-current", String(L.sel === x.t.id));
+      const top = el("span", "qi-top"); top.appendChild(el("span", null, INC[x.t.id])); top.appendChild(el("span", "chip " + s[1], s[0])); top.appendChild(el("span", "chip", "Tier " + x.t.tier)); top.appendChild(el("span", "chip" + (LEVEL[x.t.id] ? " st-work" : ""), LEVEL[x.t.id] === "crawl" ? "Crawl: guided" : LEVEL[x.t.id] === "walk" ? "Walk: checklist" : "Run: on your own"));
+      it.appendChild(top); it.appendChild(badge(x.t)); it.appendChild(el("span", "qi-sum", x.t.title)); it.appendChild(el("span", "qi-from", x.t.from));
+      q.appendChild(it);
+    });
   });
   g.appendChild(q);
   g.appendChild(drawTicket(TICKETS.filter(function (t) { return t.id === L.sel; })[0]));
@@ -397,7 +426,8 @@ function drawTicket(t) {
   const p = el("article", "hd2-t"); p.setAttribute("aria-label", "Ticket " + INC[t.id]);
   const st = E.state().tickets[t.id] || null; const isCur = E.ticket() && E.ticket().id === t.id; const s = statusOf(t, st);
   const r = rosterOf(t.machine); const name = t.from.split(",")[0], first = name.split(" ")[0];
-  p.appendChild(el("p", "t-id", INC[t.id] + " · " + (t.base ? "the " + t.sim + " sim" : "based on the " + t.sim + " sim")));
+  p.appendChild(el("p", "t-id", INC[t.id] + " · " + (t.extra ? t.domain + ": " + t.objective + ". Not from a sim: a real-world job" : t.base ? "the " + t.sim + " sim" : "based on the " + t.sim + " sim")));
+  p.appendChild(badge(t));
   p.appendChild(el("h2", null, t.title));
   const exl = examFor(t); if (exl) { const xb = btn("See this sim the way the exam shows it", "b small", function () { L.examSel = { ex: exl.ex.id, v: exl.v.id }; saveL(); if (W.exam) { redraw("exam"); W.exam.min = false; place(W.exam); focusWin("exam"); } else openWin("exam"); }, "Open Exam Practice at " + exl.ex.sim + (exl.v.base ? ", the sim itself" : ", " + exl.v.title)); xb.classList.add("t-exam"); p.appendChild(xb); }
   const dl = el("dl", "t-grid");
@@ -405,7 +435,7 @@ function drawTicket(t) {
   if (ch) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Channel", "Help desk chat"], ["Device", t.channel === "email" ? "Company phone (in Mobile devices)" : "92 Series AX1800 router (shared in the 92 Series app)"], ["Category", t.channel === "email" ? "Communication › Mobile email" : "Communication › Router setup"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (wf) { [["Status", s[0]], ["Requester", "Mason (Team Lead)"], ["Device", "92 Series AP600 access point · 192.168.1.1"], ["Location", t.site.replace("Rafiki's IT Services · ", "")], ["Category", "Network › Wireless"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (rt) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Device", "92 Series AX1800 router (shared in the 92 Series app)"], ["Location", "Customer site: remote"], ["Category", "Network › Router"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
-  else [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", mal ? "Every PC on the network (see Devices)" : em ? "Mail: " + t.mails.length + " emails" + (t.devices.length ? ", one on " + rosterOf(t.devices[0]).host : "") : r.host + " · " + r.ip], ["Location", mal ? "The whole office" : em ? "Help desk mailbox" : r.where], ["Category", mal ? "Security › Malware" : em ? "Security › Email threats" : "Software › Application"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); });
+  else [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", mal ? "Every PC on the network (see Devices)" : em ? "Mail: " + t.mails.length + " emails" + (t.devices.length ? ", one on " + rosterOf(t.devices[0]).host : "") : r.host + " · " + r.ip], ["Location", mal ? "The whole office" : em ? "Help desk mailbox" : r.where], ["Category", t.category || (mal ? "Security › Malware" : em ? "Security › Email threats" : "Software › Application")], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); });
   p.appendChild(dl);
 
   const m = el("section", "t-sec"); m.appendChild(el("h3", null, "Request"));
@@ -823,7 +853,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk" };
+const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -1562,6 +1592,100 @@ WALKS.CR1 = { machine: "TECH", steps: chatSteps("CR1", "Priya", {
     { tag: "Test it", say: "It's back up. In the 92 Series app open Status: is it running what's saved, with the new password?", why: "Test after every change." }],
   cause: "Record why the admin password comes first.", note: "Write the notes: what she changed, why, and how you confirmed it on the router. Then Close the ticket." }),
   end: "That's the router chat done for real: open well, ask before you advise, guide the change, confirm it on the router itself. Tom's next: you drive." };
+/* ------------------------------------------------ X1: extra training,
+   backup and recovery. A crawl: Mason rings the one thing to press. */
+function fhBtn(r, label) { return r && Array.prototype.filter.call(r.querySelectorAll(".filehist .ev-nav button"), function (b) { return b.textContent === label; })[0]; }
+function fhView(r) { const b = r && r.querySelector('.filehist .ev-nav button[aria-pressed="true"]'); return b ? b.textContent : null; }
+function bk() { const m = E.machine("WS4"); return (m && m.bk && m.bk.fh) || {}; }
+function q3() { const m = E.machine("WS4"), d = m && m.fs && m.fs["c:\\users\\finance\\documents"]; const f = d && d.files.filter(function (x) { return x.name === "Q3-budget.xlsx"; })[0]; return f && f.doc ? f.doc.id : null; }
+WALKS.X1 = { machine: "WS4", steps: [
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "This one is extra training: a real-world job no sim covers, backup and recovery. Read Farah's request and Mason's note, then press Assign to me and start.",
+    why: "Two jobs hide in her message: get the file back, and stop it happening again. Note the times she gives you.",
+    target: function () { return document.querySelector('[data-coach="assign"]'); },
+    done: function () { const t = E.ticket(); return !!(t && t.id === "X1" && E.T()); } },
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Connect to her PC: press Connect to WS4-FIN on the ticket.",
+    why: "You'll work on her files with her watching.",
+    target: function () { return W["rdp:WS4"] ? null : document.querySelector('[data-coach="connect"]'); },
+    waiting: function () { return W["rdp:WS4"] && W["rdp:WS4"].phase === "wait" ? "Connecting… waiting for Farah to accept." : null; },
+    done: function () { return !!(W["rdp:WS4"] && W["rdp:WS4"].phase === "on"); } },
+  { tag: "See it for yourself", win: "rdp:WS4",
+    say: "Open File Explorer on her PC: press Start, type files, and open File Explorer.",
+    why: "Look at the file before you change anything.",
+    target: function () { const r = rd("WS4"); if (!r) return null; return r.querySelector('[aria-label="Open File Explorer"]') || r.querySelector(".tb-start"); },
+    done: function () { const r = rd("WS4"); return !!(r && r.querySelector('section.win[aria-label="File Explorer"]')); } },
+  { tag: "See it for yourself", win: "rdp:WS4",
+    say: "Explorer opens in her user folder. Open Documents, then click Q3-budget.xlsx to select it.",
+    why: "Her message says it's in Documents.",
+    target: function () { const r = rd("WS4"); if (!r) return null; return r.querySelector('[aria-label="Folder Documents"]') || r.querySelector('[aria-label="File Q3-budget.xlsx"]'); },
+    done: function () { const r = rd("WS4"); return !!(r && r.querySelector('[aria-label="Open Q3-budget.xlsx"]')); } },
+  { tag: "See it for yourself", win: "rdp:WS4",
+    say: "Press Open, read what's in it now, then Close.",
+    why: "Last year's figures, saved at 09:12, then some of this year's typed back in and saved at 10:05. Two saves this morning: both of them overwrote the file.",
+    target: function () { const r = rd("WS4"); if (!r) return null; return r.querySelector(".w-dialog button") || r.querySelector('[aria-label="Open Q3-budget.xlsx"]'); },
+    done: function () { const r = rd("WS4"); return lastAt("WS4", function (e) { return e.kind === "doc-open"; }) >= 0 && !!r && !r.querySelector(".w-dialog"); } },
+  { tag: "Find the copies Windows kept", win: "rdp:WS4",
+    say: "With the file still selected, press Properties, then the Previous Versions tab.",
+    why: "Previous Versions lists older copies of this one file: from the restore points System Protection takes (each holds a snapshot of the whole drive, documents included) and from File History, if it's on.",
+    target: function () { const r = rd("WS4"); if (!r) return null; return r.querySelector('[aria-label="Previous Versions tab"]') || r.querySelector('[aria-label="Properties of Q3-budget.xlsx"]'); },
+    done: function () { return lastAt("WS4", function (e) { return e.kind === "pv-view"; }) >= 0; } },
+  { tag: "Work out which copy", win: "rdp:WS4",
+    say: "Four copies. The newest, modified 4 October at 09:12, is from this morning: after the mistake. Click the one modified 3 October 2026 11:58.",
+    why: "Farah worked on it right up to lunch yesterday. The newest copy saved after her last real edit and before this morning's mistake is the one with all her work.",
+    target: function () { const r = rd("WS4"); return r && r.querySelector('.ev-row[aria-label^="Q3-budget.xlsx, modified 3 October 2026 11:58"]'); },
+    done: function () { const r = rd("WS4"); return !!(r && r.querySelector('.ev-row.sel[aria-label^="Q3-budget.xlsx, modified 3 October 2026 11:58"]')) || q3() === "q3rev"; } },
+  { tag: "Work out which copy", win: "rdp:WS4",
+    say: "Press Open to read that copy before you restore it, then Close.",
+    why: "Check it's the right one first: Restore replaces the current file, and can't be undone.",
+    target: function () { const r = rd("WS4"); if (!r) return null; return r.querySelector(".w-dialog button") || r.querySelector('[aria-label="Open the version modified 3 October 2026 11:58"]'); },
+    done: function () { const r = rd("WS4"); return (lastAt("WS4", function (e) { return e.kind === "pv-open" && e.doc === "q3rev"; }) >= 0 && !!r && !r.querySelector(".w-dialog")) || q3() === "q3rev"; } },
+  { tag: "Get it back", win: "rdp:WS4",
+    say: "That's her Q3 2026 sheet with her revisions. Press Restore, and confirm.",
+    why: "Previous Versions puts back one file. System Restore would be the wrong tool: it rolls back Windows' system files and programs, and never touches documents.",
+    target: function () { const r = rd("WS4"); if (!r) return null; return r.querySelector(".w-dialog.pv-confirm button") || r.querySelector('[aria-label="Restore the version modified 3 October 2026 11:58"]'); },
+    done: function () { return q3() === "q3rev"; } },
+  { tag: "Set up a real backup", win: "rdp:WS4",
+    say: "Her file is back. Now the second job. Press OK, then Start, type file history, and open File History.",
+    why: "Today she was lucky: Windows Update happened to make a restore point at lunchtime. A restore point lives on the same drive as her file, and Windows deletes old ones to make room. File History is a real backup, on another device.",
+    target: function () { const r = rd("WS4"); if (!r) return null; return r.querySelector(".w-dialog button") || r.querySelector('[aria-label="Open File History"]') || r.querySelector(".tb-start"); },
+    done: function () { const r = rd("WS4"); return !!(r && r.querySelector('section.win[aria-label="File History"]')); } },
+  { tag: "Set up a real backup", win: "rdp:WS4",
+    say: "Press Select drive. No drives are plugged in, so add a network location: type \\\\FS01\\Backups (from Mason's note) and press Select folder.",
+    why: "The backup belongs on another device: if her drive fails, a backup on it fails too. The file server's backup share is itself backed up off site.",
+    target: function () { const r = rd("WS4"); if (!r) return null; if (fhView(r) !== "Select drive") return fhBtn(r, "Select drive"); const i = r.querySelector("#fh-loc-WS4"); return i && i.value.trim() ? Array.prototype.filter.call(r.querySelectorAll(".filehist .dlg-row button"), function (b) { return b.textContent === "Select folder"; })[0] : i; },
+    done: function () { return !!bk().target; } },
+  { tag: "Set up a real backup", win: "rdp:WS4",
+    say: "Press Advanced settings. Save copies of files says Daily. Change it to Every hour.",
+    why: "She said she could live with losing an hour, not a day. How often the backup runs is the most work she can lose.",
+    target: function () { const r = rd("WS4"); if (!r) return null; return fhView(r) === "Advanced settings" ? r.querySelector("#fh-every-WS4") : fhBtn(r, "Advanced settings"); },
+    done: function () { return bk().every <= 60; } },
+  { tag: "Set up a real backup", win: "rdp:WS4",
+    say: "Go back to the File History page and press Turn on.",
+    why: "Settings do nothing while it's off. Turning it on starts the first copy straight away, so her restored file is protected now.",
+    target: function () { const r = rd("WS4"); if (!r) return null; return fhView(r) === "File History" ? Array.prototype.filter.call(r.querySelectorAll(".filehist .dlg-row button"), function (b) { return b.textContent === "Turn on"; })[0] : fhBtn(r, "File History"); },
+    done: function () { return !!bk().on; } },
+  { tag: "Test it", win: "rdp:WS4",
+    say: "Test the backup: press Restore personal files and find Q3-budget.xlsx, modified 3 October 11:58.",
+    why: "A backup you haven't looked inside is a hope, not a backup.",
+    target: function () { const r = rd("WS4"); return r && fhBtn(r, "Restore personal files"); },
+    done: function () { const m = E.machine("WS4"); return !!(m && E.ticket() && E.ticket().goal(E.fleet())); } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "Go back to Help Desk and press Resolve.",
+    why: "Farah checks her file, Mason checks the backup.",
+    target: function () { return document.querySelector('[data-coach="resolve"]'); },
+    done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Farah asks whether restore points would have been enough. Pick the answer that's true.",
+    why: "Where today's copy came from, and what could have happened to it.",
+    target: function () { return document.querySelector("[data-win=helpdesk] .opts"); },
+    done: function () { const st = E.T(); return !!(st && (st.closeOK || st.stage === "done")); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Write the resolution notes: which copy you restored and where it came from, the backup you set up (where to, how often), and how you tested it. Then press Close the ticket.",
+    why: "For example: \"Restored Q3-budget.xlsx from the 3 Oct 11:58 previous version (restore point). Set up File History to \\\\FS01\\Backups every hour; tested in Restore personal files.\" Your own words.",
+    target: function () { return document.querySelector("#res-note"); },
+    done: function () { const st = E.state().tickets.X1; return !!(st && st.stage === "done"); } }
+], end: "That's backup and recovery: one file back from Previous Versions (not System Restore, which leaves documents alone), then a real backup on another device, as often as the user can afford to lose, tested. More extra-training tickets follow once this one's shape is right." };
 WALKS.CE2 = { mode: "walk", machine: "TECH", steps: [
   { goal: "Take the ticket and open the chat", how: "In Help Desk.", done: function () { const t = E.ticket(); return !!(t && t.id === "CE2" && W.custchat); } },
   { goal: "Open the chat professionally", how: "Acknowledge John and offer help.", done: function () { return chatAt("CE2") > 0; } },

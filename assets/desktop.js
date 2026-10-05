@@ -15,13 +15,14 @@ import { explain } from "./mech.js";
 import { APPS, CATALOGUE } from "./fleet.js";
 import * as MW from "./malware.js";
 import { drawMail } from "./mailui.js";
+import * as BK from "./backup.js";
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function btn(label, cls, fn, aria) { const b = el("button", cls || "w-btn", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
 
-const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update", mail: "Mail" };
-const TOOLS = ["mail", "cmd", "ps", "taskmgr", "eventvwr", "settings", "softcenter", "explorer", "edge", "security", "sysprot", "netconn", "winupdate"];
-const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check", mail: "email outlook inbox messages" };
+const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update", mail: "Mail", filehist: "File History", props: "Properties" };
+const TOOLS = ["mail", "cmd", "ps", "taskmgr", "eventvwr", "settings", "softcenter", "explorer", "edge", "security", "sysprot", "netconn", "winupdate", "filehist"];
+const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point system restore rstrui", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check", mail: "email outlook inbox messages", filehist: "file history backup back up control panel restore personal files" };
 
 export function createDesktop(host, ctx) {
   let wins = [], active = null, wid = 1, start = false, run = null, dialog = null, bootNote = null;
@@ -55,11 +56,18 @@ export function createDesktop(host, ctx) {
     if (app === "eventvwr") { w.log = "Application"; w.sel = null; }
     if (app === "explorer") { w.path = "C:\\Users\\" + m().user; w.sel = null; }
     if (app === "settings") { w.sel = null; }
+    if (app === "filehist") { w.view = "main"; }
     wins.push(w); active = w.id;
     M.note(m(), "opened", { app: app });
     act({ type: "open", app: app, elevated: !!elevated });
     draw();
     if (w.shell) focusConsole(w.id);
+  }
+  /* a file's Properties, opened from File Explorer */
+  function openProps(path) {
+    start = false; run = null;
+    const w = { id: wid++, app: "props", path: path, tab: "general", sel: null };
+    wins.push(w); active = w.id; M.note(m(), "opened", { app: "props" }); act({ type: "open", app: "props", path: path }); draw();
   }
   function launchApp(name, via) {
     start = false; run = null;
@@ -196,6 +204,7 @@ export function createDesktop(host, ctx) {
   function winTitle(w) {
     if (w.shell) return w.shell.title();
     if (w.app === "prog") return w.prog;
+    if (w.app === "props") return w.path.slice(w.path.lastIndexOf("\\") + 1) + " Properties";
     return NAME[w.app];
   }
   function drawWin(w) {
@@ -215,6 +224,8 @@ export function createDesktop(host, ctx) {
     if (w.app === "sysprot") body.appendChild(drawSysProt(w));
     if (w.app === "netconn") body.appendChild(drawNetConn(w));
     if (w.app === "winupdate") body.appendChild(drawWinUpdate(w));
+    if (w.app === "props") body.appendChild(drawProps(w));
+    if (w.app === "filehist") body.appendChild(drawFileHistory(w));
     if (w.app === "mail") { w.ui = w.ui || {}; drawMail(body, { fleet: ctx.fleet, mid: m().id, helpdesk: false, act: function (a) { a.before = a.before || ctx.before(); act(a); draw(); }, draw: draw, noForward: ctx.noForward || function () { return false; } }, w.ui); }
     if (w.app === "helpdesk") ctx.helpdesk(body, { refresh: draw });
     if (w.app === "prog") { const p = el("div", "prog"); p.appendChild(el("h4", null, w.prog + " " + (M.appByName(m(), w.prog) || {}).ver)); p.appendChild(el("p", null, w.prog + " is open and working on " + m().host + ".")); body.appendChild(p); }
@@ -408,6 +419,9 @@ export function createDesktop(host, ctx) {
         const doIt = function () { const before = ctx.before(); const sh = createShell(mm, { elevated: true, fleet: ctx.fleetLookup }); const res = sh.run('del "' + full + '"'); if (res.inUse) dialog = { kind: "message", title: "File In Use", text: "The action can't be completed because the file is open in " + w.sel + ". Close the file and try again." }; act({ type: "cmd", line: "del " + full, res: res, elevated: true, before: before, via: "explorer" }); w.sel = null; draw(); };
         if (/^c:\\(windows|program files)/i.test(full)) askUAC("File Explorer (delete)", doIt); else doIt();
       }, "Delete " + w.sel));
+      const selF = d && d.files.filter(function (f) { return f.name === w.sel; })[0];
+      if (selF && selF.doc) acts.appendChild(btn("Open", "w-btn", function () { const full = w.path + "\\" + w.sel; M.note(mm, "doc-open", { path: full, doc: selF.doc.id }); act({ type: "doc-open", path: full, doc: selF.doc.id }); dialog = { kind: "doc", name: w.sel, doc: selF.doc, note: "Opened in Excel. Last saved " + selF.doc.saved + "." }; draw(); }, "Open " + w.sel));
+      if (/^c:\\users\\/i.test(w.path)) acts.appendChild(btn("Properties", "w-btn", function () { openProps(w.path + "\\" + w.sel); }, "Properties of " + w.sel));
       if (/^mpam-fe\.exe$/i.test(w.sel)) acts.appendChild(btn("Open", "w-btn primary", function () {
         askUAC("Microsoft Defender Antivirus definitions update", function () { const before = ctx.before(); const r = MW.updateDefs(m(), "usb"); dialog = { kind: "message", title: "mpam-fe.exe", text: r.text }; act({ type: "av", op: "defs", how: "usb", res: r, before: before }); draw(); });
       }, "Open " + w.sel));
@@ -475,7 +489,90 @@ export function createDesktop(host, ctx) {
       askUAC("System Properties", function () { const before = ctx.before(); const r = MW.setRestore(mm, !mm.restore.enabled); dialog = { kind: "message", title: "System Protection", text: r.text }; act({ type: "restore", op: mm.restore.enabled ? "on" : "off", res: r, before: before }); draw(); });
     }));
     row.appendChild(btn("Create a restore point…", "w-btn", function () { dialog = { kind: "restorepoint" }; draw(); }));
+    if (mm.restore.enabled && mm.restore.points.length) row.appendChild(btn("System Restore…", "w-btn", function () { dialog = { kind: "sysrestore", sel: null }; draw(); }));
     wrap.appendChild(row); return wrap;
+  }
+
+  /* ------------------------------------------- a file's Properties */
+  /* General, and Previous Versions: the copies of this file Windows kept
+     in restore points (shadow copies) and in File History. */
+  function drawProps(w) {
+    const mm = BK.ready(m()); const wrap = el("div", "set props"); const f = BK.fileAt(mm, w.path); const name = w.path.slice(w.path.lastIndexOf("\\") + 1);
+    const tabs = el("div", "ev-nav"); tabs.setAttribute("role", "tablist");
+    [["general", "General"], ["versions", "Previous Versions"]].forEach(function (t) { const b = btn(t[1], "w-btn" + (w.tab === t[0] ? " primary" : ""), function () { w.tab = t[0]; w.sel = null; if (t[0] === "versions") { M.note(mm, "pv-view", { path: w.path }); act({ type: "pv-view", path: w.path }); } draw(); }, t[1] + " tab"); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(w.tab === t[0])); tabs.appendChild(b); });
+    wrap.appendChild(tabs);
+    if (!f) { wrap.appendChild(el("p", null, "This file is no longer there.")); return wrap; }
+    if (w.tab === "general") {
+      const dl = el("dl", "doc-dl"); [["Name", name], ["Location", w.path.slice(0, w.path.lastIndexOf("\\"))], ["Size", Math.ceil(f.size / 1024).toLocaleString("en-GB") + " KB"], ["Modified", f.doc ? f.doc.saved : "—"]].forEach(function (kv) { dl.appendChild(el("dt", null, kv[0])); dl.appendChild(el("dd", null, kv[1])); });
+      wrap.appendChild(dl); return wrap;
+    }
+    const vs = BK.versions(mm, w.path);
+    wrap.appendChild(el("p", null, "Previous versions come from File History or from restore points."));
+    if (!vs.length) { wrap.appendChild(el("p", null, "There are no previous versions available.")); return wrap; }
+    const t = el("table", "ev-table"); const th0 = el("thead"); const hr = el("tr"); ["Name", "Date modified", "Location"].forEach(function (c) { const th = el("th", null, c); th.setAttribute("scope", "col"); hr.appendChild(th); }); th0.appendChild(hr); t.appendChild(th0);
+    const tb = el("tbody");
+    vs.forEach(function (v) {
+      const tr = el("tr", "ev-row" + (w.sel === v.id ? " sel" : "")); tr.tabIndex = 0; tr.setAttribute("aria-label", name + ", modified " + v.file.doc.saved + ", from " + v.from + (w.sel === v.id ? ", selected" : ""));
+      [name, v.file.doc.saved, v.from].forEach(function (x) { tr.appendChild(el("td", null, x)); });
+      function pick() { w.sel = v.id; draw(); }
+      tr.addEventListener("click", pick); tr.addEventListener("keydown", function (k) { if (k.key === "Enter" || k.key === " ") { k.preventDefault(); pick(); } });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); wrap.appendChild(t);
+    const v = vs.filter(function (x) { return x.id === w.sel; })[0];
+    const row = el("div", "dlg-row");
+    const ob = btn("Open", "w-btn", function () { M.note(mm, "pv-open", { path: w.path, doc: v.file.doc.id }); act({ type: "pv-open", path: w.path, doc: v.file.doc.id }); dialog = { kind: "doc", name: name, ver: v.file.doc.saved, doc: v.file.doc, note: "A read-only copy, from a " + v.from.toLowerCase() + "." }; draw(); }, v ? "Open the version modified " + v.file.doc.saved : "Open the selected version");
+    const rb = btn("Restore", "w-btn primary", function () { dialog = { kind: "pv-confirm", path: w.path, name: name, v: v }; draw(); }, v ? "Restore the version modified " + v.file.doc.saved : "Restore the selected version");
+    ob.disabled = rb.disabled = !v; row.appendChild(ob); row.appendChild(rb); wrap.appendChild(row);
+    return wrap;
+  }
+
+  /* ---------------------------------- Control Panel › File History */
+  function drawFileHistory(w) {
+    const mm = BK.ready(m()), fh = mm.bk.fh; const wrap = el("div", "set filehist");
+    wrap.appendChild(el("h4", "set-h", "Control Panel › System and Security › File History"));
+    const nav = el("div", "ev-nav");
+    [["main", "File History"], ["drive", "Select drive"], ["advanced", "Advanced settings"], ["restore", "Restore personal files"]].forEach(function (t) { const b = btn(t[1], "w-btn" + (w.view === t[0] ? " primary" : ""), function () { w.view = t[0]; w.msg = null; if (t[0] === "restore") { w.got = BK.backupView(mm); act({ type: "fh", op: "view" }); } draw(); }); b.setAttribute("aria-pressed", String(w.view === t[0])); nav.appendChild(b); });
+    wrap.appendChild(nav);
+    const say = function (txt, bad) { if (!txt) return; const p = el("p", bad ? "dlg-error" : "fh-msg", txt); p.setAttribute("role", "status"); wrap.appendChild(p); };
+    function fhAct(op, fn, extra) { const before = ctx.before(); const r = fn(); w.msg = r && r.text ? { text: r.text, bad: r.ok === false } : null; act(Object.assign({ type: "fh", op: op, res: r, before: before }, extra || {})); draw(); }
+    if (w.view === "main") {
+      wrap.appendChild(el("p", "fh-state", fh.on ? "File History is on" : "File History is off"));
+      const dl = el("dl", "doc-dl"); [["Copy files from", "Libraries, Desktop, Contacts and Favorites"], ["Copy files to", fh.target ? fh.target : "No drive selected"], ["Save copies of files", BK.EVERY.filter(function (x) { return x[1] === fh.every; })[0][0]], ["Keep saved versions", fh.keep], ["Files last copied", fh.runs.length ? fh.runs[fh.runs.length - 1].when : "Never"]].forEach(function (kv) { dl.appendChild(el("dt", null, kv[0])); dl.appendChild(el("dd", null, kv[1])); });
+      wrap.appendChild(dl);
+      const row = el("div", "dlg-row");
+      if (fh.on) { row.appendChild(btn("Run now", "w-btn primary", function () { fhAct("run", function () { return BK.runNow(mm); }); })); row.appendChild(btn("Turn off", "w-btn", function () { fhAct("off", function () { return BK.turnOff(mm); }); })); }
+      else row.appendChild(btn("Turn on", "w-btn primary", function () { fhAct("on", function () { return BK.turnOn(mm); }); }));
+      wrap.appendChild(row);
+    }
+    if (w.view === "drive") {
+      wrap.appendChild(el("p", null, "Select a File History drive. Choose an external drive or a network location."));
+      wrap.appendChild(el("p", null, "Available drives: none found. Plug in an external drive, or add a network location."));
+      const lab = el("label", null, "Add network location (folder)"); const inp = el("input", "w-input"); inp.id = "fh-loc-" + mm.id; lab.setAttribute("for", inp.id); inp.placeholder = "\\\\server\\share"; inp.setAttribute("spellcheck", "false"); inp.setAttribute("autocomplete", "off");
+      wrap.appendChild(lab); wrap.appendChild(inp);
+      const go = function () { const v = inp.value; fhAct("target", function () { return BK.setTarget(mm, v); }, { typed: v }); };
+      inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); go(); } });
+      const row = el("div", "dlg-row"); row.appendChild(btn("Select folder", "w-btn primary", go)); wrap.appendChild(row);
+      if (fh.target) wrap.appendChild(el("p", null, "Selected: " + fh.target));
+    }
+    if (w.view === "advanced") {
+      wrap.appendChild(el("p", null, "Choose how often to save copies of your files, and how long to keep saved versions."));
+      const mk = function (label, id, opts, val, fn) { const l = el("label", null, label); const s = el("select", "w-input"); s.id = id + "-" + mm.id; l.setAttribute("for", s.id); opts.forEach(function (o) { const op = el("option", null, o[0]); op.value = String(o[1]); if (String(o[1]) === String(val)) op.selected = true; s.appendChild(op); }); s.addEventListener("change", function () { fn(s.value); }); wrap.appendChild(l); wrap.appendChild(s); };
+      mk("Save copies of files", "fh-every", BK.EVERY, fh.every, function (v) { fhAct("every", function () { return BK.setEvery(mm, Number(v)); }, { every: Number(v) }); });
+      mk("Keep saved versions", "fh-keep", BK.KEEP.map(function (k) { return [k, k]; }), fh.keep, function (v) { fhAct("keep", function () { return BK.setKeep(mm, v); }, { keep: v }); });
+      wrap.appendChild(el("p", null, "Changes are saved as soon as you choose them."));
+    }
+    if (w.view === "restore") {
+      const g = w.got;
+      if (!g) wrap.appendChild(el("p", null, "There are no backups yet. File History hasn't copied any files."));
+      else {
+        wrap.appendChild(el("p", "fh-state", "Backup from " + g.when + " (" + fh.target + ")"));
+        const t = el("table", "ev-table"); const th0 = el("thead"); const hr = el("tr"); ["Name", "Folder", "Date modified"].forEach(function (c) { const th = el("th", null, c); th.setAttribute("scope", "col"); hr.appendChild(th); }); th0.appendChild(hr); t.appendChild(th0);
+        const tb = el("tbody"); g.files.forEach(function (x) { const tr = el("tr"); const parts = x.path.split("\\"); tr.appendChild(el("td", null, x.file.name)); tr.appendChild(el("td", null, parts[parts.length - 2].replace(/^./, function (c) { return c.toUpperCase(); }))); tr.appendChild(el("td", null, x.file.doc ? x.file.doc.saved : "—")); tb.appendChild(tr); }); t.appendChild(tb); wrap.appendChild(t);
+      }
+    }
+    if (w.msg) say(w.msg.text, w.msg.bad);
+    return wrap;
   }
 
   /* -------------------------------------------- Network Connections */
@@ -542,6 +639,23 @@ export function createDesktop(host, ctx) {
       box.appendChild(el("h3", "dlg-h", "Create a restore point")); const lab = el("label", null, "Type a description to help you identify the restore point:"); const inp = el("input", "w-input"); inp.id = "rp-" + mm.id; lab.setAttribute("for", inp.id); inp.value = "After malware removal";
       box.appendChild(lab); box.appendChild(inp);
       row.appendChild(btn("Create", "w-btn primary", function () { const v = inp.value.trim(); askUAC("System Properties", function () { const before = ctx.before(); const r = MW.createPoint(MW.ready(mm), v); dialog = { kind: "message", title: "System Protection", text: r.text }; act({ type: "restore", op: "point", res: r, before: before }); draw(); }); }));
+      row.appendChild(btn("Cancel", "w-btn", close));
+    }
+    if (d.kind === "doc") {
+      box.appendChild(el("h3", "dlg-h", d.name + (d.ver ? " (" + d.ver + ")" : ""))); if (d.note) box.appendChild(el("p", null, d.note));
+      const dl = el("dl", "doc-dl"); [["Sheet", d.doc.sheet], ["What's in it", d.doc.what], ["Total spend", d.doc.total], ["Last saved", d.doc.saved + " by " + d.doc.by]].filter(function (kv) { return kv[1]; }).forEach(function (kv) { dl.appendChild(el("dt", null, kv[0])); dl.appendChild(el("dd", null, kv[1])); });
+      box.appendChild(dl); row.appendChild(btn("Close", "w-btn primary", close));
+    }
+    if (d.kind === "pv-confirm") {
+      box.appendChild(el("h3", "dlg-h", "Previous Versions")); box.appendChild(el("p", null, "Are you sure you want to restore this previous version of " + d.name + "?"));
+      box.appendChild(el("p", null, "The version saved " + d.v.file.doc.saved + " will replace the current file. This can't be undone."));
+      row.appendChild(btn("Restore", "w-btn primary", function () { const before = ctx.before(); const r = BK.restoreVersion(mm, d.path, d.v.id); dialog = { kind: "message", title: "Previous Versions", text: r.text }; act({ type: "pv-restore", path: d.path, id: d.v.id, res: r, before: before }); draw(); }));
+      row.appendChild(btn("Cancel", "w-btn", close));
+    }
+    if (d.kind === "sysrestore") {
+      box.appendChild(el("h3", "dlg-h", "System Restore")); box.appendChild(el("p", null, "Restore your computer to the state it was in before the selected event. System Restore changes Windows' system files, settings and programs."));
+      const ul = el("ul", "sr-list"); mm.restore.points.slice().reverse().forEach(function (p) { const i = mm.restore.points.indexOf(p); const li = el("li"); const b = btn(p.date + " · " + p.name, "w-btn" + (d.sel === i ? " primary" : ""), function () { d.sel = i; draw(); }, "Restore point: " + p.date + ", " + p.name); b.setAttribute("aria-pressed", String(d.sel === i)); li.appendChild(b); ul.appendChild(li); }); box.appendChild(ul);
+      const fin = btn("Finish", "w-btn primary", function () { askUAC("System Restore", function () { const before = ctx.before(); const r = BK.systemRestore(mm, d.sel); act({ type: "sys-restore", res: r, before: before }); restart("system-restore"); bootNote = r.text; draw(); }); }); fin.disabled = d.sel == null; row.appendChild(fin);
       row.appendChild(btn("Cancel", "w-btn", close));
     }
     if (d.kind === "confirm-critical") {

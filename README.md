@@ -6,9 +6,12 @@ Program, built from the Core 2 sims only.
 **The whole screen is your work laptop at Rafiki's IT Services.** You sign
 in as a Tier 1 technician, and from then on everything happens in programs
 on the laptop:
-- **Help Desk** holds your queue. One page per ticket has everything: the
-  user's request, their PC, your work notes, the activity log, Resolve or
-  Escalate, the cause and the resolution notes.
+- **Help Desk** holds your queue, in two sections: **Exam sims** (from
+  your Core 2 practice sims) and **Extra training** (real-world tickets
+  for the objectives no sim covers). Every ticket has a badge, in words
+  with an icon, saying which it is. One page per ticket has everything:
+  the user's request, their PC, your work notes, the activity log,
+  Resolve or Escalate, the cause and the resolution notes.
 - **Remote support** takes you onto the user's PC, in a window. You fix it
   with Windows' own tools: the program itself, Start search, Event Viewer,
   Command Prompt and PowerShell, Task Manager, Settings and Software
@@ -67,7 +70,7 @@ Live: https://rafikiscyent888.github.io/A-Core-2-Under-the-Hood-/
 
 | | Tickets | How much help |
 |---|---|---|
-| **Crawl** | L1, D1, M1, E1, R1, W1, P1, N1, WR1, CE1, CR1: the sims themselves | Mason walks you through every step and rings what to press |
+| **Crawl** | L1, D1, M1, E1, R1, W1, P1, N1, WR1, CE1, CR1: the sims themselves; X1, the first extra-training ticket | Mason walks you through every step and rings what to press |
 | **Walk** | L2, D2, M2, E2, R2, W2, P2, N2, WR2, CE2, CR2 | A checklist that ticks itself off as you work, with "How?" pointers |
 | **Run** | the rest, 3 to 6 of each | On your own, as in the exam. Mason checks in after your third wrong move |
 
@@ -109,6 +112,13 @@ The router tickets come from five sims:
 The CE and CR tickets come from the two Help Desk chat sims: email on a
 company phone, and a customer's router. Each is a conversation with real
 consequences, and hands-on checks on the phone or the router itself.
+
+**Extra training** covers what the Core 2 objectives ask for and no sim
+does. Each ticket names the objective it covers.
+- **X, Backup and recovery** (Operational procedures): a spreadsheet saved
+  over by mistake. Bring one file back from Previous Versions (System
+  Restore never touches documents), then set up File History to the file
+  server, as often as the user can afford to lose, and test it.
 
 The program's rules apply throughout:
 - unlimited tries

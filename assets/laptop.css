@@ -580,3 +580,21 @@ tr.coach-target td:first-child { box-shadow: inset 4px 4px 0 #b88a00, inset 0 -4
 .mdm-res { margin: 0; padding: 0.35rem 0.6rem; border-radius: 6px; }
 .mdm-res.ok { background: var(--good-bg); color: var(--good-ink); box-shadow: inset 4px 0 0 var(--good-rule); }
 .mdm-res.bad { background: var(--bad-bg); color: var(--bad-ink); box-shadow: inset 4px 0 0 var(--bad-rule); }
+
+/* ---- The queue's two sections (owner's ruling 11, 1 October 2026).
+   Each is told apart by its heading, its icon and the words on every
+   ticket's badge; the tint is a fourth signal, never the only one. */
+:root { --sim-bg: #10244a; --sim-ink: #d6e4ff; --sim-rule: #7aa7ff; --xt-bg: #2a1846; --xt-ink: #ece2ff; --xt-rule: #b794f6; }
+:root[data-theme="light"] { --sim-bg: #e7efff; --sim-ink: #0b3a82; --sim-rule: #0b3a82; --xt-bg: #f1eafd; --xt-ink: #4c1d95; --xt-rule: #6d28d9; }
+.ico { flex: none; vertical-align: -0.2em; }
+.hd2-jump { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--line); }
+.hd2-jb { display: inline-flex; align-items: center; gap: 0.35rem; }
+.qsec { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0; padding: 0.6rem 0.8rem; font-size: 0.95rem; font-weight: 400; line-height: 1.35; border-bottom: 1px solid var(--line); }
+.qsec strong { font-weight: 700; }
+.qsec-sims { background: var(--sim-bg); color: var(--sim-ink); box-shadow: inset 6px 0 0 var(--sim-rule); }
+.qsec-extra { background: var(--xt-bg); color: var(--xt-ink); box-shadow: inset 6px 0 0 var(--xt-rule); border-top: 2px solid var(--xt-rule); }
+.qsec:focus-visible { outline: 3px solid var(--gold); outline-offset: -3px; }
+.badge { display: inline-flex; align-items: center; gap: 0.35rem; justify-self: start; width: fit-content; max-width: 100%; padding: 0.1rem 0.55rem; border-radius: 6px; font-size: 0.82rem; font-weight: 700; border: 1px solid; }
+.badge.b-sim { background: var(--sim-bg); color: var(--sim-ink); border-color: var(--sim-rule); }
+.badge.b-extra { background: var(--xt-bg); color: var(--xt-ink); border-color: var(--xt-rule); border-style: dashed; }
+.hd2-t > .badge { margin: 0 0 0.4rem; font-size: 0.9rem; }

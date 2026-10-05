@@ -91,7 +91,9 @@ export async function run(extraCss) {
              layer (a fade at opacity 0) hides nothing */
           const seen = (e) => { for (let a = e; a; a = a.parentElement) { const o = getComputedStyle(a); if (parseFloat(o.opacity) === 0 || o.visibility === "hidden") return false; } return true; };
           const mine = (px, py) => { const top = document.elementsFromPoint(px, py).filter(seen)[0]; return top && (top === el || el.contains(top) || top.contains(el)); };
-          if (![[0.5, 0.5], [0.1, 0.2], [0.9, 0.2], [0.1, 0.85], [0.9, 0.85]].every(([fx, fy]) => mine(x0 + (x1 - x0) * fx, y0 + (y1 - y0) * fy))) continue;
+          /* the top and bottom edges too: a sticky header's rule across the top
+             of a line it hides is covering it, not painted behind it */
+          if (![[0.5, 0.5], [0.1, 0.2], [0.9, 0.2], [0.1, 0.85], [0.9, 0.85], [0.3, 0.03], [0.7, 0.03], [0.3, 0.97], [0.7, 0.97]].every(([fx, fy]) => mine(x0 + (x1 - x0) * fx, y0 + (y1 - y0) * fy))) continue;
           const r = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
           if (r.width > 4 && r.height > 6)
           { window.__sweepEls.push(el); out.push({ k: window.__sweepEls.length - 1, t: n.textContent.trim().slice(0, 40), c: cs.color, op, s: parseFloat(cs.fontSize), b: parseInt(cs.fontWeight) >= 700, x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height, el: desc(el) }); }
@@ -410,6 +412,35 @@ export async function run(extraCss) {
     await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
     await toFront("helpdesk"); await hd.locator("[data-coach=open-floor]").click(); await page.waitForTimeout(300);
     await sweep(tag + ": the floor plan from the desk");
+    /* extra training: the queue's second section and X1 (backup and recovery): her spreadsheet, Previous Versions, System Restore, File History */
+    await toFront("helpdesk"); await page.locator(".hd2-jb", { hasText: "Extra training" }).click(); await page.locator(".qi", { hasText: "INC20476" }).click(); await page.waitForTimeout(150);
+    await page.locator(".hd2-jb", { hasText: "Extra training" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": the queue's extra-training section, X1's ticket and badge");
+    await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
+    const w4 = page.locator('[data-win="rdp:WS4"]');
+    await open("WS4", "files", "Open File Explorer"); await w4.getByRole("button", { name: "Folder Documents" }).click(); await w4.getByRole("button", { name: "File Q3-budget.xlsx" }).click();
+    await w4.getByRole("button", { name: "Open Q3-budget.xlsx" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X1, her spreadsheet opened");
+    await w4.locator(".w-dialog").getByRole("button", { name: "Close" }).click(); await w4.getByRole("button", { name: "Properties of Q3-budget.xlsx" }).click();
+    await w4.getByRole("tab", { name: "Previous Versions tab" }).click(); await w4.locator(".ev-row").nth(1).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X1, Previous Versions with a copy selected");
+    await w4.getByRole("button", { name: /^Restore the version/ }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X1, Previous Versions asks before restoring");
+    await w4.locator(".w-dialog").getByRole("button", { name: "Cancel" }).click();
+    await open("WS4", "restore", "Open System Properties"); await w4.getByRole("button", { name: "System Restore…" }).click(); await w4.locator(".sr-list button").first().click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X1, System Restore's restore points");
+    await w4.locator(".w-dialog").getByRole("button", { name: "Cancel" }).click();
+    await open("WS4", "file history", "Open File History");
+    const fhb = (n) => w4.locator(".filehist .ev-nav button", { hasText: n });
+    await fhb("Select drive").click(); await w4.locator("#fh-loc-WS4").fill("\\\\FS01\\Software"); await w4.getByRole("button", { name: "Select folder" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X1, File History refusing a share");
+    await w4.locator("#fh-loc-WS4").fill("\\\\FS01\\Backups"); await w4.getByRole("button", { name: "Select folder" }).click();
+    await fhb("Advanced settings").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X1, File History's advanced settings");
+    await fhb("File History").click(); await w4.getByRole("button", { name: "Turn on" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X1, File History on, the first copy made");
+    await fhb("Restore personal files").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": X1, File History's Restore personal files");
   }
 
   try {
@@ -444,7 +475,10 @@ const PLANTS = {
   "the footer, below the fold, in a faint grey": "footer.under p { color: #5b6270 !important; }",
   "the street's band chart in pale bars": ".sv-bar { background: #8da2d6 !important; }",
   "the customer chat's mood words in a faint grey": ".cc-mood-n, .cc-mood-l { color: #8b93a1 !important; }",
-  "Mobile devices' failed sync in a pale red": ".mdm-res.bad { color: #e08a8a !important; }"
+  "Mobile devices' failed sync in a pale red": ".mdm-res.bad { color: #e08a8a !important; }",
+  "the extra-training badge in a faint purple": ".badge.b-extra { color: #9b87c9 !important; }",
+  "Previous Versions' rows in a faint grey": ".props .ev-table td { color: #9ca3af !important; }",
+  "File History's message in a faint grey": ".fh-msg, .dlg-error { color: #8b93a1 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

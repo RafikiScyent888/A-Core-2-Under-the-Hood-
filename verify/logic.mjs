@@ -86,6 +86,8 @@ import { MALWARE } from "../assets/tickets-malware.js";
 import { CATS, emailById } from "../assets/tickets-mail.js";
 import * as CHM from "../assets/chat.js";
 import * as MBM from "../assets/mobile.js";
+import * as BKM from "../assets/backup.js";
+import * as XTM from "../assets/tickets-extra.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -173,6 +175,7 @@ const NOTES = {
   CR4: "Firmware 1.0.4 had an update. Grace saved settings and installed 1.1.2 from Administration without unplugging it; it restarted with her settings. A security update.",
   CR5: "WPA3 only locked out Mia's old WPA2-only laptop. Set WPA2/WPA3 transition so the laptop uses WPA2 and newer devices WPA3; saved, restarted, all connected.",
   CR6: "The router was on channel 6 at 40 MHz, overlapping the café on 1 and the flat on 6. Ben set channel 11 at 20 MHz; saved, restarted, no overlap on the scan.",
+  X1: "Restored Q3-budget.xlsx from the 3 October 11:58 previous version, from a restore point. Set up File History to \\\\FS01\\Backups, every hour, turned it on and tested it: her file is in Restore personal files.",
   E6: "Brady Tag's new bank details came from bradytag-co.com, a lookalike domain with a reply-to on another domain: phishing, reported, purged, blocked, lookalike policy on. Farah's order shipped notice was genuine. John's DocuSign was phishing. Brenda's timesheet xlsm macro was malicious."
 };
 
@@ -182,7 +185,7 @@ export function check(D) {
 
   /* ---- SHAPE ---- */
   const bySim = {}; const ids = new Set();
-  T.forEach((t) => { if (ids.has(t.id)) F("SHAPE: duplicate id " + t.id); ids.add(t.id); (bySim[t.sim] = bySim[t.sim] || []).push(t); });
+  T.forEach((t) => { if (ids.has(t.id)) F("SHAPE: duplicate id " + t.id); ids.add(t.id); if (!t.extra) (bySim[t.sim] = bySim[t.sim] || []).push(t); });
   const APP = T.filter((t) => !t.kind), MAL = T.filter((t) => t.kind === "malware"), EM = T.filter((t) => t.kind === "email"), RTR = T.filter((t) => t.kind === "router" || t.kind === "wifi");
   Object.entries(bySim).forEach(([sim, list]) => {
     if (list.length !== 6) F("SHAPE: " + sim + " has " + list.length + " tickets, not 1 + 5");
@@ -333,6 +336,7 @@ export function check(D) {
   examChecks(D, F);
   routerChecks(D, F);
   chatChecks(D, F);
+  extraChecks(D, F);
   return fails;
 }
 
@@ -364,6 +368,84 @@ function chatDrive(D, t, f) {
     else if (it.act === "view") RT.note(f, r, "view", { tab: it.tab });
     if (t.react) t.react({ type: "look" }, f);
   }
+}
+/* ---- EXTRA: extra training, beyond the sims (owner's ruling 11) ----
+   Each names its objective in the doc's own words; X1, backup and
+   recovery: the fault is on the machine, the right path closes it with
+   no wrong moves, the near misses count, rung 3 leaves the right move
+   alive at every stage, no hint names the move, the note check holds. */
+const OBJECTIVES = { "Backup and recovery": ["Operational procedures", "setting up workstation backups and recovery processes"] };
+function extraChecks(D, F) {
+  const X = D.TICKETS.filter((t) => t.extra);
+  if (!X.length) { F("EXTRA: no extra-training ticket"); return; }
+  X.forEach((t) => {
+    const o = OBJECTIVES[t.topic];
+    if (!o || o[0] !== t.domain || o[1] !== t.objective) F("EXTRA " + t.id + ": does not name an objective in the doc's words (" + t.topic + ")");
+    if (t.sim) F("EXTRA " + t.id + ": claims to come from a sim");
+  });
+  const t = X.find((x) => x.id === "X1"); if (!t) { F("EXTRA: X1 is missing"); return; }
+  const BKP = D.BK, XT = D.XT, P = "C:\\Users\\finance\\Documents\\Q3-budget.xlsx";
+  /* EXHIBITED: the file really is the wrong one, and the right copy really is there to find */
+  const f = D.makeFleet(); t.setup(f); const m = f.WS4;
+  const doc = () => (BKP.fileAt(f.WS4, P) || {}).doc || {};
+  if (t.goal(f)) F("EXTRA X1: EXHIBITED: the goal is met before the student starts");
+  if (doc().id === "q3rev") F("EXTRA X1: EXHIBITED: her spreadsheet is already the right one");
+  const vs = BKP.versions(m, P);
+  if (!vs.some((v) => v.file.doc.id === "q3rev")) F("EXTRA X1: EXHIBITED: Previous Versions has no copy with her work in it");
+  if (!vs.length || vs[0].file.doc.id === "q3rev") F("EXTRA X1: EXHIBITED: the newest copy is the right one, so there is nothing to read");
+  if (m.bk.fh.on || m.bk.fh.every <= 60) F("EXTRA X1: EXHIBITED: File History is already on, or already hourly");
+  /* the engine, step by step */
+  const run = (E, a, fn) => { const b = E.before(); const res = fn(E.fleet().WS4); E.onAct(Object.assign({ machine: "WS4", before: b, res }, a)); return res; };
+  const right = (E) => BKP.versions(E.fleet().WS4, P).find((v) => v.file.doc.id === "q3rev").id;
+  const solve = (E) => {
+    run(E, { type: "doc-open" }, () => null); run(E, { type: "pv-view" }, () => null); run(E, { type: "pv-open" }, () => null);
+    run(E, { type: "pv-restore" }, (w) => BKP.restoreVersion(w, P, right(E)));
+    run(E, { type: "fh", op: "target" }, (w) => BKP.setTarget(w, "\\\\FS01\\Backups"));
+    run(E, { type: "fh", op: "every", every: 60 }, (w) => BKP.setEvery(w, 60));
+    run(E, { type: "fh", op: "on" }, (w) => BKP.turnOn(w));
+    run(E, { type: "fh", op: "view" }, (w) => BKP.backupView(w));
+  };
+  { const E = D.createEngine(memStore()); E.openTicket("X1"); solve(E);
+    if (!t.goal(E.fleet())) F("EXTRA X1: SOLVABLE: the right path does not meet the goal");
+    if (E.T().guesses) F("EXTRA X1: SOLVABLE: the right path cost " + E.T().guesses + " wrong moves");
+    if (!E.submit("resolve").ok) F("EXTRA X1: SOLVABLE: Resolve refused after the right path"); }
+  { /* the fix without its test doesn't close it */
+    const E = D.createEngine(memStore()); E.openTicket("X1"); const w = E.fleet().WS4;
+    BKP.restoreVersion(w, P, right(E)); BKP.setTarget(w, "\\\\FS01\\Backups"); BKP.setEvery(w, 60); BKP.turnOn(w);
+    if (t.goal(E.fleet())) F("EXTRA X1: SOLVABLE: closes without the backup ever being tested"); }
+  /* JUDGE: looking never counts; the near misses do */
+  const J = (label, steps, want) => { const E = D.createEngine(memStore()); E.openTicket("X1"); steps(E); const g = E.T().guesses; if (g !== want) F("EXTRA X1: JUDGE: " + label + " gave " + g + " wrong moves, should be " + want); return E; };
+  J("looking (open the file, Previous Versions, open a copy, the backup view, a typo in the location)", (E) => { run(E, { type: "doc-open" }, () => null); run(E, { type: "pv-view" }, () => null); run(E, { type: "pv-open" }, () => null); run(E, { type: "fh", op: "view" }, (w) => BKP.backupView(w)); run(E, { type: "fh", op: "target" }, (w) => BKP.setTarget(w, "\\\\FS01\\Bakups")); }, 0);
+  J("restoring this morning's copy", (E) => run(E, { type: "pv-restore" }, (w) => BKP.restoreVersion(w, P, BKP.versions(w, P)[0].id)), 1);
+  J("restoring an older copy", (E) => run(E, { type: "pv-restore" }, (w) => BKP.restoreVersion(w, P, BKP.versions(w, P).find((v) => v.file.doc.id === "q3d1").id)), 1);
+  J("System Restore", (E) => run(E, { type: "sys-restore" }, (w) => BKP.systemRestore(w, 2)), 1);
+  J("the read-only Software share", (E) => run(E, { type: "fh", op: "target" }, (w) => BKP.setTarget(w, "\\\\FS01\\Software")), 1);
+  J("a folder on C:", (E) => run(E, { type: "fh", op: "target" }, (w) => BKP.setTarget(w, "C:\\Backup")), 1);
+  J("every 12 hours", (E) => run(E, { type: "fh", op: "every", every: 720 }, (w) => BKP.setEvery(w, 720)), 1);
+  { const E = J("System Restore", (E) => run(E, { type: "sys-restore" }, (w) => BKP.systemRestore(w, 2)), 1);
+    if (doc().id === "q3rev" || (BKP.fileAt(E.fleet().WS4, P).doc.id === "q3rev")) F("EXTRA X1: System Restore brought her document back: it never touches personal files"); }
+  /* SIX, LADDER and NO LEAK at every stage */
+  const stages = [(E) => {}, (E) => run(E, { type: "pv-restore" }, (w) => BKP.restoreVersion(w, P, right(E))), (E) => run(E, { type: "fh", op: "target" }, (w) => BKP.setTarget(w, "\\\\FS01\\Backups")), (E) => run(E, { type: "fh", op: "every", every: 60 }, (w) => BKP.setEvery(w, 60)), (E) => run(E, { type: "fh", op: "on" }, (w) => BKP.turnOn(w)), (E) => run(E, { type: "fh", op: "view" }, (w) => BKP.backupView(w))];
+  const E = D.createEngine(memStore()); E.openTicket("X1"); const seen = new Set();
+  stages.forEach((go) => {
+    go(E); const s = XT.stage(E.fleet().WS4); seen.add(s);
+    const mv = t.moves(E.fleet());
+    if (mv.length !== 6 || mv.filter((x) => x.correct).length !== 1 || mv.some((x) => !x.correct && !String(x.why || "").trim()) || new Set(mv.map((x) => x.label)).size !== 6) F("EXTRA X1: SIX: the moves at stage " + s + " are not six, one right, a reason on each wrong one");
+    const rm = mv.find((x) => x.correct).label.toLowerCase();
+    t.hints(E.fleet()).forEach((h, i) => { if (String(h).toLowerCase().indexOf(rm) >= 0) F("EXTRA X1: NO LEAK: rung " + (i + 1) + " at stage " + s + " contains the right move"); [/previous versions/i, /file history/i, /\\\\fs01\\backups/i, /every hour/i, /3 october/i, /11:58/].forEach((re) => { if (re.test(h)) F("EXTRA X1: NO LEAK: rung " + (i + 1) + " at stage " + s + " names the answer (" + re + ")"); }); });
+    const saved = E.T().guesses; E.T().guesses = 7; const g = E.guidance(); E.T().guesses = saved;
+    const alive = (g.moves || []).filter((x) => !x.struck);
+    if (g.rung !== 3 || alive.length !== 2 || !alive.some((x) => x.correct)) F("EXTRA X1: LADDER: rung 3 at stage " + s + " does not leave two alive with the right one among them");
+  });
+  if (seen.size !== 6) F("EXTRA X1: the stages were not all reached: " + Array.from(seen).join(", "));
+  /* the close question */
+  const co = t.close.options;
+  if (co.length !== 6 || co.filter((x) => x.correct).length !== 1 || co.some((x) => !x.correct && !x.why)) F("EXTRA X1: SIX: the close question is not six, one right, a reason on each wrong one");
+  const L = co.map((x) => x.label.length), cl = co.find((x) => x.correct).label.length;
+  if (cl === Math.max(...L)) F("EXTRA X1: SPREAD: the right close answer is the longest option");
+  /* NOTE */
+  if (!D.noteOK(t, D.NOTES.X1).ok) F("EXTRA X1: NOTE: the model note is refused: " + D.noteOK(t, D.NOTES.X1).missing.join("; "));
+  if (D.noteOK(t, "I looked at the computer for a while and then it was working again, so I closed it.").ok) F("EXTRA X1: NOTE: a note that says nothing specific is accepted");
 }
 function chatChecks(D, F) {
   D_ = D;
@@ -862,7 +944,7 @@ function routerChecks(D, F) {
   ({ f, r } = mk()); if (JSON.stringify(JSON.parse(JSON.stringify(f.TECH.routers))) !== JSON.stringify(f.TECH.routers)) F("ROUTER SNAP: a router doesn't survive the engine's copy");
 }
 
-const BASE = { CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+const BASE = { BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
 /* Each plant is one defect a check exists to catch, and the check it must
@@ -938,7 +1020,14 @@ const PLANTS = [
   ["CHAT WRONG", "a wrong reply moves the chat on", () => ({ CH: Object.assign({}, CHM, { reply: (f, t, label) => { const o = CHM.reply(f, t, label); if (o && !o.correct) CHM.get(f, t.id).step++; return o; } }) })],
   ["CHAT LEAK", "a hint gives the reply away", () => ({ TICKETS: withTicket("CR3", (t) => ({ chat: t.chat.map((it) => (it.type === "reply" && it.then ? Object.assign({}, it, { h: [it.h[0], "Say this: " + it.right.label] }) : it)) })) })],
   ["CHAT RESTART", "starting again keeps the customer's changed router", () => ({ CH: Object.assign({}, CHM, { restart: (f, t) => { const c = CHM.get(f, t.id); c.step = 0; c.out = {}; c.said = {}; c.seed++; } }) })],
-  ["CHAT RESTART", "starting again shows the same six", () => ({ CH: Object.assign({}, CHM, { restart: (f, t) => { const c = CHM.get(f, t.id); c.step = 0; c.out = {}; c.said = {}; if (t.restore) t.restore(f); } }) })]
+  ["CHAT RESTART", "starting again shows the same six", () => ({ CH: Object.assign({}, CHM, { restart: (f, t) => { const c = CHM.get(f, t.id); c.step = 0; c.out = {}; c.said = {}; if (t.restore) t.restore(f); } }) })],
+  ["EXTRA X1: EXHIBITED", "her spreadsheet starts already restored", () => ({ TICKETS: withTicket("X1", (t) => ({ setup: (f) => { t.setup(f); const P = "C:\\Users\\finance\\Documents\\Q3-budget.xlsx"; BKM.restoreVersion(f.WS4, P, BKM.versions(f.WS4, P).find((v) => v.file.doc.id === "q3rev").id); } })) })],
+  ["EXTRA X1: JUDGE", "the read-only Software share passes as a typo", () => ({ BK: Object.assign({}, BKM, { setTarget: (w, v) => (/software/i.test(v) ? { ok: false, typo: true, text: "not found" } : BKM.setTarget(w, v)) }) })],
+  ["EXTRA X1: System Restore brought", "System Restore puts her document back", () => ({ BK: Object.assign({}, BKM, { systemRestore: (w, i) => { const P = "C:\\Users\\finance\\Documents\\Q3-budget.xlsx"; BKM.restoreVersion(w, P, BKM.versions(w, P).find((v) => v.file.doc.id === "q3rev").id); return BKM.systemRestore(w, i); } }) })],
+  ["EXTRA X1: NO LEAK", "a hint names the copy to restore", () => ({ TICKETS: withTicket("X1", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0] + " Try the 3 October copy.", h[1]]; } })) })],
+  ["EXTRA X1: SOLVABLE", "the backup never has to be tested", () => ({ TICKETS: withTicket("X1", () => ({ goal: (f) => ["test", "done"].indexOf(XTM.stage(f.WS4)) >= 0 })) })],
+  ["EXTRA X1: SPREAD", "the right close answer padded to be the longest", () => ({ TICKETS: withTicket("X1", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.map((x) => (x.correct ? Object.assign({}, x, { label: x.label + ", and a fire takes the lot" }) : x)) }) })) })],
+  ["EXTRA X1: does not name", "the objective reworded", () => ({ TICKETS: withTicket("X1", () => ({ objective: "making backups" })) })],
 ];
 
 const plant = process.argv.includes("--plant");

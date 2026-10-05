@@ -51,8 +51,9 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476" };
 const NOTES = {
+  X1: "Restored Q3-budget.xlsx from the 3 October 11:58 previous version, from a restore point. Set up File History to \\\\FS01\\Backups, every hour, turned it on, and tested it: her file is in Restore personal files.",
   R1: "Replaced the default admin password from the sticker with a strong one on Administration, saved it, and restarted the router. Leah's laptop and printer still connect.",
   W1: "Set MainOffice1 with the new password, WPA3 because every device supports it, 2.4 GHz for the thick walls, channel 6. Saved and restarted; the Office 3 tablet connects.",
   WR1: "The microwave on the break counter sat beside the access point and drowned 2.4 GHz at lunch. Moved it across the room, then set 2.4 GHz for the dense walls, channel 11 and WPA3. Saved, restarted, all connected.",
@@ -74,7 +75,7 @@ const NOTES = {
   E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT", "EXTRA"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -105,6 +106,7 @@ async function run(rewrites, groups) {
   const VALS = { W1: { "rt-ssid": "MainOffice1", "rt-wpass": "Ma50n1SB35t!", "rt-sec": "WPA3", "rt-band": "2.4", "rt-chan": "6", "wb-pass": "Clos3t-AP-2026" },
     WR1: { "rt-band": "2.4", "rt-chan": "11", "rt-sec": "WPA3", "wb-pass": "Clos3t-AP-2026" },
     N1: { "rt-ssid": "HomeWiFi", "rt-wpass": "MyCCR0ck2!", "rt-sec": "WPA3", "rt-chan": "11", "rt-width": "20" },
+    X1: { "fh-loc-WS4": "\\\\FS01\\Backups", "fh-every-WS4": "60" },
     P1: { "rt-fe": "3389", "rt-fi": "192.168.10.20", "rt-fq": "3389", "rt-dmz": "10.100.0.50", "rt-sec": "WPA2" } };
   async function crawl(p, id, max) {
     await take(p, id).catch(() => {});
@@ -142,10 +144,32 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 66) F("LOAD: the queue shows " + items.length + " tickets, not 66");
+      if (items.length !== 67) F("LOAD: the queue shows " + items.length + " tickets, not 67");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 11 || count(/Walk: checklist/) !== 11 || count(/Run: on your own/) !== 44) F("LOAD: the queue's labels are not 11 crawl, 11 walk, 44 run");
+      if (count(/Crawl: guided/) !== 12 || count(/Walk: checklist/) !== 11 || count(/Run: on your own/) !== 44) F("LOAD: the queue's labels are not 12 crawl, 11 walk, 44 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
+    });
+
+    /* Extra training (owner's ruling 11): two headed sections, a worded
+       badge with an icon on every ticket, and X1 played end to end. */
+    await step("EXTRA", async (p) => {
+      await signIn(p);
+      const heads = await p.locator(".hd2-q h3.qsec").allInnerTexts();
+      if (heads.length !== 2 || !/^Exam sims: from your Core 2 practice sims$/.test(heads[0].trim()) || !/^Extra training: real-world tickets beyond the sims$/.test(heads[1].trim())) F("EXTRA: the queue's two section headings are not as ruled: " + JSON.stringify(heads));
+      const order = await p.evaluate(() => Array.from(document.querySelectorAll(".hd2-q h3.qsec, .hd2-q .qi")).map((e) => e.tagName === "H3" ? "H" : (e.querySelector(".badge") ? e.querySelector(".badge").textContent : "NONE")));
+      const hx = order.indexOf("H", 1); const sims = order.slice(1, hx), extra = order.slice(hx + 1);
+      if (sims.length !== 66 || sims.some((x) => !/^Exam sim · /.test(x))) F("EXTRA: the sims section does not hold 66 tickets each badged Exam sim");
+      if (extra.length !== 1 || extra[0] !== "Extra training · Backup and recovery") F("EXTRA: the extra-training section is not X1 badged with its objective: " + JSON.stringify(extra));
+      if (await p.locator(".qi .badge").evaluateAll((bs) => bs.some((b) => !b.querySelector("svg.ico")))) F("EXTRA: a badge has no icon");
+      await p.locator(".hd2-jb", { hasText: "Extra training" }).click();
+      if (!(await p.locator(".qi", { hasText: INC.X1 }).isVisible())) F("EXTRA: Jump to Extra training does not bring X1 into view");
+      if (!(await crawl(p, "X1"))) F("EXTRA: X1 could not be finished by following Mason's rings");
+      else {
+        const st = await p.evaluate(() => window.__LAP.engine.state().tickets.X1);
+        if (st.stage !== "done") F("EXTRA: X1's crawl said done but the ticket is not closed");
+        if (st.guesses) F("EXTRA: following Mason's rings cost " + st.guesses + " wrong moves");
+        if (!/Extra training · Backup and recovery/.test(await hd(p).locator(".hd2-t").innerText())) F("EXTRA: the ticket page does not name its objective");
+      }
     });
 
     await step("CRAWL", async (p) => {
@@ -654,7 +678,11 @@ async function run(rewrites, groups) {
 
 /* [check it must be caught by, what, rewrites of the SERVED files] */
 const PLANTS = [
-  ["LOAD", "a ticket missing from the queue", { "assets/laptop.js": [["  E.tickets().forEach(function (x) {\n    const s = statusOf(x.t, x.st);", "  E.tickets().slice(1).forEach(function (x) {\n    const s = statusOf(x.t, x.st);"]] }],
+  ["LOAD", "a ticket missing from the queue", { "assets/laptop.js": [["    sc.list.forEach(function (x) {", "    sc.list.slice(1).forEach(function (x) {"]] }],
+  ["EXTRA", "badges in colour alone, no words", { "assets/laptop.js": [["b.appendChild(el(\"span\", null, badgeText(t)));", "b.appendChild(el(\"span\", null, \"\"));"]] }],
+  ["EXTRA", "extra training mixed into the sims section", { "assets/laptop.js": [["list: all.filter(function (x) { return !x.t.extra; }) }", "list: all.filter(function (x) { return true; }) }"]] }],
+  ["EXTRA", "Previous Versions' Restore does nothing", { "assets/backup.js": [["M.putFile(m.fs, p[0], Object.assign({}, v.file, { name: p[1] }));", ""]] }],
+  ["EXTRA", "turning File History on makes no copy", { "assets/backup.js": [["const r = runNow(m); return", "const r = { text: \"\" }; return"]] }],
   ["CRAWL", "Mason's rings never drawn", { "assets/laptop.js": [["if (t) t.classList.add(\"coach-target\");", ""]] }],
   ["WALK", "the walk ticks only in strict order", { "assets/laptop.js": [["(walk.mode === \"walk\" || i <= firstOpen(walk, c))", "(i <= firstOpen(walk, c))"]] }],
   ["RUN", "Mason never checks in after wrong moves", { "assets/laptop.js": [["if (g.rung > last.rung || (g.rung === 3 && n > last.n)) {", "if (false) {"]] }],

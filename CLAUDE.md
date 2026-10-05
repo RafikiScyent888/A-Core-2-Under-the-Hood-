@@ -1693,4 +1693,77 @@ the street went live:
     the hands-on wait, Mobile devices (phone, failed sync, mail server).
     Two plants.
 - **Still to come:** exam views for the two chat sims (laid out as the sims
-  are), and the extra-training preview.
+  are).
+
+### Extra training, X1: backup and recovery (5 October 2026, live)
+
+The owner saw the preview (private artifact, 4 October) and said: "Yes to
+all, push it and build X2–X6." That settles the queue's two sections, the
+badge wording, and X1 as the pattern for extra training.
+
+- **The queue, as ruled (section 11, ruling 11):**
+  - Two headed sections: "Exam sims: from your Core 2 practice sims" and
+    "Extra training: real-world tickets beyond the sims". Two buttons at
+    the top jump to either.
+  - Every ticket has a badge with an icon and words: "Exam sim · <sim>"
+    (a clipboard, blue tint) or "Extra training · <objective>" (a wrench,
+    purple tint, dashed edge). The tint is never the only signal.
+  - The ticket page names the objective in the doc's words, and says
+    "Not from a sim: a real-world job".
+- **New files:** `backup.js` (the model) and `tickets-extra.js` (the
+  tickets, `EXTRA`). A ticket with `extra: true` carries `topic`, `domain`
+  and `objective`; `verify/logic.mjs` EXTRA holds the objective to the
+  doc's words.
+- **The model** (`backup.js`), three things students mix up:
+  - **Previous Versions:** one file, back from the snapshots System
+    Protection takes (restore points hold the whole drive, documents
+    included) or from File History. Only copies that differ are listed.
+  - **System Restore:** rolls Windows back. It never touches personal
+    files.
+  - **File History:** a real backup, on another device, on a schedule.
+    Network location typed (`\\FS01\Backups`; `\\FS01\Software` is
+    refused as read-only, a folder on C: as the drive being backed up),
+    how often (Windows' own list), how long, Turn on (makes the first
+    copy), Run now, and Restore personal files (what the backup really
+    holds).
+- **Windows gained:** File Explorer's Open and Properties on a file; the
+  Properties window with General and Previous Versions (Open a copy to
+  read it, Restore with confirmation); Control Panel › File History; and
+  System Restore in System Properties (choose a point, UAC, restart).
+- **X1, a crawl (17 steps):** Farah saved last year's Q3 budget over this
+  year's at 09:12, then retyped some at 10:00. Her clues: she worked on it
+  "right up to lunch yesterday", and can lose "an hour, not a day";
+  Mason's note gives `\\FS01\Backups`. Four copies in Previous Versions,
+  the newest from this morning (wrong). Restore 3 October 11:58; File
+  History to FS01, every hour, on; test it in Restore personal files.
+  Close: "Couldn't we just rely on restore points?" (six).
+- **Wrong moves:** restoring this morning's or an older copy, System
+  Restore, a refused location, a schedule longer than an hour, shorter
+  retention, File History off, System Protection off (deletes the restore
+  points). Looking, and a mistyped location, never count.
+- **Checks:**
+  - logic: 67 tickets, 78 plants. EXTRA: the objective in the doc's words;
+    the fault exhibited (wrong file, the right copy findable but not the
+    newest, File History off and daily); the right path closes with no
+    wrong moves; it doesn't close untested; each near miss counts;
+    System Restore leaves the document alone; six moves, rung 3 and no
+    leak at every stage; the close question not longest; the note.
+    Seven plants.
+  - page: LOAD (67 in the queue, 12 crawls); EXTRA (the two headings as
+    ruled, 66 badged Exam sim then X1 badged with its objective, icons,
+    the jump, X1 by Mason's rings with no wrong moves). Four plants.
+  - contrast: the extra-training section, X1's file, Previous Versions
+    and its confirmation, System Restore, File History (refused, advanced,
+    on, Restore personal files). Three plants.
+- **Found while building:**
+  - The right close answer was the longest option; reworded (the new
+    check caught it).
+  - The contrast sweep measured queue text half-hidden under the queue's
+    sticky header, against the header's rule. The cover test now checks
+    each line's top and bottom edges too. Every contrast plant (26) was
+    rerun after the change, and all were caught.
+  - Running contrast plants three at a time killed the browsers in this
+    container. Run them one at a time (about 15 minutes each).
+- **Next:** X2–X6, five more backup-and-recovery tickets (the five-more
+  rule). Then the owner picks the next objective: OS installation; file
+  systems, updates and upgrades; mobile; or safety.
