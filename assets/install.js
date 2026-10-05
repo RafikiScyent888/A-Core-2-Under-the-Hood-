@@ -44,6 +44,9 @@ export function prepare(m, o) {
     licence: o.licence || "Windows 11 Pro", joined: o.joined !== false && !!o.os, signedIn: !!o.os, history: [] };
   if (o.disk) m.disks[0] = o.disk;
   if (o.off) { m.power = "off"; }
+  m.inst.devAdmin = !!m.userIsAdmin; m.inst.up = null;
+  /* a PC still on Windows 10 says so wherever Windows shows its version */
+  if (o.os && /Windows 10/.test(o.os.name)) { m.edition = o.os.name; m.version = o.os.version; m.build = "10.0.19045.4894"; }
   return m.inst;
 }
 function hist(m, kind, d) { M.note(m, "inst-" + kind, d || {}); }
@@ -72,6 +75,8 @@ export function bootFrom(m, e) {
   if (I.setup && I.setup.copied && !I.os) { I.os = { name: I.setup.edition, version: "24H2" }; I.oobe = { step: "region" }; I.screen = "oobe-region"; hist(m, "boot", { from: "disk", setup: true }); return { ok: true }; }
   if (!I.os) { I.screen = "nodevice"; return { ok: false }; }
   if (I.oobe && I.oobe.step !== "done") { I.screen = "oobe-" + I.oobe.step; return { ok: true }; }
+  /* an in-place upgrade finishes at the restart after its files are copied */
+  if (I.up && I.up.copied && !I.up.applied) { const r = applyUpgrade(m); if (r) return r; }
   /* a rename or a domain join waits for this restart */
   if (I.pendingName) { m.host = I.pendingName; I.pendingName = null; }
   if (I.joinPending) { I.joinPending = false; I.joined = true; I.signedIn = false; m.domain = DOMAIN.name; }
@@ -159,6 +164,40 @@ export function ws(m, op, d) {
     return { ok: true, text: "Windows copied its files and is ready to restart." };
   }
   return { ok: false };
+}
+/* ---------------------------------------- upgrading Windows in place */
+/* PC Health Check: Windows 11's requirements, read from the PC as it is */
+export function health(m) { const rows = requirements(m), ok = rows.every(function (r) { return r.ok; }); hist(m, "health", { ok: ok }); return { ok: ok, rows: rows }; }
+/* setup.exe from the installer USB, run inside Windows: it checks the
+   requirements first, then asks what to keep */
+export const KEEP = { all: "Keep personal files and apps", files: "Keep personal files only", nothing: "Nothing" };
+export function upgrade(m, op, d) {
+  const I = m.inst; d = d || {};
+  if (op === "start") {
+    if (!I.media) return { ok: false };
+    if (!meets(m)) { I.up = { step: "blocked" }; hist(m, "up-blocked"); return { ok: false, blocked: true, rows: requirements(m).filter(function (r) { return !r.ok; }) }; }
+    I.up = { step: "terms" }; hist(m, "up-start"); return { ok: true };
+  }
+  const U = I.up; if (!U) return { ok: false };
+  if (op === "terms") { U.step = "keep"; hist(m, "up-terms"); return { ok: true }; }
+  if (op === "keep") { if (!KEEP[d.keep]) return { ok: false }; U.keep = d.keep; U.step = "ready"; hist(m, "up-keep", { keep: d.keep }); return { ok: true, keep: d.keep }; }
+  if (op === "back") { if (U.step === "ready") U.step = "keep"; else if (U.step === "keep") U.step = "terms"; return { ok: true }; }
+  if (op === "install") { if (U.step !== "ready") return { ok: false }; U.copied = true; U.step = "restart"; hist(m, "up-install", { keep: U.keep }); return { ok: true }; }
+  if (op === "close") { if (!U.copied) I.up = null; return { ok: true }; }
+  return { ok: false };
+}
+function applyUpgrade(m) {
+  const I = m.inst, U = I.up; U.applied = true;
+  const name = I.os.name.replace("Windows 10", "Windows 11");
+  I.os = { name: name, version: "24H2" }; m.edition = name; m.version = "24H2"; m.build = "10.0.26100.1742";
+  hist(m, "up-applied", { keep: U.keep });
+  if (U.keep === "nothing") {
+    /* nothing kept: a clean install, back to the first-run setup */
+    m.apps = []; m.fs = M.makeFS(m); I.joined = false; I.account = null; I.signedIn = false; m.domain = "WORKGROUP";
+    I.oobe = { step: "region" }; I.screen = "oobe-region"; return { ok: true };
+  }
+  if (U.keep === "files") m.apps = [];
+  I.signedIn = false; return null;
 }
 /* Setup's own restart: the PC goes back through its firmware */
 export function restartPC(m) { m.inst.screen = "post"; hist(m, "restart"); return { ok: true }; }

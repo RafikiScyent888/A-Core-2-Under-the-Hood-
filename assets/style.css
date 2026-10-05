@@ -335,3 +335,12 @@ footer.bot p { max-width: 75ch; margin: 0.3rem 0; }
 .cn-member legend { font-weight: 600; padding: 0 0.3rem; }
 .cn-opt { display: flex; align-items: center; gap: 0.4rem; } .cn-opt label { margin: 0 !important; } .cn-opt input { width: 18px; height: 18px; accent-color: #0b3a82; }
 .cn-member .w-input:disabled { background: #f3f4f6; color: #374151; border-style: dashed; }
+/* PC Health Check and Windows 11 Setup inside Windows */
+.hc-sum { font-weight: 700; padding: 0.35rem 0.6rem; border-radius: 6px; }
+.hc-sum.hc-ok { color: #14532d; background: #ecfdf3; border: 1px solid #15803d; box-shadow: inset 5px 0 0 #15803d; }
+.hc-sum.hc-bad { color: #7f1d1d; background: #fdecea; border: 1px solid #b91c1c; box-shadow: inset 5px 0 0 #b91c1c; }
+.hc-list { list-style: none; margin: 0.4rem 0 0; padding: 0; display: grid; gap: 0.3rem; }
+.hc-row { display: grid; grid-template-columns: 9.5rem 1fr; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; border: 1px solid #d1d5db; }
+.hc-row.hc-ok .hc-mark { color: #14532d; font-weight: 700; }
+.hc-row.hc-bad { background: #fdecea; border-color: #b91c1c; box-shadow: inset 5px 0 0 #b91c1c; color: #7f1d1d; } .hc-row.hc-bad .hc-mark { font-weight: 700; }
+.w11s .ws-radios { margin: 0.3rem 0; }

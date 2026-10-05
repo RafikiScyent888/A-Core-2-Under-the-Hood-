@@ -540,6 +540,20 @@ export async function run(extraCss) {
     await mb("Restart now").click(); await mb("Let the PC start from its boot order").click(); await page.waitForTimeout(150);
     await sweep(tag + ": OI1, the sign-in screen on the domain");
     await page.locator(".wo-back").click({ timeout: 60000 }); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+    /* OI2: Health Check failing the TPM, Setup's keep screen; OI3: Setup refusing the processor */
+    const desk = async (inc, id) => { await toFront("helpdesk"); await page.locator(".qi", { hasText: inc }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await page.evaluate((i) => window.__LAP.walkOver(i), id); if (await page.locator(".wo-skip").count()) await page.locator(".wo-skip").click().catch(() => {}); await page.waitForSelector(".wo-desk", { timeout: 90000 }); await page.waitForTimeout(300); };
+    const dm = page.locator(".wo-monitor"), db = (n) => dm.getByRole("button", { name: n, exact: true });
+    const dapp = async (q, n) => { await db("Start menu").click(); await dm.locator(".sm-search").fill(q); await db("Open " + n).click(); await page.waitForTimeout(150); };
+    await desk("INC20489", "WS2"); await dapp("health", "PC Health Check"); await db("Check now: does this PC meet Windows 11's requirements?").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI2, PC Health Check failing the TPM");
+    await page.locator('.wo-hands [data-coach="inst-usb-in"]').click(); await dapp("setup.exe", "Windows 11 Setup (setup.exe)"); await db("Start Windows 11 Setup").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI2, Windows 11 Setup refusing, the TPM off");
+    await page.evaluate(() => { window.__LAP.engine.fleet().WS2.inst.fw.tpmOn = true; }); await db("Close Setup").click(); await db("Start Windows 11 Setup").click(); await db("Accept the licence terms").click(); await dm.getByRole("radio", { name: "Keep personal files only" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI2, Setup's Choose what to keep, files only selected");
+    await page.locator(".wo-back").click({ timeout: 60000 }); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+    await desk("INC20490", "WS5"); await dapp("health", "PC Health Check"); await db("Check now: does this PC meet Windows 11's requirements?").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI3, PC Health Check failing the processor");
+    await page.locator(".wo-back").click({ timeout: 60000 }); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
   }
 
   try {
@@ -586,7 +600,8 @@ const PLANTS = {
   "the firmware's text in a dim blue": ".fw p:not(.fw-brand):not(.fw-keys) { color: #5a6f9e !important; }",
   "Setup's partition rows in a faint grey": ".ws-table td { color: #9ca3af !important; }",
   "Setup's refusal in a pale red": ".ins-err { color: #e08a8a !important; }",
-  "the first-run setup's Sign-in options link in a pale blue": ".oobe-link { color: #7fa6e0 !important; }"
+  "the first-run setup's Sign-in options link in a pale blue": ".oobe-link { color: #7fa6e0 !important; }",
+  "Health Check's failing rows in a pale red": ".hc-row.hc-bad { color: #e08a8a !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

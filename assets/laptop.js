@@ -332,7 +332,7 @@ function nextStepAdvice(t, st) {
     if (st.stage === "close") return "The phone's fixed and you've checked it. Now answer " + who + "'s question on the ticket.";
     return W.mobile ? t.adviceWork : t.adviceStart;
   }
-  if (t.kind === "install") return st.stage === "close" ? "Dev is signed in on the domain. Now answer Mason's question on the ticket: why wouldn't Setup install to the vendor's partition?" : t.advice(E.fleet());
+  if (t.kind === "install") return st.stage === "close" ? t.closeAdvice : t.advice(E.fleet());
   if (t.kind === "backup") {
     if (st.stage === "close") return t.id === "X1" ? "Farah's file is back and her backup is tested. Now answer her question on the ticket: why wasn't today's rescue a backup?" : "The job's done. Now answer " + who + "'s question on the ticket.";
     if (!W["rdp:" + t.machine] && !ev.length) return t.adviceStart || "Connect to " + r.host + " from the ticket, and look at the file first: open Q3-budget.xlsx in her Documents and see what's in it now.";
@@ -489,7 +489,7 @@ function drawTicket(t) {
     acts.appendChild(btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); }));
   } else if (st.stage === "work") {
     acts.appendChild(coachTag("connect", btn("Connect to " + r.host, "b pri", function () { connect(t.machine); }, "Connect to " + r.host + " by remote support")));
-    acts.appendChild(coachTag("walk", btn("Walk to " + first + "'s desk", "b", function () { walkOver(t.machine); })));
+    acts.appendChild(coachTag("walk", btn("Walk to " + r.fullName.split(" ")[0] + "'s desk", "b", function () { walkOver(t.machine); })));
     acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved — " + first + " confirmed it works" : "Tried to resolve: " + (x.say || "not fixed yet")); after(); })));
     acts.appendChild(btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); }));
   }
@@ -917,7 +917,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { OI1: "crawl", L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk", MB1: "crawl", MB2: "walk" };
+const LEVEL = { OI1: "crawl", OI2: "walk", L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk", MB1: "crawl", MB2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -2008,6 +2008,21 @@ WALKS.OI1 = { machine: "WS3", steps: [
     target: function () { return document.querySelector("#res-note"); },
     done: function () { const st = E.state().tickets.OI1; return !!(st && st.stage === "done"); } }
 ], end: "That's a clean install, start to finish: the installer from the Boot Menu in UEFI mode, the edition the licence covers, an MBR disk turned GPT by deleting its partition, the PC's own name, and the domain joined from Windows. More OS-installation tickets follow." };
+/* ------------------------------------------------ OI2: the walk */
+function o2(test) { const t = E.ticket(); return !!(t && t.id === "OI2") && lastAt("WS2", test) >= 0; }
+function o2at(test) { return lastAt("WS2", test); }
+WALKS.OI2 = { mode: "walk", machine: "WS2", steps: [
+  { goal: "Take the ticket", win: "helpdesk", how: "In Help Desk, open Brenda's ticket and press Assign to me and start.", done: function () { const t = E.ticket(); return !!(t && t.id === "OI2" && E.T()); } },
+  { goal: "Find out exactly which requirement fails", how: "On Brenda's PC, there's an app for exactly this: Start search finds it. Some of this job happens before Windows starts, so you'll want to be at her desk.", done: function () { return o2(function (e) { return e.kind === "inst-health"; }); } },
+  { goal: "Put right what's switched off", how: "It's set before Windows starts: restart, and read the start-up screen for the key.", done: function () { const t = E.ticket(); return !!(t && t.id === "OI2") && E.machine("WS2").inst.fw.tpmOn; } },
+  { goal: "Check again", how: "The same app, now.", done: function () { const f = o2at(function (e) { return e.kind === "inst-fw-save"; }); return f >= 0 && o2at(function (e) { return e.kind === "inst-health" && e.ok; }) > f; } },
+  { goal: "Start the upgrade from inside Windows", how: "The installer on your bench has a program you run from Windows. Starting the PC from it would be a clean install.", done: function () { return o2(function (e) { return e.kind === "inst-up-start"; }); } },
+  { goal: "Keep what Brenda asked to keep", how: "Read her message again before you choose.", done: function () { return o2(function (e) { return e.kind === "inst-up-install" && e.keep === "all"; }); } },
+  { goal: "Let the upgrade finish", how: "It finishes as the PC starts from its drive.", done: function () { return o2(function (e) { return e.kind === "inst-up-applied"; }); } },
+  { goal: "Brenda signs in, and PayWise works", how: "Her own account, then the program she cares about most.", done: function () { const a = o2at(function (e) { return e.kind === "inst-up-applied"; }); return a >= 0 && o2at(function (e) { return e.kind === "launch" && e.app === "PayWise" && e.result === "ok"; }) > a; } },
+  { goal: "Resolve the ticket", win: "helpdesk", how: "Back in Help Desk.", done: function () { const st = E.T(); const t = E.ticket(); return !!(t && t.id === "OI2" && st && st.stage !== "work"); } },
+  { goal: "Answer Brenda's question, and write the notes", win: "helpdesk", how: "Why Windows said no, what you changed, how you upgraded, and that PayWise works.", done: function () { const st = E.state().tickets.OI2; return !!(st && st.stage === "done"); } }
+], end: "That's an upgrade done properly: the real reason found, put right where it lives, and Windows 11 in place with everything Brenda asked to keep. OI3 is yours to run." };
 WALKS.CE2 = { mode: "walk", machine: "TECH", steps: [
   { goal: "Take the ticket and open the chat", how: "In Help Desk.", done: function () { const t = E.ticket(); return !!(t && t.id === "CE2" && W.custchat); } },
   { goal: "Open the chat professionally", how: "Acknowledge John and offer help.", done: function () { return chatAt("CE2") > 0; } },

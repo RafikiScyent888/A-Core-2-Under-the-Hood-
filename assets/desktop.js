@@ -22,9 +22,9 @@ import { drawInstall } from "./installui.js";
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function btn(label, cls, fn, aria) { const b = el("button", cls || "w-btn", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
 
-const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update", mail: "Mail", filehist: "File History", props: "Properties" };
+const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update", mail: "Mail", filehist: "File History", props: "Properties", health: "PC Health Check", w11setup: "Windows 11 Setup (setup.exe)" };
 const TOOLS = ["mail", "cmd", "ps", "taskmgr", "eventvwr", "settings", "softcenter", "explorer", "edge", "security", "sysprot", "netconn", "winupdate", "filehist"];
-const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point system restore rstrui computer name rename domain join workgroup", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check", mail: "email outlook inbox messages", filehist: "file history backup back up control panel restore personal files" };
+const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point system restore rstrui computer name rename domain join workgroup", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check", mail: "email outlook inbox messages", filehist: "file history backup back up control panel restore personal files", health: "pc health check windows 11 requirements upgrade tpm secure boot processor", w11setup: "setup.exe usb upgrade install windows 11 win11_24h2" };
 
 export function createDesktop(host, ctx) {
   let wins = [], active = null, wid = 1, start = false, run = null, dialog = null, bootNote = null;
@@ -89,7 +89,7 @@ export function createDesktop(host, ctx) {
     draw();
   }
   function closeWin(id) { wins = wins.filter(function (w) { return w.id !== id; }); if (active === id) active = wins.length ? wins[wins.length - 1].id : null; draw(); }
-  function restart(reason) { M.shutdown(m()); wins = []; active = null; dialog = null; const r = M.boot(m()); bootNote = r.say; act({ type: "power", op: "restart", res: r, reason: reason }); draw(); }
+  function restart(reason) { M.shutdown(m()); wins = []; active = null; dialog = null; start = false; run = null; const r = M.boot(m()); bootNote = r.say; act({ type: "power", op: "restart", res: r, reason: reason }); draw(); }
 
   /* ------------------------------------------------------- drawing */
   function draw() {
@@ -159,6 +159,8 @@ export function createDesktop(host, ctx) {
     q.addEventListener("input", function () { const v = q.value.trim().toLowerCase(); list.querySelectorAll(".sm-app").forEach(function (li) { li.hidden = !!v && li.dataset.find.indexOf(v) < 0; }); });
     setTimeout(function () { q.focus(); }, 0);
     const items = TOOLS.slice(); if (ctx.isTech) items.unshift("helpdesk");
+    /* a PC under the install model: PC Health Check, and setup.exe while the installer USB is in it */
+    if (INS.managed(m()) && m().inst.os) { items.push("health"); if (m().inst.media && /Windows 10/.test(m().inst.os.name)) items.push("w11setup"); }
     items.forEach(function (a) {
       const li = el("li", "sm-app"); li.dataset.find = (NAME[a] + " " + a + " " + (FIND[a] || "")).toLowerCase(); li.appendChild(el("span", "sm-name", NAME[a]));
       const acts = el("span", "sm-acts");
@@ -172,7 +174,7 @@ export function createDesktop(host, ctx) {
     });
     sm.appendChild(list);
     const foot = el("div", "sm-foot");
-    foot.appendChild(el("span", "sm-user", "RAFIKI\\" + m().user));
+    const mi = m(); foot.appendChild(el("span", "sm-user", INS.managed(mi) && mi.inst.account && mi.inst.account.type === "local" ? mi.host + "\\" + mi.inst.account.name : "RAFIKI\\" + mi.user));
     const pw = el("span", "sm-power");
     pw.appendChild(btn("Restart", "w-btn", function () { restart("start"); }));
     pw.appendChild(btn("Shut down", "w-btn", function () { M.shutdown(m()); wins = []; active = null; dialog = null; act({ type: "power", op: "off" }); draw(); }));
@@ -231,6 +233,8 @@ export function createDesktop(host, ctx) {
     if (w.app === "winupdate") body.appendChild(drawWinUpdate(w));
     if (w.app === "props") body.appendChild(drawProps(w));
     if (w.app === "filehist") body.appendChild(drawFileHistory(w));
+    if (w.app === "health") body.appendChild(drawHealth(w));
+    if (w.app === "w11setup") body.appendChild(drawW11Setup(w));
     if (w.app === "mail") { w.ui = w.ui || {}; drawMail(body, { fleet: ctx.fleet, mid: m().id, helpdesk: false, act: function (a) { a.before = a.before || ctx.before(); act(a); draw(); }, draw: draw, noForward: ctx.noForward || function () { return false; } }, w.ui); }
     if (w.app === "helpdesk") ctx.helpdesk(body, { refresh: draw });
     if (w.app === "prog") { const p = el("div", "prog"); p.appendChild(el("h4", null, w.prog + " " + (M.appByName(m(), w.prog) || {}).ver)); p.appendChild(el("p", null, w.prog + " is open and working on " + m().host + ".")); body.appendChild(p); }
@@ -479,6 +483,60 @@ export function createDesktop(host, ctx) {
     sch.appendChild(btn(mm.av.schedule ? "Turn off" : "Turn on (every day at 2:00 AM)", "w-btn", function () { askUAC("Microsoft Defender Antivirus (scheduled scan)", function () { const before = ctx.before(); const r = MW.setSchedule(mm, !mm.av.schedule); act({ type: "av", op: "schedule", on: !!mm.av.schedule, res: r, before: before }); draw(); }); }));
     wrap.appendChild(sch);
     return wrap;
+  }
+
+  /* ------------------------------------------------- PC Health Check */
+  const HC = { cpu: ["The processor is supported for Windows 11.", "The processor isn't currently supported for Windows 11."], ram: ["There is at least 4 GB of system memory (RAM).", "This PC needs at least 4 GB of system memory (RAM)."], disk: ["System disk is 64 GB or larger.", "The system disk needs to be 64 GB or larger."], uefi: ["This PC supports Secure Boot.", "This PC must support Secure Boot."], tpm: ["TPM 2.0 is enabled on this PC.", "TPM 2.0 must be supported and enabled on this PC."] };
+  function reqList(mm, rows) {
+    const ul = el("ul", "hc-list");
+    rows.forEach(function (r) { const li = el("li", "hc-row " + (r.ok ? "hc-ok" : "hc-bad")); li.appendChild(el("span", "hc-mark", r.ok ? "✓ Meets" : "✕ Doesn't meet")); li.appendChild(el("span", null, HC[r.k][r.ok ? 0 : 1] + (r.k === "cpu" ? " Processor: " + mm.inst.hw.cpu + "." : ""))); ul.appendChild(li); });
+    return ul;
+  }
+  function drawHealth(w) {
+    const mm = m(); const wrap = el("div", "set hc");
+    wrap.appendChild(el("h4", "set-h", "PC Health Check › Introducing Windows 11"));
+    wrap.appendChild(el("p", null, "Let's check if this PC meets the system requirements."));
+    wrap.appendChild(btn("Check now", "w-btn primary", function () { const before = ctx.before(); const r = INS.health(mm); w.res = r; act({ type: "osinst", op: "health", res: r, before: before }); draw(); }, "Check now: does this PC meet Windows 11's requirements?"));
+    if (w.res) {
+      const r = w.res;
+      const h = el("p", "hc-sum " + (r.ok ? "hc-ok" : "hc-bad"), r.ok ? "✓ This PC meets Windows 11 system requirements." : "✕ This PC doesn't currently meet Windows 11 system requirements."); h.setAttribute("role", "status"); wrap.appendChild(h);
+      wrap.appendChild(reqList(mm, r.rows));
+    }
+    return wrap;
+  }
+  /* ---------------------------- Windows 11 Setup, run inside Windows */
+  function drawW11Setup(w) {
+    const mm = m(), I = mm.inst, U = I.up; const wrap = el("div", "set w11s");
+    wrap.appendChild(el("h4", "set-h", "Windows 11 Setup"));
+    const go = function (op, d) { const before = ctx.before(); const r = INS.upgrade(mm, op, d); act(Object.assign({ type: "osinst", op: "up-" + op, res: r, before: before }, d || {})); draw(); };
+    const row = el("div", "dlg-row");
+    if (!U) {
+      wrap.appendChild(el("p", null, "Install Windows 11 from " + INS.MEDIA[I.media || "win11"].label + ". Setup checks this PC first."));
+      row.appendChild(btn("Next", "w-btn primary", function () { go("start"); }, "Start Windows 11 Setup"));
+    } else if (U.step === "blocked") {
+      const h = el("p", "hc-sum hc-bad", "✕ This PC doesn't currently meet Windows 11 system requirements."); h.setAttribute("role", "alert"); wrap.appendChild(h);
+      wrap.appendChild(reqList(mm, INS.requirements(mm).filter(function (r) { return !r.ok; })));
+      row.appendChild(btn("Close Setup", "w-btn primary", function () { go("close"); }));
+    } else if (U.step === "terms") {
+      wrap.appendChild(el("p", null, "Applicable notices and licence terms: Microsoft Software License Terms, Windows 11."));
+      row.appendChild(btn("Accept", "w-btn primary", function () { go("terms"); }, "Accept the licence terms"));
+    } else if (U.step === "keep") {
+      wrap.appendChild(el("p", null, "Choose what to keep"));
+      const g = el("div", "ws-radios"); g.setAttribute("role", "radiogroup"); g.setAttribute("aria-label", "Choose what to keep");
+      Object.keys(INS.KEEP).forEach(function (k) { const on = w.pick === k; const b = btn(INS.KEEP[k] + (on ? " (selected)" : ""), "ws-radio" + (on ? " on" : ""), function () { w.pick = k; draw(); }, INS.KEEP[k]); b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(on)); g.appendChild(b); });
+      wrap.appendChild(g);
+      wrap.appendChild(el("p", "ws-note", w.pick === "all" ? "Your personal files, apps and Windows settings will be kept." : w.pick === "files" ? "Your personal files will be kept. Apps and settings will be removed." : w.pick === "nothing" ? "Everything will be deleted, including files, apps and settings." : "Choose one to go on."));
+      row.appendChild(btn("Back", "w-btn", function () { go("back"); }));
+      row.appendChild(btn("Next", "w-btn primary", function () { if (w.pick) go("keep", { keep: w.pick }); }, "Next: keep what's selected"));
+    } else if (U.step === "ready") {
+      wrap.appendChild(el("p", null, "Ready to install: Windows 11 Pro. " + INS.KEEP[U.keep] + "."));
+      row.appendChild(btn("Back", "w-btn", function () { go("back"); }));
+      row.appendChild(btn("Install", "w-btn primary", function () { go("install"); }, "Install Windows 11"));
+    } else {
+      wrap.appendChild(el("p", null, "Windows 11 is ready to finish installing. Your PC will restart several times."));
+      row.appendChild(btn("Restart now", "w-btn primary", function () { restart("upgrade"); }, "Restart now to finish the upgrade"));
+    }
+    wrap.appendChild(row); return wrap;
   }
 
   /* ------------------------------- System Properties, System Protection */

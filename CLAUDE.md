@@ -1974,3 +1974,68 @@ each pushed when verified:
   rings, then through the screens: the unticked box and a mistyped key not
   counted, Home counted, Setup's MBR refusal in words; 4 plants); contrast
   (every install screen, the domain-join dialogs; 4 plants).
+
+### Extra training, OI2 and OI3: upgrading in place, and hardware that can't (5 October 2026)
+
+Build 2 of OS installation.
+- **New on the PC (install model only):**
+  - **PC Health Check**, in Start: Windows 11's requirements, in its own
+    words ("TPM 2.0 must be supported and enabled on this PC", "The
+    processor isn't currently supported for Windows 11"), ticked or
+    struck, marked three ways.
+  - **setup.exe from the installer USB**, run inside Windows (it's in
+    Start while the USB is in a Windows 10 PC). It checks the
+    requirements first and refuses in words. Otherwise: the licence,
+    then Choose what to keep (Keep personal files and apps / Keep
+    personal files only / Nothing), Ready, Install, Restart now.
+  - The upgrade finishes as the PC next starts from its drive. Files
+    and apps are kept, or the apps go, or (Nothing) everything goes and
+    the first-run setup starts.
+- **The requirements, as Microsoft has them:** Secure Boot *capable*
+  (UEFI), not switched on; TPM 2.0 present and on. OI1's wording about
+  Secure Boot was corrected to match.
+- **OI2 (walk, 10 items), Brenda's WS2, the last on Windows 10.** Its
+  hardware is supported (Mason says so), but Windows says it can't run
+  Windows 11. The steps:
+  1. PC Health Check: the TPM fails.
+  2. Restart, F2, and switch the TPM on in the firmware.
+  3. Health Check passes.
+  4. setup.exe from inside Windows, keeping personal files and apps.
+  5. The upgrade finishes; Brenda signs in.
+  6. PayWise opens.
+
+  **Counted:** keeping files only or nothing; a clean install from the
+  USB (Setup's option screen); Secure Boot off or Legacy boot; a
+  registry bypass typed at a prompt. **Never counted:** Health Check,
+  Setup refusing before the TPM is on, opening the firmware and
+  leaving, Back. Close question: why it said this PC couldn't run
+  Windows 11.
+- **OI3 (run, escalate), Rosa's WS5.** A Core i5-7500 (7th gen), not on
+  the supported list; TPM 2.0 and Secure Boot are on. Health Check (or
+  Setup's own refusal) shows it. Nothing at Tier 1 fixes a processor,
+  so: change nothing, force nothing, escalate.
+
+  **Counted:** a registry bypass, firmware security off, a clean
+  install that gets past Setup. **Never counted:** Setup's refusal,
+  opening the firmware. The close question is the escalation:
+  exactly what stops it.
+- **Found while building:**
+  - The Start menu stayed open across a restart, so the next press on
+    Start closed it.
+  - The ticket's walk button named the requester, not the PC's owner:
+    OI3, raised by Mason for Rosa's PC, said "Walk to Mason's desk". It
+    now names whose desk the PC is on.
+  - The page check walked over again while the last walk back was still
+    fading; it now waits.
+- **Checks:**
+  - logic: 81 tickets, 111 plants. OI2 and OI3 are table-driven: fault
+    on the PC, the right path free and finished, the wrong outcome
+    counted, six moves with rung 3 and no leak at every stage, near
+    misses one each, looking none, close question, note. Seven new
+    plants.
+  - page: LOAD (81; 14 crawl, 14 walk, 53 run); EXTRA (OI1–OI3); INSTALL
+    (OI2 through the screens to PayWise with no wrong moves; OI3's
+    Health Check names the processor and passes the TPM, and escalation
+    is accepted). Two new plants.
+  - contrast: Health Check failing the TPM and the processor, Setup's
+    refusal, Choose what to keep. One new plant.

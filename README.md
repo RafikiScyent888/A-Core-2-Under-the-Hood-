@@ -73,7 +73,7 @@ Live: https://rafikiscyent888.github.io/A-Core-2-Under-the-Hood-/
 | | Tickets | How much help |
 |---|---|---|
 | **Crawl** | L1, D1, M1, E1, R1, W1, P1, N1, WR1, CE1, CR1: the sims themselves; X1, MB1 and OI1, the first extra-training tickets | Mason walks you through every step and rings what to press |
-| **Walk** | L2, D2, M2, E2, R2, W2, P2, N2, WR2, CE2, CR2, X2, MB2 | A checklist that ticks itself off as you work, with "How?" pointers |
+| **Walk** | L2, D2, M2, E2, R2, W2, P2, N2, WR2, CE2, CR2, X2, MB2, OI2 | A checklist that ticks itself off as you work, with "How?" pointers |
 | **Run** | the rest, 3 to 6 of each | On your own, as in the exam. Mason checks in after your third wrong move |
 
 The L tickets come from the Application Launch sim (Tier 1), the D
@@ -151,7 +151,12 @@ does. Each ticket names the objective it covers.
     Pro from the installer USB: the Boot Menu, the edition the licence
     covers, an MBR disk that a UEFI PC refuses (delete, don't format), the
     PC's own name, Domain join instead, then joining RAFIKI from System
-    Properties. More OS-installation tickets follow.
+    Properties.
+  - OI2: "This PC can't run Windows 11", on supported hardware: the TPM
+    is switched off in the firmware. Switch it on, then upgrade in place,
+    keeping files and apps; PayWise must still work.
+  - OI3: a 7th-gen processor that isn't on Windows 11's supported list.
+    Check it, force nothing, escalate.
 
 The program's rules apply throughout:
 - unlimited tries

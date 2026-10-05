@@ -106,7 +106,7 @@ const OI1 = Object.assign({}, INSTALL, {
     if (act.op === "fw-save" && r.changed) {
       const f = I.fw;
       if (!f.uefi) return { guess: true, say: "Legacy (CSM) boot turns off UEFI, and Secure Boot with it. Windows 11 needs UEFI with Secure Boot: Setup will say this PC can't run it." };
-      if (!f.secureBoot) return { guess: true, say: "Secure Boot is off. Windows 11 needs it, and Mason asked you to leave the firmware's security settings alone." };
+      if (!f.secureBoot) return { guess: true, say: "Secure Boot is off. It stops untrusted code starting before Windows, and Mason asked you to leave the firmware's security settings alone." };
       if (!f.tpmOn) return { guess: true, say: "The TPM is switched off. Windows 11 needs TPM 2.0, and BitLocker keeps its keys in it." };
       return { guess: false };
     }
@@ -125,7 +125,7 @@ const OI1 = Object.assign({}, INSTALL, {
       media: ["You're at Dev's desk with a PC that has nothing on its drive. What do you have on your bench that can start a PC?", "A PC with an empty drive can only start from something else: the installer has to be plugged in."],
       power: ["Look at the tower's power light.", "Nothing happens on a switched-off PC."],
       boot: ["Read the start-up screen: it tells you which keys do what.", "The boot menu lets you start from a device once, without changing the firmware's settings."],
-      firmware: ["Read Mason's note about the firmware, then look at its security settings.", "Windows 11 needs UEFI boot, Secure Boot and TPM 2.0. Turning any of them off is never how to install it."],
+      firmware: ["Read Mason's note about the firmware, then look at its security settings.", "Windows 11 needs UEFI with Secure Boot and TPM 2.0. Turning security off is never how to install it."],
       setup: ["Read each Setup screen word for word, including the box you have to tick.", "Mason's note says whether you need a key: a digital licence activates by itself once the PC is online."],
       edition: ["Read Mason's note: what is WS3 licensed for?", "The edition you install has to be the one the licence covers, or Windows won't activate."],
       terms: ["Setup is waiting on the licence terms.", "Setup won't go on until the terms are accepted."],
@@ -170,7 +170,7 @@ const OI1 = Object.assign({}, INSTALL, {
         opt("Turn off Secure Boot so the USB will start", false, "The Windows installer is signed: Secure Boot lets it start."),
         opt("Clear the TPM in the firmware", false, "Nothing to do with starting from the USB, and it's needed later.")],
       firmware: [opt("Set the firmware back to UEFI, Secure Boot on, TPM on, and save", true),
-        opt("Leave it: Windows 11 installs without them", false, "Setup checks for UEFI, Secure Boot and TPM 2.0 before it installs."),
+        opt("Leave it: Windows 11 installs without them", false, "Setup checks for UEFI and TPM 2.0, and Mason asked for the security settings to stay as they were."),
         opt("Use a registry trick in Setup to skip the checks", false, "Unsupported, and the hardware supports them: they're just switched off."),
         opt("Install Windows 10 instead", false, "WS3 is licensed for Windows 11 Pro."),
         opt("Clear the TPM", false, "It's switched off, not faulty."),
@@ -209,7 +209,7 @@ const OI1 = Object.assign({}, INSTALL, {
         opt("Go back and pick Home to be safe", false, "Pro is the licence."),
         opt("Go back and format first", false, "Setup prepares the disk itself."),
         opt("Take the USB out to speed it up", false, "Setup copies from the USB."),
-        opt("Turn off Secure Boot first", false, "Not needed, and Windows 11 needs it."),
+        opt("Turn off Secure Boot first", false, "Not needed, and Mason asked for it to stay on."),
         opt("Restart and start again", false, "Everything is ready.")],
       restart: [opt("Restart and let the PC start from the drive", true),
         opt("Press F12 and choose the USB again", false, "Setup would start again from the beginning."),
@@ -309,10 +309,220 @@ const OI1 = Object.assign({}, INSTALL, {
   note: { must: [["mbr", "gpt"], ["delete"], ["pro"], ["ws3-dev"], ["rafiki", "domain"], ["sign"]],
     tip: "The disk problem and what you did about it, the edition and why, the name, the domain join, and that Dev signed in." }
 });
+OI1.closeAdvice = "Dev is signed in on the domain. Now answer Mason's question on the ticket: why wouldn't Setup install to the vendor's partition?";
 OI1.advice = function (fleet) {
   const s = stage(fleet.WS3);
   if (ORDER.indexOf(s) <= ORDER.indexOf("restart")) return "Everything on this job happens at Dev's desk: the PC is off and its drive is empty. The installer is on your bench. Read every screen word for word.";
   if (ORDER.indexOf(s) <= ORDER.indexOf("privacy")) return "Windows' first-run setup asks one question per screen. Mason's note has the answers that matter: the name, and that it goes on the RAFIKI domain.";
   return "Windows is in. Mason's note has what's left: the domain, and who joins PCs to it. Then Dev signs in.";
 };
-export const INSTALL_TICKETS = [OI1];
+
+/* ---------------------------------------------------------------------
+   OI2 (walk): Brenda's PC, the last on Windows 10. Supported hardware,
+   but its TPM is switched off in the firmware, so Windows says it can't
+   run Windows 11. Switch it on, then upgrade IN PLACE from the USB,
+   keeping files and apps; Brenda signs in and PayWise works.
+   --------------------------------------------------------------------- */
+function lastEv(m, test) { const e = (m.events || []).filter(test); return e.length ? e[e.length - 1].at : -1; }
+const BYPASS = /allowupgradeswithunsupportedtpmorcpu|bypasstpmcheck|bypasscpucheck|bypasssecurebootcheck|labconfig|\/product server/i;
+export const ORDER2 = ["power", "tpm", "media", "upgrade", "restart", "signin", "test", "done"];
+function oi2core(m) {
+  const I = m.inst, U = I.up || {};
+  if (m.power !== "on") return "power";
+  if (!U.applied) {
+    if (!I.fw.tpmOn) return "tpm";
+    if (U.copied) return "restart";
+    if (!I.media) return "media";
+    return "upgrade";
+  }
+  if (!I.signedIn) return "signin";
+  const ap = lastEv(m, function (e) { return e.kind === "inst-up-applied"; });
+  if (!(lastEv(m, function (e) { return e.kind === "launch" && e.app === "PayWise" && e.result === "ok"; }) > ap)) return "test";
+  return "done";
+}
+export function oi2State(m) {
+  const I = m.inst, U = I.up || {}, c = oi2core(m); let st = c, cap = ORDER2.length;
+  const S = I.setup || {};
+  if ((U.applied && U.keep !== "all") || S.deleted || S.copied || (S.step && ["lang", "option", "unsupported", "repair"].indexOf(S.step) < 0)) { st = "lost"; cap = ORDER2.indexOf("upgrade"); }
+  else if (!I.fw.uefi || !I.fw.secureBoot) { st = "firmware"; cap = ORDER2.indexOf("tpm"); }
+  else if (U.keep && U.keep !== "all" && !U.applied) { st = "keep"; cap = ORDER2.indexOf("upgrade"); }
+  return { stage: st, score: Math.min(ORDER2.indexOf(c), cap) };
+}
+function oi2(m) { return oi2State(m).stage; }
+const OI2 = Object.assign({}, INSTALL, {
+  id: "OI2", machine: "WS2",
+  title: "\"This PC can't run Windows 11\": Brenda's PC needs upgrading",
+  from: "Brenda Smith, Sales",
+  brief: ["Hi, Brenda here. Windows keeps telling me this PC can't run Windows 11, and Mason says mine is the last one still on Windows 10. Can you sort it this week?",
+    "Please don't lose anything. My files, and PayWise exactly as it is, with all my settings in it. It took me a month to get the reports right.",
+    "Mason's note on the ticket: WS2 is an OptiTower 7020 with a 12th-gen Core i5, the same as the PCs we've already moved to Windows 11, so its hardware is supported. Upgrade it in place from the installer USB on your bench, not a clean install. Leave Secure Boot as it is."],
+  setup: function (fleet) {
+    INS.prepare(fleet.WS2, { os: { name: "Windows 10 Pro", version: "22H2" }, fw: { tpmOn: false }, licence: "Windows 11 Pro" });
+    fleet.WS2.clock = "Oct 6 10:05";
+  },
+  stage: function (fleet) { return oi2(fleet.WS2); },
+  goal: function (fleet) { return oi2(fleet.WS2) === "done"; },
+  scoreFn: function (fleet) { return oi2State(fleet.WS2).score; },
+  notReady: function (fleet) {
+    const s = oi2(fleet.WS2);
+    if (s === "lost") return "Brenda: \"Where's PayWise? Where are my files?\"";
+    if (s === "test") return "Mason: \"Did you open PayWise after the upgrade? That's the one thing she asked for.\"";
+    if (s === "signin") return "Brenda comes back to her desk: it's waiting for someone to sign in.";
+    return "Brenda's PC is still on Windows 10.";
+  },
+  judge: function (act, fleet, before) {
+    const m = fleet.WS2, I = m.inst;
+    if (act.machine && act.machine !== "WS2") return { guess: false };
+    if (act.type === "cmd" && BYPASS.test(String(act.line || ""))) return { guess: true, say: "That forces Windows 11 past its own checks. WS2's hardware is supported: something on it is only switched off. Find what, and put it right." };
+    if (act.type !== "osinst") return { guess: false };
+    const r = act.res || {};
+    if (act.op === "fw-save" && r.changed) {
+      if (!I.fw.uefi) return { guess: true, say: "Legacy (CSM) boot: Windows was installed for UEFI, and it won't start this way. Windows 11 needs UEFI, too." };
+      if (!I.fw.secureBoot) return { guess: true, say: "Secure Boot is off, and Mason asked you to leave it alone." };
+      return { guess: false };
+    }
+    if (act.op === "up-keep" && act.keep !== "all") return { guess: true, say: INS.KEEP[act.keep] + ": " + (act.keep === "files" ? "PayWise and Brenda's settings would be removed." : "everything on the PC would be deleted.") + " She asked for everything to stay." };
+    if (act.op === "ws-option" && r.ok) return { guess: true, say: "Starting the PC from the USB is a clean install: Setup has just said everything on the drive will be deleted. An upgrade that keeps her files and apps runs from inside Windows." };
+    return { guess: false };
+  },
+  hints: function (fleet) {
+    const H = {
+      power: ["Look at the tower's power light.", "Nothing happens on a switched-off PC."],
+      tpm: ["Mason says the hardware is supported, and Windows says it isn't. Ask Windows exactly which requirement fails.", "A requirement can fail because the hardware lacks it, or because it's there and switched off before Windows starts."],
+      media: ["The upgrade comes from the installer on your bench.", "Setup has to be on the PC before it can run."],
+      upgrade: ["Run the installer from inside Windows, and read every screen before you press Next.", "An in-place upgrade keeps what the user asked to keep. A PC started from the installer does a clean install."],
+      keep: ["Read Brenda's message again: what did she ask you to keep?", "What Setup keeps is chosen once, before it copies a thing."],
+      restart: ["Setup has copied Windows 11. It finishes as the PC starts.", "An upgrade finishes from the drive, as Windows starts."],
+      signin: ["The PC is waiting at its sign-in screen.", "The user signs in with their own account after an upgrade."],
+      test: ["What did Brenda say mattered most?", "Check the user's own program works before you close the ticket."],
+      firmware: ["Read Mason's note about the firmware, then look at its boot settings.", "Change only what Windows said it needs. Leave the rest as it was."],
+      lost: ["What's on Brenda's PC now, compared with what she asked to keep?", "Go back to the last point you had right."],
+      done: ["Windows 11 is on, and PayWise works. Close it out on Help Desk.", "The close question is about why Windows said this PC couldn't run Windows 11."]
+    };
+    return H[oi2(fleet.WS2)];
+  },
+  moves: function (fleet) {
+    const X = {
+      power: [opt("Press the power button", true), opt("Connect to it remotely", false, "It's off."), opt("Plug in the USB and wait", false, "It's off."), opt("Check the network cable", false, "It's off."), opt("Hold the power button for ten seconds", false, "That forces a running PC off."), opt("Escalate", false, "Switch it on.")],
+      tpm: [opt("Restart into the firmware and switch the TPM on, then save", true),
+        opt("Add the registry key that lets Setup skip the TPM check", false, "The TPM is there and switched off. A bypass leaves the PC unsupported."),
+        opt("Clean install Windows 11 from the USB", false, "Deletes her files and PayWise, and the TPM is still off."),
+        opt("Turn off Secure Boot so Setup goes on", false, "The TPM is what fails, and Mason asked you to leave Secure Boot."),
+        opt("Clear the TPM from Windows Security", false, "It's switched off in the firmware: Windows can't see it to clear."),
+        opt("Escalate: the PC can't run Windows 11", false, "Its hardware is supported, as Mason said.")],
+      media: [opt("Plug the installer USB into Brenda's PC", true), opt("Start the PC from the USB with F12", false, "That's a clean install."), opt("Download Windows 11 from Edge", false, "The installer is on your bench."), opt("Run Windows Update again", false, "Setup from the USB is the job."), opt("Escalate", false, "You have everything you need."), opt("Copy the USB to Brenda's Documents", false, "Run it from the USB.")],
+      upgrade: [opt("Run setup.exe from the USB inside Windows, keeping files and apps", true),
+        opt("Restart and boot from the USB with F12", false, "That's a clean install."),
+        opt("Run setup.exe and keep personal files only", false, "PayWise and her settings would go."),
+        opt("Run setup.exe and keep nothing", false, "Everything would be deleted."),
+        opt("Add the registry key that skips the checks", false, "The PC meets the requirements now."),
+        opt("Turn off Secure Boot first", false, "Not needed, and Mason asked you to leave it.")],
+      keep: [opt("Go back and choose Keep personal files and apps", true), opt("Install with personal files only", false, "PayWise would go."), opt("Install, then reinstall PayWise afterwards", false, "Her settings and reports would still be lost."), opt("Choose Nothing", false, "Everything would be deleted."), opt("Close Setup and clean install", false, "Worse."), opt("Escalate", false, "Choose again.")],
+      restart: [opt("Restart and let the PC start from the drive", true), opt("Press F12 and choose the USB", false, "That starts a clean install."), opt("Switch the firmware to Legacy (CSM)", false, "Windows wouldn't start."), opt("Take the USB out and shut down", false, "The upgrade finishes as it starts."), opt("Run Setup again", false, "It's ready."), opt("Escalate", false, "It's nearly done.")],
+      signin: [opt("Let Brenda sign in", true), opt("Sign in as itadmin to check it", false, "Brenda's own account is the test."), opt("Restart again", false, "It's ready."), opt("Reset Brenda's password", false, "Nothing is wrong with it."), opt("Resolve without signing in", false, "Nobody has seen it work."), opt("Run Setup again", false, "It's done.")],
+      test: [opt("Open PayWise and check it works", true), opt("Resolve: Windows 11 is on", false, "She asked for PayWise most."), opt("Reinstall PayWise to be safe", false, "Her settings would go."), opt("Run PC Health Check again", false, "Windows 11 is on: test what she uses."), opt("Ask Brenda to test it next week", false, "Test it now."), opt("Restart again", false, "Not needed.")],
+      firmware: [opt("Put the boot settings back as they were, and save", true), opt("Leave them: Windows 11 doesn't need them", false, "Windows needs UEFI to start, and Mason asked for Secure Boot."), opt("Clean install", false, "Her files would go."), opt("Escalate", false, "Put the settings back."), opt("Clear the TPM", false, "Not the problem."), opt("Resolve", false, "It's still Windows 10.")],
+      lost: [opt("Revert to your last snapshot", true), opt("Reinstall PayWise from Software Center", false, "Her settings and reports would be gone."), opt("Restore her files from OneDrive", false, "The snapshot puts everything back exactly."), opt("Resolve the ticket", false, "Her things are gone."), opt("Escalate", false, "The snapshot fixes it."), opt("Tell Brenda to set PayWise up again", false, "She asked you not to lose it.")],
+      done: [opt("Resolve the ticket", true), opt("Turn the TPM off again", false, "Windows 11 needs it."), opt("Reinstall PayWise", false, "It works."), opt("Escalate", false, "It's done at Tier 1."), opt("Run the upgrade again", false, "It's done."), opt("Restart to be sure", false, "Not needed.")]
+    };
+    return X[oi2(fleet.WS2)];
+  },
+  closeWhere: "Think about what Health Check said before and after you changed the firmware.",
+  close: { prompt: "Brenda asks: \"Why did it say my PC couldn't run Windows 11, if it could?\" What do you tell her?", options: [
+    opt("Its TPM was switched off in the firmware, so Windows couldn't see it", true),
+    opt("Its processor was too old until Windows Update fixed the processor's list", false, "Health Check passed the processor from the start. Only the TPM failed."),
+    opt("Secure Boot was off, so Windows 11 refused to install over Windows 10", false, "Secure Boot was on throughout, and you didn't change it."),
+    opt("Windows 10 had used up the disk, and Windows 11 needs 64 GB free", false, "The storage check passed. The TPM was the only failure."),
+    opt("The PC needed a newer TPM chip fitted before it could run Windows 11", false, "Nothing was fitted. The TPM was there, switched off; switching it on fixed it."),
+    opt("Windows 10 blocks Windows 11 until its own support has fully ended", false, "Nothing blocked it but the switched-off TPM.")] },
+  note: { must: [["tpm"], ["firmware", "bios", "uefi", "f2"], ["keep personal files and apps", "files and apps", "in place", "in-place"], ["paywise"], ["windows 11"]],
+    tip: "Why Windows said no, what you changed in the firmware, how you upgraded (and what it kept), and that PayWise works." },
+  closeAdvice: "Brenda's on Windows 11 with PayWise working. Now answer her question on the ticket.",
+  advice: function (fleet) { const s = oi2(fleet.WS2); return s === "tpm" ? "Mason says the hardware is supported. Find out exactly which requirement Windows says fails, on Brenda's PC, then think about where that's switched on." : "Brenda's own words are the checklist: her files, PayWise, her settings. Upgrade from inside Windows, and read every screen."; }
+});
+
+/* ---------------------------------------------------------------------
+   OI3 (run): Rosa's reception PC has a 7th-gen Core i5, which isn't on
+   Windows 11's supported list. TPM 2.0 and Secure Boot are on. It can't
+   be upgraded properly at Tier 1: find out exactly why, change nothing,
+   and escalate. Forcing it past the checks is the near miss.
+   --------------------------------------------------------------------- */
+export const ORDER3 = ["power", "check", "escalate"];
+export function oi3State(m) {
+  const I = m.inst;
+  const looked = lastEv(m, function (e) { return e.kind === "inst-health" || e.kind === "inst-up-blocked"; }) >= 0;
+  const c = m.power !== "on" ? "power" : !looked ? "check" : "escalate";
+  if (!I.fw.uefi || !I.fw.secureBoot || !I.fw.tpmOn) return { stage: "firmware", score: Math.min(ORDER3.indexOf(c), 1) };
+  if ((I.setup && (I.setup.deleted || I.setup.copied)) || (I.up && I.up.copied)) return { stage: "lost", score: 0 };
+  return { stage: c, score: ORDER3.indexOf(c) };
+}
+function oi3(m) { return oi3State(m).stage; }
+const OI3 = Object.assign({}, INSTALL, {
+  id: "OI3", machine: "WS5", outcome: "escalate",
+  title: "Reception PC still on Windows 10: upgrade it",
+  from: "Mason, Team Lead",
+  brief: ["Mason here. Rosa's reception PC, WS5, is still on Windows 10. Upgrade it in place the way you did Brenda's: her files and the visitor booking app kept.",
+    "Rosa's fine with it as long as the booking app still works afterwards. She's at the front desk all day, so you can work at her PC.",
+    "WS5 is older than the rest: it came with the reception desk when we moved in."],
+  setup: function (fleet) {
+    INS.prepare(fleet.WS5, { os: { name: "Windows 10 Pro", version: "22H2" }, hw: { model: "OptiTower 5050", cpu: "Intel Core i5-7500 (7th gen)", cpuOK: false, ramGB: 8 }, licence: "Windows 10 Pro" });
+    fleet.WS5.clock = "Oct 6 14:20";
+  },
+  stage: function (fleet) { return oi3(fleet.WS5); },
+  goal: function (fleet) { return oi3(fleet.WS5) === "escalate"; },
+  scoreFn: function (fleet) { return oi3State(fleet.WS5).score; },
+  notReady: function (fleet) { const s = oi3(fleet.WS5); return s === "check" || s === "power" ? "Tier 2 asks: \"What exactly stops it? Did you check the PC against Windows 11's requirements?\"" : s === "firmware" ? "Tier 2 asks why WS5's firmware security settings were changed." : "Tier 2 asks what happened to Rosa's PC."; },
+  judge: function (act, fleet, before) {
+    const m = fleet.WS5, I = m.inst;
+    if (act.machine && act.machine !== "WS5") return { guess: false };
+    if (act.type === "cmd" && BYPASS.test(String(act.line || ""))) return { guess: true, say: "That forces Windows 11 onto a processor Microsoft doesn't support. Such a PC isn't entitled to updates, and may stop getting them. That's not a Tier 1 decision to make by yourself." };
+    if (act.type !== "osinst") return { guess: false };
+    const r = act.res || {};
+    if (act.op === "fw-save" && r.changed && (!I.fw.uefi || !I.fw.secureBoot || !I.fw.tpmOn)) return { guess: true, say: "Turning firmware security off doesn't make the processor supported, and Windows 11 needs UEFI and TPM 2.0 on." };
+    if (act.op === "ws-option" && r.ok) return { guess: true, say: "A clean install would delete Rosa's files and the booking app." };
+    return { guess: false };
+  },
+  hints: function (fleet) {
+    const H = {
+      power: ["Look at the tower's power light.", "Nothing happens on a switched-off PC."],
+      check: ["Before you change anything, find out whether this PC can run Windows 11 at all, and why.", "Windows 11 has hardware requirements. Check every one against this PC."],
+      escalate: ["Read what failed. Is it something switched off, or the hardware itself?", "A requirement the hardware itself doesn't meet can't be fixed with a setting. Changing hardware, or staying on an old version, is a decision above Tier 1."],
+      firmware: ["Look at what you changed in the firmware.", "Put back what you changed: security settings aren't the problem here."],
+      lost: ["What's on Rosa's PC now?", "Go back to the last point you had right."]
+    };
+    return H[oi3(fleet.WS5)];
+  },
+  moves: function (fleet) {
+    const X = {
+      power: [opt("Press the power button", true), opt("Connect to it remotely", false, "It's off."), opt("Plug in the USB", false, "It's off."), opt("Check the network cable", false, "It's off."), opt("Escalate now", false, "Check it first."), opt("Resolve", false, "Nothing is done.")],
+      check: [opt("Run PC Health Check on WS5 and read every line", true),
+        opt("Add the registry key that skips the CPU check, then run Setup", false, "Forcing it past the checks, before you even know why it fails."),
+        opt("Clean install Windows 11 from the USB", false, "Deletes Rosa's files and the booking app."),
+        opt("Turn the TPM off and on in the firmware", false, "Guessing at a setting before you know what fails."),
+        opt("Escalate without checking", false, "Tier 2 will ask what exactly fails."),
+        opt("Resolve: tell Mason it's done", false, "It's still on Windows 10.")],
+      escalate: [opt("Escalate with what Health Check found: the processor isn't supported", true),
+        opt("Add the registry key that skips the CPU check", false, "Unsupported, and the PC may stop getting updates."),
+        opt("Use a modified installer that skips the checks", false, "Same: unsupported, and not your decision."),
+        opt("Turn off Secure Boot so Setup goes on", false, "The processor fails, not Secure Boot."),
+        opt("Clean install Windows 11 from the USB", false, "Setup refuses the same processor, and Rosa's files go."),
+        opt("Resolve: Windows 10 is fine as it is", false, "Windows 10 is out of support: someone has to decide what happens.")],
+      firmware: [opt("Put the firmware settings back and save", true), opt("Leave them", false, "They weren't the problem."), opt("Escalate as it is", false, "Put back what you changed first."), opt("Clean install", false, "Rosa's files would go."), opt("Clear the TPM", false, "Not the problem."), opt("Resolve", false, "Nothing is done.")],
+      lost: [opt("Revert to your last snapshot", true), opt("Reinstall the booking app", false, "The snapshot is exact."), opt("Resolve", false, "Her things are gone."), opt("Escalate as it is", false, "Put it back first."), opt("Restore from OneDrive", false, "The snapshot is exact."), opt("Set it up again", false, "The snapshot is exact.")]
+    };
+    return X[oi3(fleet.WS5)];
+  },
+  closeWhere: "Think about exactly which requirement failed, and whether a setting could change it.",
+  close: { prompt: "Write it up for Tier 2: what stops WS5 moving to Windows 11?", options: [
+    opt("Its Core i5-7500 isn't on Windows 11's supported processor list", true),
+    opt("Its TPM is switched off in the firmware, which Tier 1 isn't allowed to change", false, "Health Check passed the TPM: it's on. That was Brenda's PC, not Rosa's."),
+    opt("Secure Boot is off, and it needs a firmware update before it can be turned on", false, "Health Check passed Secure Boot."),
+    opt("It has 8 GB of memory, and Windows 11 needs at least 16 GB to install", false, "Windows 11 needs 4 GB. Memory passed."),
+    opt("Its disk is MBR, and needs converting to GPT before the upgrade", false, "Nothing said that: it starts in UEFI mode, and the disk check passed."),
+    opt("Its Windows 10 licence doesn't cover an upgrade to Windows 11 Pro", false, "Licensing wasn't the problem. The processor check failed.")] },
+  note: { must: [["i5-7500", "7th", "processor", "cpu"], ["supported", "list"], ["health check", "requirements"], ["tpm", "secure boot"]],
+    tip: "Exactly which requirement failed and how you know, that the rest (TPM, Secure Boot) passed, and that nothing was forced or changed." },
+  closeAdvice: "Now write it up for Tier 2: exactly what stops WS5 moving to Windows 11.",
+  advice: function () { return "Before you change anything on Rosa's PC, find out whether it can run Windows 11 at all, and exactly why not. Then decide whether that's something Tier 1 can fix."; }
+});
+export const INSTALL_TICKETS = [OI1, OI2, OI3];

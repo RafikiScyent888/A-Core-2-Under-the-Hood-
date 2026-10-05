@@ -183,6 +183,8 @@ const NOTES = {
   MB3: "Connected, no internet on every network: Private DNS was set to dns.fastsurf-free.net from the faster browsing article. Set Private DNS back to Automatic. Chrome loaded a page.",
   MB4: "The security update needed 3.1 GB and only 0.9 GB was free. Deleted September's site videos from the phone (backed up in OneDrive), kept this week's (only copies). The update installed.",
   MB5: "PDF Scanner Free, installed from a website through Chrome, was adware. Uninstalled it, turned off Install unknown apps for Chrome, and a Play Protect scan found nothing else. Told Farah to use the Play Store.",
+  OI2: "PC Health Check said TPM 2.0 must be supported and enabled: the TPM was switched off in the firmware. Turned it on with F2, saved; Health Check passed. Upgraded in place with setup.exe from the USB, keep personal files and apps. Now Windows 11 Pro; Brenda signed in and PayWise opens.",
+  OI3: "PC Health Check on WS5: the processor isn't currently supported (Core i5-7500, 7th gen, not on the supported list). TPM 2.0, Secure Boot, memory and disk all pass. Changed nothing and forced nothing: escalated for a replacement or ESU decision.",
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB6: "Outlook's background battery use was Restricted and its background data was off, so mail waited until it opened. Set battery to Optimized and turned background data on. A test email arrived by itself.",
   X2: "Opened File History's backups: the 1 October copy of deploy.yml is version 2.3.1, the hotfix. Used Restore to put a copy on Dev's Desktop; today's 2.4.0 in Documents was kept, not overwritten. Opened it to check.",
@@ -729,12 +731,83 @@ const OI = (D) => { const I = D.IN, J = "Bench-Tech-2026";
     ["a mistyped domain name", at("join RAFIKI"), (E) => ir(E, { op: "rename", name: "WS3-DEV", member: "domain", domain: "RAFKI" }, (m) => I.changeName(m, { name: "WS3-DEV", member: "domain", domain: "RAFKI", user: "itadmin", pass: J }))]];
   return { S, near, look, at };
 };
-/* the engine reads tickets.js's own list: while OI1 is checked, the list
-   holds the ticket under test, so a planted ticket is the one judged */
+/* the engine reads tickets.js's own list: while an OI ticket is checked,
+   the list holds the ticket under test, so a planted ticket is judged */
+function withLive(D, id, fn) {
+  const t = D.TICKETS.find((x) => x.id === id); if (!t) return false;
+  const i = TK.TICKETS.findIndex((x) => x.id === id), keep = TK.TICKETS[i]; TK.TICKETS[i] = t;
+  try { fn(t); } finally { TK.TICKETS[i] = keep; } return true;
+}
 function installChecks(D, F) {
-  const t = D.TICKETS.find((x) => x.id === "OI1"); if (!t) { F("EXTRA OI1: missing"); return; }
-  const i = TK.TICKETS.findIndex((x) => x.id === "OI1"), keep = TK.TICKETS[i]; TK.TICKETS[i] = t;
-  try { installRun(D, F, t); } finally { TK.TICKETS[i] = keep; }
+  if (!withLive(D, "OI1", (t) => installRun(D, F, t))) F("EXTRA OI1: missing");
+  Object.keys(XI).forEach((id) => { if (!withLive(D, id, (t) => instTable(D, F, t, XI[id](D)))) F("EXTRA " + id + ": missing"); });
+}
+/* OI2 and OI3, table-driven: the fault on the PC at the start, the right
+   path (no wrong moves, the right outcome, not without its last step),
+   six moves with rung 3 and no leak at every stage, each near miss one,
+   looking none, the close question, the note */
+function xr2(E, mid, a, fn) { const b = E.before(); const res = fn(E.fleet()[mid]); E.onAct(Object.assign({ machine: mid, before: b, res }, a)); return res; }
+const XI = {
+  OI2: (D) => { const I = D.IN, W = "WS2", o = (op, fn, a) => (E) => xr2(E, W, Object.assign({ type: "osinst", op }, a || {}), fn);
+    const restart = (E) => { const b = E.before(); const m = E.fleet()[W]; M.shutdown(m); M.boot(m); E.onAct({ machine: W, type: "power", op: "restart", before: b }); };
+    const S = [o("health", (m) => I.health(m)), restart, o("key", (m) => I.key(m, "F2"), { key: "F2" }), o("fw-set", (m) => I.setFw(m, "tpmOn", true), { key: "tpmOn", value: true }), o("fw-save", (m) => I.saveFw(m)),
+      o("key", (m) => I.key(m, "continue"), { key: "continue" }), o("health", (m) => I.health(m)), o("media-in", (m) => I.insertMedia(m, "win11")),
+      o("up-start", (m) => I.upgrade(m, "start")), o("up-terms", (m) => I.upgrade(m, "terms")), o("up-keep", (m) => I.upgrade(m, "keep", { keep: "all" }), { keep: "all" }), o("up-install", (m) => I.upgrade(m, "install")),
+      restart, o("key", (m) => I.key(m, "continue"), { key: "continue" }), o("signin", (m) => I.signIn(m)),
+      (E) => xr2(E, W, { type: "launch", app: "PayWise" }, (m) => M.launchApp(m, "PayWise", "start"))];
+    return { mid: W, S, leak: [/\btpm\b.*\bon\b/i, /\bF2\b/i, /keep personal files and apps/i, /paywise/i, /setup\.exe/i],
+      exh: (m) => (I.meets(m) ? "the PC already meets the requirements" : !m.inst.hw.cpuOK || m.inst.hw.tpm !== "2.0" ? "the hardware isn't supported" : /Windows 10/.test(m.edition) ? null : "it isn't on Windows 10"),
+      after: (m) => (!M.appByName(m, "PayWise") ? "PayWise was lost" : m.edition !== "Windows 11 Pro" ? "it isn't Windows 11 Pro" : null),
+      near: [["keep personal files only", 11, [o("up-keep", (m) => I.upgrade(m, "keep", { keep: "files" }), { keep: "files" })]],
+        ["keep nothing", 11, [o("up-keep", (m) => I.upgrade(m, "keep", { keep: "nothing" }), { keep: "nothing" })]],
+        ["Secure Boot off, saved", 4, [o("fw-set", (m) => I.setFw(m, "secureBoot", false), { key: "secureBoot", value: false }), o("fw-save", (m) => I.saveFw(m))]],
+        ["a clean install from the USB", 8, [restart, o("key", (m) => I.key(m, "F12"), { key: "F12" }), o("bootfrom", (m) => I.bootFrom(m, "usb"), { entry: "usb" }), o("ws-lang", (m) => I.ws(m, "lang")), o("ws-option", (m) => I.ws(m, "option", { choice: "install", agree: true }), { choice: "install" })]],
+        ["the registry bypass", 1, [(E) => xr2(E, W, { type: "cmd", line: "reg add HKLM\\SYSTEM\\Setup\\MoSetup /v AllowUpgradesWithUnsupportedTPMOrCPU /t REG_DWORD /d 1" }, () => ({}))]]],
+      look: [["Setup before the TPM is on (refused)", 1, [o("media-in", (m) => I.insertMedia(m, "win11")), o("up-start", (m) => I.upgrade(m, "start")), o("up-close", (m) => I.upgrade(m, "close"))]],
+        ["Health Check, the firmware opened and left", 1, [o("health", (m) => I.health(m)), restart, o("key", (m) => I.key(m, "F2"), { key: "F2" }), o("fw-discard", (m) => I.discardFw(m))]],
+        ["Back in Setup", 10, [o("up-back", (m) => I.upgrade(m, "back"))]]] }; },
+  OI3: (D) => { const I = D.IN, W = "WS5", o = (op, fn, a) => (E) => xr2(E, W, Object.assign({ type: "osinst", op }, a || {}), fn);
+    const restart = (E) => { const b = E.before(); const m = E.fleet()[W]; M.shutdown(m); M.boot(m); E.onAct({ machine: W, type: "power", op: "restart", before: b }); };
+    const S = [o("health", (m) => I.health(m))];
+    return { mid: W, S, leak: [/i5-7500/i, /escalat/i, /tier 2/i, /health check/i],
+      exh: (m) => (I.meets(m) ? "the PC meets the requirements" : m.inst.hw.cpuOK ? "the processor is supported" : !m.inst.fw.tpmOn || !m.inst.fw.secureBoot ? "something is merely switched off" : null),
+      after: (m) => (m.edition !== "Windows 10 Pro" ? "the PC was changed" : null),
+      near: [["the registry bypass", 1, [(E) => xr2(E, W, { type: "cmd", line: "reg add HKLM\\SYSTEM\\Setup\\MoSetup /v AllowUpgradesWithUnsupportedTPMOrCPU /t REG_DWORD /d 1" }, () => ({}))]],
+        ["Secure Boot off, saved", 0, [restart, o("key", (m) => I.key(m, "F2"), { key: "F2" }), o("fw-set", (m) => I.setFw(m, "secureBoot", false), { key: "secureBoot", value: false }), o("fw-save", (m) => I.saveFw(m))]],
+        ["the TPM off, saved", 0, [restart, o("key", (m) => I.key(m, "F2"), { key: "F2" }), o("fw-set", (m) => I.setFw(m, "tpmOn", false), { key: "tpmOn", value: false }), o("fw-save", (m) => I.saveFw(m))]]],
+      look: [["Setup's own check (refused)", 0, [o("media-in", (m) => I.insertMedia(m, "win11")), o("up-start", (m) => I.upgrade(m, "start")), o("up-close", (m) => I.upgrade(m, "close"))]],
+        ["Setup from the USB (refused: can't run Windows 11)", 0, [o("media-in", (m) => I.insertMedia(m, "win11")), restart, o("key", (m) => I.key(m, "F12"), { key: "F12" }), o("bootfrom", (m) => I.bootFrom(m, "usb"), { entry: "usb" }), o("ws-lang", (m) => I.ws(m, "lang")), o("ws-option", (m) => I.ws(m, "option", { choice: "install", agree: true }), { choice: "install" })]],
+        ["the firmware opened and left", 0, [restart, o("key", (m) => I.key(m, "F2"), { key: "F2" }), o("fw-discard", (m) => I.discardFw(m))]]] }; }
+};
+function instTable(D, F, t, X) {
+  const P = "EXTRA " + t.id + ": ", fresh = () => { const E = D.createEngine(memStore()); E.openTicket(t.id); return E; };
+  { const f = D.makeFleet(); t.setup(f); if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts"); const e = X.exh(f[X.mid]); if (e) F(P + "EXHIBITED: " + e); }
+  const E = fresh(), seen = new Set();
+  const stageCheck = () => {
+    const s = t.stage(E.fleet()), mv = t.moves(E.fleet()); seen.add(s);
+    if (!mv || mv.length !== 6 || mv.filter((x) => x.correct).length !== 1 || mv.some((x) => !x.correct && !String(x.why || "").trim()) || new Set(mv.map((x) => x.label)).size !== 6) { F(P + "SIX: the moves at stage " + s + " are not six, one right, a reason on each wrong one"); return; }
+    const rm = mv.find((x) => x.correct).label.toLowerCase(), h = t.hints(E.fleet());
+    if (!h || h.length < 2) F(P + "NO LEAK: no rung 1 and rung 2 at stage " + s);
+    (h || []).forEach((line, i) => { if (String(line).toLowerCase().indexOf(rm) >= 0) F(P + "NO LEAK: rung " + (i + 1) + " at stage " + s + " contains the right move"); if (s !== "done") X.leak.forEach((re) => { if (re.test(line)) F(P + "NO LEAK: rung " + (i + 1) + " at stage " + s + " names the answer (" + re + ")"); }); });
+    const saved = E.T().guesses; E.T().guesses = 7; const g = E.guidance(); E.T().guesses = saved;
+    const alive = (g.moves || []).filter((x) => !x.struck);
+    if (g.rung !== 3 || alive.length !== 2 || !alive.some((x) => x.correct)) F(P + "LADDER: rung 3 at stage " + s + " does not leave two alive with the right one among them");
+  };
+  stageCheck(); X.S.forEach((go) => { go(E); stageCheck(); });
+  if (!t.goal(E.fleet())) F(P + "SOLVABLE: the right path does not meet the goal (stage " + t.stage(E.fleet()) + ")");
+  if (E.T().guesses) F(P + "SOLVABLE: the right path cost " + E.T().guesses + " wrong moves (" + E.T().says.join(" | ") + ")");
+  { const a = X.after(E.fleet()[X.mid]); if (a) F(P + "SOLVABLE: " + a); }
+  if (!E.submit(t.outcome).ok) F(P + "SOLVABLE: " + t.outcome + " refused after the right path");
+  { const E2 = fresh(); X.S.slice(0, -1).forEach((go) => go(E2)); if (t.goal(E2.fleet())) F(P + "SOLVABLE: closes without the last step of the path"); }
+  { const E2 = fresh(); E2.submit(t.outcome === "escalate" ? "resolve" : "escalate"); if (E2.T().guesses !== 1) F(P + "JUDGE: the wrong outcome wasn't counted"); }
+  X.near.forEach(([label, n, steps]) => { const E3 = fresh(); X.S.slice(0, n).forEach((go) => go(E3)); const g0 = E3.T().guesses; steps.forEach((go) => go(E3)); if (E3.T().guesses - g0 !== 1) F(P + "JUDGE: " + label + " gave " + (E3.T().guesses - g0) + " wrong moves, should be 1"); });
+  X.look.forEach(([label, n, steps]) => { const E4 = fresh(); X.S.slice(0, n).forEach((go) => go(E4)); steps.forEach((go) => go(E4)); if (E4.T().guesses) F(P + "JUDGE: " + label + " cost " + E4.T().guesses + " wrong moves"); });
+  const co = t.close.options;
+  if (co.length !== 6 || co.filter((x) => x.correct).length !== 1 || co.some((x) => !x.correct && !x.why) || new Set(co.map((x) => x.label)).size !== 6) F(P + "SIX: the close question is not six, one right, a reason on each wrong one");
+  const L = co.map((x) => x.label.length), cl = co.find((x) => x.correct).label.length;
+  if (cl === Math.max(...L)) F(P + "SPREAD: the right close answer is the longest option");
+  if (!D.noteOK(t, D.NOTES[t.id] || "").ok) F(P + "NOTE: the model note is refused: " + D.noteOK(t, D.NOTES[t.id] || "").missing.join("; "));
+  if (D.noteOK(t, "I looked at the computer for a while and then it was working again, so I closed it.").ok) F(P + "NOTE: a note that says nothing specific is accepted");
 }
 function installRun(D, F, t) {
   const P = "EXTRA OI1: ";
@@ -1411,6 +1484,13 @@ const PLANTS = [
   ["EXTRA OI1: NO LEAK", "a hint names the boot key", () => ({ TICKETS: withTicket("OI1", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0], h[1] + " F12 does it."]; } })) })],
   ["EXTRA OI1: SIX", "a stage offers five moves", () => ({ TICKETS: withTicket("OI1", (t) => ({ moves: (f) => t.moves(f).slice(0, t.stage(f) === "delete" ? 5 : 6) })) })],
   ["EXTRA OI1: SPREAD", "the right close answer padded longest", () => ({ TICKETS: withTicket("OI1", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.map((x) => (x.correct ? Object.assign({}, x, { label: x.label + ", and the vendor's disk was MBR from their test rig" }) : x)) }) })) })],
+  ["EXTRA OI2: EXHIBITED", "the TPM starts switched on", () => ({ TICKETS: withTicket("OI2", (t) => ({ setup: (f) => { t.setup(f); f.WS2.inst.fw.tpmOn = true; } })) })],
+  ["EXTRA OI2: SOLVABLE", "the upgrade drops the apps whatever was chosen", () => ({ IN: Object.assign({}, INM, { key: (m, k) => { const r = INM.key(m, k); if (m.inst.up && m.inst.up.applied) m.apps = []; return r; } }) })],
+  ["EXTRA OI2: JUDGE", "keeping personal files only isn't counted", () => ({ TICKETS: withTicket("OI2", (t) => ({ judge: (a, f, b) => (a.op === "up-keep" ? { guess: false } : t.judge(a, f, b)) })) })],
+  ["EXTRA OI2: NO LEAK", "a hint names the key", () => ({ TICKETS: withTicket("OI2", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0], h[1] + " Press F2."]; } })) })],
+  ["EXTRA OI3: EXHIBITED", "escalation ready without checking anything", () => ({ TICKETS: withTicket("OI3", (t) => ({ goal: (f) => f.WS5.power === "on" })) })],
+  ["EXTRA OI3: JUDGE", "the registry bypass isn't counted", () => ({ TICKETS: withTicket("OI3", (t) => ({ judge: (a, f, b) => (a.type === "cmd" ? { guess: false } : t.judge(a, f, b)) })) })],
+  ["EXTRA OI3: SPREAD", "the right close answer padded longest", () => ({ TICKETS: withTicket("OI3", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.map((x) => (x.correct ? Object.assign({}, x, { label: x.label + ", whatever the TPM and Secure Boot say" }) : x)) }) })) })],
 ];
 
 const plant = process.argv.includes("--plant");
