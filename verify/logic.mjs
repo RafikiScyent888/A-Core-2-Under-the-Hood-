@@ -91,6 +91,7 @@ import * as XTM from "../assets/tickets-extra.js";
 import * as PHM from "../assets/phone.js";
 import * as INM from "../assets/install.js";
 import * as OIM from "../assets/tickets-install.js";
+import * as MACM from "../assets/mac.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -186,6 +187,7 @@ const NOTES = {
   OI2: "PC Health Check said TPM 2.0 must be supported and enabled: the TPM was switched off in the firmware. Turned it on with F2, saved; Health Check passed. Upgraded in place with setup.exe from the USB, keep personal files and apps. Now Windows 11 Pro; Brenda signed in and PayWise opens.",
   OI3: "PC Health Check on WS5: the processor isn't currently supported (Core i5-7500, 7th gen, not on the supported list). TPM 2.0, Secure Boot, memory and disk all pass. Changed nothing and forced nothing: escalated for a replacement or ESU decision.",
   OI4: "Shrank C: by 100 GB in Disk Management, left unallocated. Booted the Ubuntu 24.04 USB with F12, chose Install Ubuntu alongside Windows Boot Manager (not Erase disk), ext4, named ws3-dev-ubuntu, user dev. GRUB lists both: Ubuntu signed in, Windows starts.",
+  OI5: "Held the power button for startup options, Options, Recovery as rafikiadmin. Disk Utility: erased Macintosh HD as APFS. Activate Mac stopped on Activation Lock (Sam's Apple Account); Mason released it in device management. Reinstalled macOS Sequoia; it shows Setup Assistant's Hello for Priya.",
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB6: "Outlook's background battery use was Restricted and its background data was off, so mail waited until it opened. Set battery to Optimized and turned background data on. A test email arrived by itself.",
   X2: "Opened File History's backups: the 1 October copy of deploy.yml is version 2.3.1, the hotfix. Used Restore to put a copy on Dev's Desktop; today's 2.4.0 in Documents was kept, not overwritten. Opened it to check.",
@@ -818,9 +820,37 @@ XI.OI4 = (D) => { const I = D.IN, W = "WS3", o = (op, fn, a) => (E) => xr2(E, W,
       if (!I.grubEntries(E.fleet().WS3).some((e) => e[0] === "windows")) F(P + "MODEL: GRUB doesn't list Windows alongside Ubuntu");
     } };
 };
+XI.OI5 = (D) => { const A = D.MAC, g = (f) => f.TECH.macs.OI5;
+  const o = (op, fn, a) => (E) => { const b = E.before(); const res = fn(g(E.fleet())); E.onAct(Object.assign({ machine: "TECH", type: "mac", op, before: b, res }, a || {})); return res; };
+  const S = [o("power", (m) => A.power(m, "hold"), { how: "hold" }), o("startup", (m) => A.startup(m, "options"), { pick: "options" }), o("recovery-user", (m) => A.recoveryUser(m, "rafikiadmin", "Bench-Tech-2026"), { user: "rafikiadmin" }),
+    o("utility", (m) => A.utility(m, "du"), { which: "du" }), o("erase", (m) => A.erase(m, "APFS", "Macintosh HD"), { fmt: "APFS" }), o("activate", (m) => A.activate(m)),
+    o("release", (m) => A.release(m)), o("activate", (m) => A.activate(m)), o("utility", (m) => A.utility(m, "reinstall"), { which: "reinstall" }),
+    o("ri-continue", (m) => A.reinstall(m, "continue")), o("ri-agree", (m) => A.reinstall(m, "agree")), o("ri-disk", (m) => A.reinstall(m, "disk")), o("ri-install", (m) => A.reinstall(m, "install"))];
+  return { get: g, S, leak: [/disk utility/i, /\bapfs\b/i, /activation lock/i, /device management/i, /press and hold/i, /reinstall macos/i, /hold the power/i],
+    exh: (m) => (!m ? "there's no Mac on the bench" : m.disk.erased || !m.disk.hasData ? "the Mac is already wiped" : !m.lock.on ? "Activation Lock is already off" : null),
+    after: (m) => (m.disk.hasData ? "the leaver's data is still on it" : m.disk.fmt !== "APFS" ? "the disk isn't APFS" : m.screen !== "hello" ? "it isn't at Hello" : null),
+    near: [["erase as Mac OS Extended (Journaled)", 4, [o("erase", (m) => A.erase(m, "Mac OS Extended (Journaled)", "Macintosh HD"), { fmt: "Mac OS Extended (Journaled)" })]],
+      ["erase as APFS (Case-sensitive)", 4, [o("erase", (m) => A.erase(m, "APFS (Case-sensitive)", "Macintosh HD"), { fmt: "APFS (Case-sensitive)" })]],
+      ["Restore from Time Machine", 3, [o("utility", (m) => A.utility(m, "tm"), { which: "tm" }), o("tm-restore", (m) => A.tmRestore(m))]],
+      ["reinstall without erasing", 3, [o("utility", (m) => A.utility(m, "reinstall"), { which: "reinstall" }), o("ri-continue", (m) => A.reinstall(m, "continue")), o("ri-agree", (m) => A.reinstall(m, "agree")), o("ri-disk", (m) => A.reinstall(m, "disk")), o("ri-install", (m) => A.reinstall(m, "install"))]]],
+    look: [["a short press, and a password guess at the login window", 0, [o("power", (m) => A.power(m, "press"), { how: "press" }), o("login", (m) => A.signIn(m, "sam.reed", "x"))]],
+      ["a wrong Recovery password", 2, [o("recovery-user", (m) => A.recoveryUser(m, "sam.reed", "x"), { user: "sam.reed" })]],
+      ["an Apple Account guessed at Activation Lock, and Safari", 6, [o("activate", (m) => A.activate(m, "priya@icloud.com", "x"), { account: "priya@icloud.com" })]],
+      ["Safari, then back", 3, [o("utility", (m) => A.utility(m, "safari"), { which: "safari" }), o("back", (m) => A.back(m))]]],
+    extra: (fresh, F, P, t) => {
+      /* Activation Lock really stops activation until it's released */
+      const E = fresh(); S.slice(0, 5).forEach((go) => go(E)); const r = A.activate(g(E.fleet())); if (r.ok) F(P + "MODEL: the Mac activated with Activation Lock on");
+      /* a non-APFS disk is refused by the installer */
+      const E2 = fresh(); S.slice(0, 4).forEach((go) => go(E2)); o("erase", (m) => A.erase(m, "ExFAT", "x"), { fmt: "ExFAT" })(E2); S.slice(5, 12).forEach((go) => go(E2));
+      if (g(E2.fleet()).ri && g(E2.fleet()).ri.step === "ready") F(P + "MODEL: the installer accepted an ExFAT disk");
+      /* reinstalling without erasing keeps the leaver's data, and doesn't close */
+      const E3 = fresh(); S.slice(0, 3).forEach((go) => go(E3)); [o("utility", (m) => A.utility(m, "reinstall"), { which: "reinstall" }), o("ri-continue", (m) => A.reinstall(m, "continue")), o("ri-agree", (m) => A.reinstall(m, "agree")), o("ri-disk", (m) => A.reinstall(m, "disk")), o("ri-install", (m) => A.reinstall(m, "install"))].forEach((go) => go(E3));
+      if (!g(E3.fleet()).disk.hasData || t.goal(E3.fleet())) F(P + "MODEL: reinstalling without erasing wiped the Mac, or closed the ticket");
+    } };
+};
 function instTable(D, F, t, X) {
   const P = "EXTRA " + t.id + ": ", fresh = () => { const E = D.createEngine(memStore()); E.openTicket(t.id); return E; };
-  { const f = D.makeFleet(); t.setup(f); if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts"); const e = X.exh(f[X.mid]); if (e) F(P + "EXHIBITED: " + e); }
+  { const f = D.makeFleet(); t.setup(f); if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts"); const e = X.exh(X.get ? X.get(f) : f[X.mid]); if (e) F(P + "EXHIBITED: " + e); }
   const E = fresh(), seen = new Set();
   const stageCheck = () => {
     const s = t.stage(E.fleet()), mv = t.moves(E.fleet()); seen.add(s);
@@ -835,7 +865,7 @@ function instTable(D, F, t, X) {
   stageCheck(); X.S.forEach((go) => { go(E); stageCheck(); });
   if (!t.goal(E.fleet())) F(P + "SOLVABLE: the right path does not meet the goal (stage " + t.stage(E.fleet()) + ")");
   if (E.T().guesses) F(P + "SOLVABLE: the right path cost " + E.T().guesses + " wrong moves (" + E.T().says.join(" | ") + ")");
-  { const a = X.after(E.fleet()[X.mid]); if (a) F(P + "SOLVABLE: " + a); }
+  { const a = X.after(X.get ? X.get(E.fleet()) : E.fleet()[X.mid]); if (a) F(P + "SOLVABLE: " + a); }
   if (!E.submit(t.outcome).ok) F(P + "SOLVABLE: " + t.outcome + " refused after the right path");
   { const E2 = fresh(); X.S.slice(0, -1).forEach((go) => go(E2)); if (t.goal(E2.fleet())) F(P + "SOLVABLE: closes without the last step of the path"); }
   { const E2 = fresh(); E2.submit(t.outcome === "escalate" ? "resolve" : "escalate"); if (E2.T().guesses !== 1) F(P + "JUDGE: the wrong outcome wasn't counted"); }
@@ -1414,7 +1444,7 @@ function routerChecks(D, F) {
   ({ f, r } = mk()); if (JSON.stringify(JSON.parse(JSON.stringify(f.TECH.routers))) !== JSON.stringify(f.TECH.routers)) F("ROUTER SNAP: a router doesn't survive the engine's copy");
 }
 
-const BASE = { IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+const BASE = { MAC: Object.assign({}, MACM), IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
 /* Each plant is one defect a check exists to catch, and the check it must
@@ -1537,6 +1567,11 @@ const PLANTS = [
   ["EXTRA OI4: SOLVABLE", "hostnamectl never renames", () => ({ IN: Object.assign({}, INM, { lxCmd: (m, line) => (/set-hostname/.test(line) ? "" : INM.lxCmd(m, line)) }) })],
   ["EXTRA OI4: NO LEAK", "a hint names Disk Management", () => ({ TICKETS: withTicket("OI4", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0] + " Open Disk Management.", h[1]]; } })) })],
   ["EXTRA OI4: SNAPSHOT", "the score climbs past Erase disk", () => ({ TICKETS: withTicket("OI4", (t) => ({ scoreFn: (f) => (t.stage(f) === "wiped" ? 99 : OIM.oi4State(f.WS3).score) })) })],
+  ["EXTRA OI5: MODEL", "Activation Lock never stops activation", () => ({ MAC: Object.assign({}, MACM, { activate: (m, a, p) => { m.lock.released = true; return MACM.activate(m, a, p); } }) })],
+  ["EXTRA OI5: JUDGE", "erasing as Mac OS Extended isn't counted", () => ({ TICKETS: withTicket("OI5", (t) => ({ judge: (a, f) => (a.op === "erase" ? { guess: false } : t.judge(a, f)) })) })],
+  ["EXTRA OI5: SOLVABLE", "the reinstall keeps the old data even after an erase", () => ({ MAC: Object.assign({}, MACM, { reinstall: (m, op, d) => { const r = MACM.reinstall(m, op, d); if (op === "install" && r.ok) m.disk.hasData = true; return r; } }) })],
+  ["EXTRA OI5: NO LEAK", "a hint names Disk Utility", () => ({ TICKETS: withTicket("OI5", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0] + " Disk Utility does it.", h[1]]; } })) })],
+  ["EXTRA OI5: EXHIBITED", "the Mac arrives already wiped", () => ({ TICKETS: withTicket("OI5", (t) => ({ setup: (f) => { t.setup(f); f.TECH.macs.OI5.disk.hasData = false; f.TECH.macs.OI5.disk.erased = true; } })) })],
 ];
 
 const plant = process.argv.includes("--plant");

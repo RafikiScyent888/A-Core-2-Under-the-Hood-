@@ -644,3 +644,14 @@ tr.coach-target td:first-child { box-shadow: inset 4px 4px 0 #b88a00, inset 0 -4
 .ph-tools { display: grid; gap: 0.4rem; justify-items: start; }
 .ph-tools h3 { margin: 0; font-size: 1rem; }
 .ph-screen .ph-back:focus-visible, .ph-screen .ph-link:focus-visible, .ph-screen .ph-switch:focus-visible, .ph-screen .ph-opt:focus-visible, .ph-screen button:focus-visible { outline: 3px solid #4c1d95; outline-offset: 2px; }
+/* ---------------------------------------- the Mac on your bench (OI5) */
+.g-mac { background: #374151; }
+.macb-host { overflow: auto; }
+.macb { display: grid; grid-template-columns: minmax(18rem, 26rem) 1fr; gap: 1rem; padding: 0.8rem 1rem 1rem; align-items: start; }
+@media (max-width: 900px) { .macb { grid-template-columns: 1fr; } }
+.macb-left { display: grid; gap: 0.7rem; }
+.mac-3d { min-height: 300px; border: 1px solid var(--line); border-radius: 8px; background: var(--win-2); overflow: hidden; }
+.macb-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.macb-sec { display: grid; gap: 0.45rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.75rem; background: var(--win); }
+.macb-sec h3 { margin: 0; font-size: 1rem; }
+.macb-right { min-width: 0; }

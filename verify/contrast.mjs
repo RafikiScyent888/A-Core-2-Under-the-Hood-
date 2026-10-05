@@ -586,6 +586,26 @@ export async function run(extraCss) {
     await db("Let Dev sign in to Ubuntu").click(); await dm.locator('[id^="ub-in-"]').fill("lsblk"); await dm.locator('[id^="ub-in-"]').press("Enter"); await dm.locator('[id^="ub-in-"]').fill("apt update"); await dm.locator('[id^="ub-in-"]').press("Enter"); await page.waitForTimeout(150);
     await sweep(tag + ": OI4, Ubuntu's terminal");
     await page.locator(".wo-back").click({ timeout: 60000 }); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+    /* OI5: the Mac on the bench: startup options, Recovery, Disk Utility, Activation Lock, the reinstall, Hello */
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20492" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+    await hd.locator("[data-coach=open-mac]").click(); await page.waitForTimeout(1500);
+    const macw = page.locator("[data-win=macbench]"), mbb = (n) => macw.getByRole("button", { name: n, exact: true });
+    await sweep(tag + ": OI5, the Mac on the bench, switched off");
+    await mbb("Press and hold the power button").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI5, startup options");
+    await mbb("Options: open macOS Recovery").click(); await macw.getByRole("radio", { name: "Sam Reed (sam.reed)" }).click(); await macw.locator('[id^="mac-rpass-"]').fill("x"); await mbb("Next: unlock Recovery").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI5, Recovery refusing Sam's password");
+    await macw.getByRole("radio", { name: "Rafiki IT (rafikiadmin)" }).click(); await macw.locator('[id^="mac-rpass-"]').fill("Bench-Tech-2026"); await mbb("Next: unlock Recovery").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI5, macOS Recovery's utilities");
+    await mbb("Disk Utility").click(); await mbb("Select the Macintosh HD volume group").click(); await mbb("Erase the selected volume group").click(); await macw.locator('[id^="mac-fmt-"]').selectOption("APFS"); await page.waitForTimeout(150);
+    await sweep(tag + ": OI5, Disk Utility's erase sheet");
+    await mbb("Erase the volume group").click(); await mbb("Activate this Mac").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI5, Activation Lock");
+    await mbb("Ask Mason to release Activation Lock in device management").click(); await mbb("Try activating again").click(); await mbb("Reinstall macOS Sequoia").click(); await mbb("Continue setting up the installation").click(); await mbb("Agree to the licence").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI5, Reinstall macOS choosing the disk");
+    await mbb("Install on Macintosh HD").click(); await mbb("Install macOS Sequoia").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI5, Setup Assistant's Hello");
+    await macw.getByRole("button", { name: /^Close Your bench/ }).click();
   }
 
   try {
@@ -637,7 +657,8 @@ const PLANTS = {
   "the first-run setup's Sign-in options link in a pale blue": ".oobe-link { color: #7fa6e0 !important; }",
   "Health Check's failing rows in a pale red": ".hc-row.hc-bad { color: #e08a8a !important; }",
   "GRUB's menu in a dim grey": ".grub-btn:not(.first), .grub-foot { color: #6b7280 !important; }",
-  "the terminal's prompt in a dark green": ".ub-prompt { color: #166534 !important; }"
+  "the terminal's prompt in a dark green": ".ub-prompt { color: #166534 !important; }",
+  "the Mac's Recovery list in a faint grey": ".mac-item, .mac-sub { color: #9ca3af !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

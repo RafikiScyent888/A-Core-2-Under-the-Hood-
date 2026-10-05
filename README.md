@@ -160,6 +160,10 @@ does. Each ticket names the objective it covers.
   - OI4: Ubuntu alongside Windows on Dev's PC: shrink C: in Disk
     Management, install alongside Windows (never Erase disk), and check
     both start from GRUB's menu.
+  - OI5: a leaver's MacBook for a new starter, on your bench in 3D:
+    macOS Recovery, erase as APFS in Disk Utility, Activation Lock
+    released by device management, Reinstall macOS, Setup Assistant's
+    Hello.
 
 The program's rules apply throughout:
 - unlimited tries

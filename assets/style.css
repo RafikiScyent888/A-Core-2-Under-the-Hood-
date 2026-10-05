@@ -384,3 +384,20 @@ footer.bot p { max-width: 75ch; margin: 0.3rem 0; }
 .ub-in { flex: 1; font: inherit; background: #0c0c0c; color: #ffffff; border: 0; outline: none; min-height: 30px; }
 .ub-in:focus-visible { outline: 3px solid #ffe27a; }
 .ubd > .ws-row { padding: 0 0.8rem; }
+/* the Mac's screen (macui.js) */
+.macs { min-height: 30rem; border-radius: 10px; padding: 1rem; display: grid; place-items: center; background: linear-gradient(135deg, #1e3a8a 0%, #3b1d72 60%, #14532d 100%); color: #111827; font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+.macs.off { background: #050505; }
+.mac-dark { color: #e5e7eb; margin: 0; text-align: center; max-width: 30rem; }
+.mac-win { width: min(34rem, 100%); background: #f3f4f6; color: #111827; border: 1px solid #6b7280; border-radius: 12px; padding: 1rem 1.2rem; display: grid; gap: 0.55rem; }
+.mac-win p { margin: 0; } .mac-win label { font-weight: 600; }
+.mac-title { font-weight: 700; font-size: 1.15rem; }
+.mac-sub { color: #374151; font-weight: 600; }
+.mac-icons { display: flex; gap: 1rem; justify-content: center; }
+.mac-icon { font: inherit; font-weight: 700; min-width: 8rem; min-height: 6rem; background: #ffffff; color: #111827; border: 1px solid #6b7280; border-radius: 12px; cursor: pointer; }
+.mac-list { display: grid; gap: 0.4rem; }
+.mac-item { font: inherit; text-align: left; min-height: 44px; padding: 0.4rem 0.8rem; background: #ffffff; color: #111827; border: 1px solid #6b7280; border-radius: 8px; cursor: pointer; }
+.mac-item.on { background: #e6edfb; box-shadow: inset 6px 0 0 #0b3a82; font-weight: 700; border: 2px solid #0b3a82; }
+.mac-du { display: grid; gap: 0.35rem; }
+.mac-sheet { display: grid; gap: 0.45rem; border-top: 1px solid #6b7280; padding-top: 0.6rem; }
+.mac-hello { font-size: 3rem; font-weight: 300; text-align: center; }
+.mac-icon:focus-visible, .mac-item:focus-visible, .mac-win .w-btn:focus-visible, .mac-win .w-input:focus-visible, .mac-win .fw-sel:focus-visible, .mac-win .ws-radio:focus-visible { outline: 3px solid #4c1d95; outline-offset: 2px; }

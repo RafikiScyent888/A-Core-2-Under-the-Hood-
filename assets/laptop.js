@@ -29,6 +29,8 @@ import { drawStreetView } from "./streetview.js";
 import { drawCustomerChat, drawMobile, disposePhone } from "./chatui.js";
 import * as PH from "./phone.js";
 import * as INS from "./install.js";
+import * as MAC from "./mac.js";
+import { drawMacScreen, paintMac } from "./macui.js";
 import { drawHandset } from "./phoneui.js";
 import * as CH from "./chat.js";
 import * as MB from "./mobile.js";
@@ -110,7 +112,8 @@ const APPS = {
   floor: { title: "Floor plan — Rafiki's office", mini: "FP", cls: "g-fp", geo: [0.05, 0.03, 0.62, 0.93], draw: drawFloorWin },
   street: { title: "Street view — Router 3 and its neighbours", mini: "SV", cls: "g-sv", geo: [0.06, 0.03, 0.66, 0.93], draw: drawStreetWin },
   custchat: { title: "Customer chat — Rafiki's IT Services help desk", mini: "CC", cls: "g-cc", geo: [0.30, 0.03, 0.62, 0.93], draw: drawChatWin },
-  mobile: { title: "Mobile devices — company phones", mini: "MD", cls: "g-md", geo: [0.04, 0.03, 0.72, 0.93], draw: drawMobileWin }
+  mobile: { title: "Mobile devices — company phones", mini: "MD", cls: "g-md", geo: [0.04, 0.03, 0.72, 0.93], draw: drawMobileWin },
+  macbench: { title: "Your bench — the Mac", mini: "MC", cls: "g-mac", geo: [0.03, 0.02, 0.80, 0.95], draw: drawMacWin }
 };
 function appOf(id) { return id.indexOf("rdp:") === 0 ? { title: rosterOf(id.slice(4)).host + " — Remote support", mini: "RS", cls: "g-rdp", geo: [0.08, 0.03, 0.86, 0.92], draw: drawRdp } : APPS[id]; }
 function openWin(id) {
@@ -157,7 +160,7 @@ function drag(w) {
   w.bar.addEventListener("dblclick", function (e) { if (!e.target.closest("button")) { w.max = !w.max; place(w); } });
 }
 function redraw(id) { const w = W[id]; if (w) w.a.draw(w); }
-function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); redraw("floor"); redraw("street"); redraw("custchat"); redraw("mobile"); drawTask(); coachTick(); }
+function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); redraw("floor"); redraw("street"); redraw("custchat"); redraw("mobile"); redraw("macbench"); drawTask(); coachTick(); }
 
 /* ------------------------------------------------ desktop and taskbar */
 function drawDesk() {
@@ -182,7 +185,7 @@ function drawTask() {
   const ids = pinned.concat(Object.keys(W).filter(function (k) { return pinned.indexOf(k) < 0; }));
   ids.forEach(function (id) {
     const a = appOf(id); const w = W[id];
-    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : id === "floor" ? "Floor plan" : id === "street" ? "Street view" : id === "custchat" ? "Customer chat" : id === "mobile" ? "Mobile devices" : rosterOf(id.slice(4)).host;
+    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : id === "floor" ? "Floor plan" : id === "street" ? "Street view" : id === "custchat" ? "Customer chat" : id === "mobile" ? "Mobile devices" : id === "macbench" ? "Your bench: the Mac" : rosterOf(id.slice(4)).host;
     const b = btn("", "tb" + (w ? " open" : "") + (front === id && w && !w.min ? " front" : ""), function () {
       if (!w) return openWin(id);
       if (front === id && !w.min) { w.min = true; place(w); front = null; drawTask(); } else { w.min = false; place(w); focusWin(id); }
@@ -334,7 +337,7 @@ function nextStepAdvice(t, st) {
     if (st.stage === "close") return "The phone's fixed and you've checked it. Now answer " + who + "'s question on the ticket.";
     return W.mobile ? t.adviceWork : t.adviceStart;
   }
-  if (t.kind === "install") return st.stage === "close" ? t.closeAdvice : t.advice(E.fleet());
+  if (t.kind === "install" || t.kind === "mac") return st.stage === "close" ? t.closeAdvice : t.advice(E.fleet());
   if (t.kind === "backup") {
     if (st.stage === "close") return t.id === "X1" ? "Farah's file is back and her backup is tested. Now answer her question on the ticket: why wasn't today's rescue a backup?" : "The job's done. Now answer " + who + "'s question on the ticket.";
     if (!W["rdp:" + t.machine] && !ev.length) return t.adviceStart || "Connect to " + r.host + " from the ticket, and look at the file first: open Q3-budget.xlsx in her Documents and see what's in it now.";
@@ -441,8 +444,9 @@ function drawTicket(t) {
   p.appendChild(el("h2", null, t.title));
   const exl = examFor(t); if (exl) { const xb = btn("See this sim the way the exam shows it", "b small", function () { L.examSel = { ex: exl.ex.id, v: exl.v.id }; saveL(); if (W.exam) { redraw("exam"); W.exam.min = false; place(W.exam); focusWin("exam"); } else openWin("exam"); }, "Open Exam Practice at " + exl.ex.sim + (exl.v.base ? ", the sim itself" : ", " + exl.v.title)); xb.classList.add("t-exam"); p.appendChild(xb); }
   const dl = el("dl", "t-grid");
-  const mal = t.kind === "malware", em = t.kind === "email", rt = t.kind === "router", wf = t.kind === "wifi", ch = t.kind === "chat", mo = t.kind === "mobile";
-  if (mo) { [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", "Company phone (in Mobile devices, with Remote help)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
+  const mal = t.kind === "malware", em = t.kind === "email", rt = t.kind === "router", wf = t.kind === "wifi", ch = t.kind === "chat", mo = t.kind === "mobile", mc = t.kind === "mac";
+  if (mc) { [["Status", s[0]], ["Requester", name], ["Device", "MacBook, on your bench (13-inch, Apple silicon)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
+  else if (mo) { [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", "Company phone (in Mobile devices, with Remote help)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (ch) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Channel", "Help desk chat"], ["Device", t.channel === "email" ? "Company phone (in Mobile devices)" : "92 Series AX1800 router (shared in the 92 Series app)"], ["Category", t.channel === "email" ? "Communication › Mobile email" : "Communication › Router setup"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (wf) { [["Status", s[0]], ["Requester", "Mason (Team Lead)"], ["Device", "92 Series AP600 access point · 192.168.1.1"], ["Location", t.site.replace("Rafiki's IT Services · ", "")], ["Category", "Network › Wireless"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (rt) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Device", "92 Series AX1800 router (shared in the 92 Series app)"], ["Location", "Customer site: remote"], ["Category", "Network › Router"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
@@ -467,6 +471,10 @@ function drawTicket(t) {
     if (planRouter()) { acts.appendChild(coachTag("walk-break", btn("Walk to the break room", "b", function () { walkOver("BREAK"); }))); acts.appendChild(coachTag("open-floor", btn("Open the floor plan", "b", function () { openWin("floor"); }))); }
     acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: every device connects as it should" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
     acts.appendChild(coachTag("escalate", btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); })));
+  } else if (st.stage === "work" && mc) {
+    acts.appendChild(coachTag("open-mac", btn("Open the Mac on your bench", "b pri", function () { openWin("macbench"); })));
+    acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: the Mac is ready for its new user" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
+    acts.appendChild(btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); }));
   } else if (st.stage === "work" && mo) {
     acts.appendChild(coachTag("open-mobile", btn("Open Mobile devices", "b pri", function () { openWin("mobile"); })));
     acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: " + first + " confirms it works" : "Tried to resolve: " + (x.say || "not fixed yet")); after(); })));
@@ -741,6 +749,43 @@ function drawMobileWin(w) {
     sync: function () { const p2 = MB.get(E.fleet(), t.id); if (!p2) return; const b = E.before(); const r = MB.sync(p2); MB.note(p2, "student-sync"); E.onAct({ type: "mdm-sync", machine: "TECH", before: b }); logT(t.id, "Synced " + p2.owner.split(" ")[0] + "'s phone: " + (r.in.ok && r.out.ok ? "mail works" : (r.in.ok ? r.out.text : r.in.text))); after(); } }, w.ui);
   w.onClose = function () { disposePhone(w.ui); };
 }
+/* The Mac on the bench: the approved 3D Mac, its screen as real HTML
+   beside it, your hands (the power button) and Rafiki's device
+   management. Everything done goes through the engine as type "mac". */
+function drawMacWin(w) {
+  w.ui = w.ui || {}; const t = E.ticket(), st = E.T();
+  const m = t && t.kind === "mac" ? MAC.get(E.fleet(), t.id) : null;
+  if (!m) { if (w.ui.mac) { w.ui.mac.dispose(); w.ui.mac = null; w.ui.stage = null; } w.body.innerHTML = ""; w.body.appendChild(el("p", "cc-note", "Nothing on your bench. A Mac appears here when its ticket is open.")); return; }
+  if (w.ui.forTicket !== t.id) { if (w.ui.mac) w.ui.mac.dispose(); w.ui = { forTicket: t.id }; }
+  const ui = w.ui, act = function (a) { E.onAct(Object.assign({ machine: "TECH" }, a)); actLog(a, "the Mac on your bench"); after(); };
+  const keep = w.body.querySelector(".mac-3d");
+  w.body.innerHTML = ""; w.body.classList.add("macb-host");
+  const grid = el("div", "macb"); w.body.appendChild(grid);
+  const left = el("div", "macb-left"); grid.appendChild(left);
+  const stage = keep || el("div", "mac-3d"); left.appendChild(stage);
+  const sides = el("div", "macb-row"); sides.setAttribute("role", "group"); sides.setAttribute("aria-label", "Turn the Mac");
+  [["front", "Front"], ["left", "Left side (ports)"], ["right", "Right side"]].forEach(function (x) { sides.appendChild(btn(x[1], "b small", function () { if (ui.mac) ui.mac.show(x[0]); }, "Turn the Mac: " + x[1])); });
+  left.appendChild(sides);
+  const hands = el("section", "macb-sec"); hands.appendChild(el("h3", null, "With your own hands"));
+  hands.appendChild(el("p", "wo-state", m.power === "on" ? "It's on." : "It's switched off, with its charger plugged in."));
+  const hr = el("div", "macb-row");
+  hr.appendChild(coachTag("mac-press", btn("Press the power button", "b", function () { const b = E.before(); const r = MAC.power(m, "press"); act({ type: "mac", op: "power", how: "press", res: r, before: b }); }, "Press the power button briefly")));
+  hr.appendChild(coachTag("mac-hold", btn("Press and hold the power button", "b", function () { const b = E.before(); if (m.power === "on") MAC.shutDown(m); const r = MAC.power(m, "hold"); act({ type: "mac", op: "power", how: "hold", res: r, before: b }); }, "Press and hold the power button")));
+  if (m.power === "on") hr.appendChild(btn("Shut it down", "b", function () { const b = E.before(); const r = MAC.shutDown(m); act({ type: "mac", op: "shutdown", res: r, before: b }); }, "Shut the Mac down"));
+  hands.appendChild(hr); left.appendChild(hands);
+  const mdm = el("section", "macb-sec"); mdm.appendChild(el("h3", null, "Device management · Rafiki's IT Services"));
+  const dl = el("dl", "doc-dl"); [["Device", m.model + " · serial " + m.serial], ["Assigned to", m.leaver + " (left)"], ["Enrolled", "Yes: Rafiki's IT Services"]].forEach(function (kv) { dl.appendChild(el("dt", null, kv[0])); dl.appendChild(el("dd", null, kv[1])); }); mdm.appendChild(dl);
+  mdm.appendChild(coachTag("mac-release", btn("Ask Mason to release Activation Lock", "b", function () { const b = E.before(); const r = MAC.release(m); act({ type: "mac", op: "release", res: r, before: b }); }, "Ask Mason to release Activation Lock in device management")));
+  if (m.lock.released) mdm.appendChild(el("p", "wo-state", "Mason: \"Done: Activation Lock is released for that serial number.\""));
+  left.appendChild(mdm);
+  const right = el("div", "macb-right"); grid.appendChild(right);
+  drawMacScreen(right, m, { act: act, before: E.before, draw: function () { redraw("macbench"); }, ui: ui });
+  /* the 3D Mac, mounted once; its screen redrawn every time */
+  ui.paint = paintMac(m);
+  if (ui.mac) ui.mac.redraw();
+  else if (!ui.mounting) { ui.mounting = true; import("./macview.js").then(function (mod) { if (!mod.webglOK()) throw new Error("no webgl"); ui.mac = mod.mountMac(stage, { height: 300, draw: function (c, w2, h2) { ui.paint(c, w2, h2); } }); }).catch(function () { stage.appendChild(el("p", "cc-note", "3D isn't available on this computer: the Mac's screen beside it is the same.")); }); }
+  w.onClose = function () { if (ui.mac) { ui.mac.dispose(); ui.mac = null; } };
+}
 /* Everything done in the 92 Series app goes through here: the change to
    the router, then the engine (which judges it), the ticket's activity,
    and Mason. A view that only redraws (a confirm box) is quiet. */
@@ -849,7 +894,8 @@ function actLog(a, host) {
     "router-factory": function () { return "Factory reset the router"; },
     "router-firmware": function () { return "Checked for firmware updates: " + a.text; },
     "router-ask": function () { return "Asked " + t.who + ": " + a.q + (a.lost ? " (unsaved changes on the page were lost)" : ""); },
-    osinst: function () { return osLog(a); }
+    osinst: function () { return osLog(a); },
+    mac: function () { return macLog(a); }
   }[a.type];
   if (say) logT(t.id, host + ": " + say());
 }
@@ -906,6 +952,26 @@ function osLog(a) {
     "media-out": function () { return "Took the Windows 11 installer USB out"; }
   }[a.op];
   return L2 ? L2() : "Setup: " + a.op;
+}
+function macLog(a) {
+  const r = a.res || {}, ok = r.ok !== false;
+  const L2 = {
+    power: function () { return a.how === "hold" ? "Pressed and held the power button: startup options" : ok ? "Pressed the power button" : "Pressed the power button: " + (r.text || "nothing new"); },
+    shutdown: function () { return "Shut the Mac down"; },
+    startup: function () { return a.pick === "options" ? "Startup options: Options (macOS Recovery)" : "Startup options: started up from Macintosh HD"; },
+    "recovery-user": function () { return ok ? "macOS Recovery: unlocked as " + a.user : "macOS Recovery: that user name or password was refused"; },
+    utility: function () { return "macOS Recovery: opened " + ({ du: "Disk Utility", tm: "Restore from Time Machine", reinstall: "Reinstall macOS Sequoia", safari: "Safari" })[a.which]; },
+    back: function () { return "Back to macOS Recovery"; },
+    erase: function () { return "Disk Utility: erased Macintosh HD as " + a.fmt; },
+    activate: function () { return ok ? "Activated the Mac" : r.locked ? "Activate Mac: stopped by Activation Lock" : "Activate Mac: that Apple Account was refused"; },
+    release: function () { return "Mason released Activation Lock in device management"; },
+    "tm-restore": function () { return "Restored the Mac from the Time Machine backup"; },
+    "ri-continue": function () { return "Reinstall macOS: continue"; }, "ri-agree": function () { return "Reinstall macOS: agreed to the licence"; },
+    "ri-disk": function () { return ok ? "Reinstall macOS: chose Macintosh HD" : "Reinstall macOS: the disk was refused (not APFS)"; },
+    "ri-install": function () { return r.kept ? "Reinstalled macOS over the old account and files" : "Reinstalled macOS Sequoia"; },
+    login: function () { return "Login window: the password was refused"; }
+  }[a.op];
+  return L2 ? L2() : "Mac: " + a.op;
 }
 function subj(id) { const e = emailById(id); return e ? e.subject : id; }
 

@@ -2112,3 +2112,77 @@ like the phone and previewed first; both tickets run.
   at "Walk back": under the software renderer the walk back freezes the
   page for several seconds (section 13's note), longer than the check's
   8 s. Its walk-back clicks now get 60 s, as the contrast sweep's do.
+
+
+### Extra training, OI5: a leaver's Mac, wiped for a new starter (5 October 2026)
+
+Build 3 of OS installation, part two. The owner approved the 3D Mac from
+its preview ("Use the Mac you showed me, build OI5").
+
+- **The Mac, SETTLED:** `mac3d.js`, a generic 13-inch aluminium notebook
+  in the style of a MacBook Air (Apple silicon), built from its published
+  dimensions, with no maker's logo or branding:
+  - the base: a black keyboard with a Touch ID key, and a glass trackpad
+  - ports: MagSafe and two USB-C on the left, the headphone jack on the
+    right
+  - the lid: the notch, and a screen drawn unlit, as the phone's is
+- **New files:**
+  - `mac.js`: the model, on TECH-01's record as `fleet.TECH.macs`, so
+    snapshots cover it
+  - `macui.js`: the Mac's screen as real HTML, and the picture for its 3D
+    display
+  - `macview.js`: the 3D Mac, turnable, with Front, Left and Right views
+  - `tickets-mac.js`: OI5
+- **"Your bench: the Mac"**, a window on the laptop opened from the
+  ticket. It holds:
+  - the 3D Mac
+  - the Mac's own screen beside it
+  - "With your own hands": a short press or a press and hold of the power
+    button, and Shut it down
+  - Rafiki's device management: the device, who it's assigned to, and
+    "Ask Mason to release Activation Lock"
+- **The model, as Apple has it on Apple silicon:**
+  - A short press starts macOS. Press and hold shows the startup options,
+    and Options leads to Recovery.
+  - Recovery asks for "a user you know the password for"; the leaver's
+    password is unknown.
+  - Recovery's utilities: Restore from Time Machine, Reinstall macOS
+    Sequoia, Safari and Disk Utility.
+  - Disk Utility erases the volume group as APFS, APFS (Case-sensitive),
+    Mac OS Extended (Journaled), ExFAT or MS-DOS (FAT).
+  - After an erase the Mac must be activated online. Activation Lock (Find
+    My, the leaver's Apple Account) stops it there until the company's
+    device management releases it.
+  - Reinstall macOS refuses a disk that isn't APFS. Reinstalling without
+    erasing keeps the old account and files.
+- **OI5 (run):** Sam Reed has left; the MacBook goes to Priya Nair. Hold
+  the power button, Options, Recovery as rafikiadmin, Disk Utility: erase
+  as APFS. Activation Lock appears; Mason releases it from device
+  management. Then Reinstall macOS, and leave it at Setup Assistant's
+  Hello.
+  - **Counted:** erasing as anything but APFS (erase again as APFS: no
+    revert needed); Restore from Time Machine (Sam's own backup);
+    reinstalling without erasing.
+  - **Never counted:** a short press, a password guessed at the login
+    window or in Recovery, an Apple Account guessed at Activation Lock,
+    Safari.
+  - The close question: why the Mac asked for Sam's Apple Account after
+    the erase.
+- **Found while building:**
+  - The taskbar named every window it didn't recognise after a PC, so
+    opening the bench window crashed the taskbar (a page error, found by
+    the page check). It now has its own name.
+  - The right close answer was the longest option (the check caught it);
+    reworded.
+- **Checks:**
+  - logic: 83 tickets, 122 plants. OI5 is table-driven, plus: Activation
+    Lock really stops activation, the installer refuses ExFAT, and a
+    reinstall without an erase keeps the data and doesn't close. Five new
+    plants.
+  - page: INSTALL drives OI5 through the bench window. A Mac OS Extended
+    erase is counted, Activation Lock is shown in words, it's released and
+    the Mac activated, the erase is redone as APFS, the reinstall runs,
+    Hello shows, and Resolve is accepted. One new plant.
+  - contrast: the Mac switched off, the startup options, Recovery
+    refusing a password, the utilities, the erase sheet, Activation Lock,
+    the reinstall and Hello. One new plant.

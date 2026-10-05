@@ -51,7 +51,7 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491", OI5: "INC20492" };
 const NOTES = {
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB1: "Weather Live topped the Battery page at 52% in the background, with location Allow all the time and Unrestricted battery. Set location to Allow only while using the app and background battery to Restricted. The Battery page now shows about 23 hours.",
@@ -148,9 +148,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 82) F("LOAD: the queue shows " + items.length + " tickets, not 82");
+      if (items.length !== 83) F("LOAD: the queue shows " + items.length + " tickets, not 83");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 14 || count(/Walk: checklist/) !== 14 || count(/Run: on your own/) !== 54) F("LOAD: the queue's labels are not 14 crawl, 14 walk, 54 run");
+      if (count(/Crawl: guided/) !== 14 || count(/Walk: checklist/) !== 14 || count(/Run: on your own/) !== 55) F("LOAD: the queue's labels are not 14 crawl, 14 walk, 55 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
       /* Windows 11: the taskbar's icons sit in a cluster in the middle of the screen, Start first */
       const tbc = await p.evaluate(() => { const b = Array.from(document.querySelectorAll(".task-mid .tb")); const l = b[0].getBoundingClientRect(), r = b[b.length - 1].getBoundingClientRect(); return { off: (l.left + r.right) / 2 - innerWidth / 2, first: b[0].getAttribute("aria-label") }; });
@@ -166,7 +166,7 @@ async function run(rewrites, groups) {
       const order = await p.evaluate(() => Array.from(document.querySelectorAll(".hd2-q h3.qsec, .hd2-q .qi")).map((e) => e.tagName === "H3" ? "H" : (e.querySelector(".badge") ? e.querySelector(".badge").textContent : "NONE")));
       const hx = order.indexOf("H", 1); const sims = order.slice(1, hx), extra = order.slice(hx + 1);
       if (sims.length !== 66 || sims.some((x) => !/^Exam sim · /.test(x))) F("EXTRA: the sims section does not hold 66 tickets each badged Exam sim");
-      if (extra.length !== 16 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12).some((x) => x !== "Extra training · OS installation")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6 and OI1–OI3 badged with their objectives: " + JSON.stringify(extra));
+      if (extra.length !== 17 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12).some((x) => x !== "Extra training · OS installation")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6 and OI1–OI3 badged with their objectives: " + JSON.stringify(extra));
       if (await p.locator(".qi .badge").evaluateAll((bs) => bs.some((b) => !b.querySelector("svg.ico")))) F("EXTRA: a badge has no icon");
       await p.locator(".hd2-jb", { hasText: "Extra training" }).click();
       if (!(await p.locator(".qi", { hasText: INC.X1 }).isVisible())) F("EXTRA: Jump to Extra training does not bring X1 into view");
@@ -348,6 +348,28 @@ async function run(rewrites, groups) {
       const s4 = await p.evaluate(() => { const E = window.__LAP.engine; return { st: E.ticket().stage(E.fleet()), g: E.T().guesses }; });
       if (s4.st !== "done" || s4.g) F("INSTALL: OI4 through the screens ends at " + s4.st + " with " + s4.g + " wrong moves");
       await p.locator(".wo-back").click({ timeout: 60000 }); await p.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+      /* OI5, the leaver's Mac, through the bench window: startup options,
+         Recovery, Disk Utility (APFS), Activation Lock released, Reinstall
+         macOS, Hello; an HFS+ erase counted on the way */
+      await take(p, "OI5"); await p.waitForTimeout(200);
+      await hd(p).locator("[data-coach=open-mac]").click(); await p.waitForTimeout(300);
+      const mw = p.locator("[data-win=macbench]"), mb = (n) => mw.getByRole("button", { name: n, exact: true });
+      await mb("Press and hold the power button").click(); await mb("Options: open macOS Recovery").click();
+      await mw.getByRole("radio", { name: "Rafiki IT (rafikiadmin)" }).click(); await mw.locator('[id^="mac-rpass-"]').fill("Bench-Tech-2026"); await mb("Next: unlock Recovery").click();
+      await mb("Disk Utility").click(); await mb("Select the Macintosh HD volume group").click(); await mb("Erase the selected volume group").click();
+      await mw.locator('[id^="mac-fmt-"]').selectOption("Mac OS Extended (Journaled)"); await mb("Erase the volume group").click();
+      if ((await guesses(p)) !== 1) F("INSTALL: OI5's Mac OS Extended erase was not counted");
+      await mb("Activate this Mac").click();
+      if (!/Activation Lock/.test(await mw.locator(".ins-err").innerText())) F("INSTALL: OI5's Activation Lock isn't on the Mac's screen in words");
+      await mb("Ask Mason to release Activation Lock in device management").click(); await mb("Try activating again").click();
+      await mb("Disk Utility").click(); await mb("Select the Macintosh HD volume group").click(); await mb("Erase the selected volume group").click();
+      await mw.locator('[id^="mac-fmt-"]').selectOption("APFS"); await mb("Erase the volume group").click(); await mb("Activate this Mac").click();
+      await mb("Reinstall macOS Sequoia").click(); await mb("Continue setting up the installation").click(); await mb("Agree to the licence").click(); await mb("Install on Macintosh HD").click(); await mb("Install macOS Sequoia").click();
+      if (!/Hello/.test(await mw.locator(".macs").innerText())) F("INSTALL: OI5's Mac doesn't show Setup Assistant's Hello");
+      const s5 = await p.evaluate(() => { const E = window.__LAP.engine; return { st: E.ticket().stage(E.fleet()), g: E.T().guesses }; });
+      if (s5.st !== "done" || s5.g !== 1) F("INSTALL: OI5 through the bench ends at " + s5.st + " with " + s5.g + " wrong moves, not done with 1");
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click(); await p.waitForTimeout(200);
+      if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("INSTALL: OI5's Resolve was refused");
     });
 
     /* Instructor mode shows the answer on every ticket page; every ticket
@@ -888,7 +910,8 @@ const PLANTS = [
   ["INSTALL", "switching the TPM on in the firmware doesn't reach Windows", { "assets/install.js": [["const I = m.inst; const before = JSON.stringify(I.fw); I.fw = I.pending;", "const I = m.inst; const before = JSON.stringify(I.fw); I.fw = Object.assign({}, I.pending, { tpmOn: I.fw.tpmOn });"]] }],
   ["INSTALL", "the upgrade never finishes at the restart", { "assets/install.js": [["if (I.up && I.up.copied && !I.up.applied) { const r = applyUpgrade(m); if (r) return r; }", ""]] }],
   ["LOAD", "the laptop's taskbar back at the left", { "assets/laptop.css": [[".task { display: grid; grid-template-columns: 1fr auto 1fr; }", ".task { display: flex; }"], [".task-mid { flex: 1; display: flex; justify-content: center;", ".task-mid { flex: 1; display: flex; justify-content: flex-start;"]] }],
-  ["INSTALL", "a Windows 11 PC's taskbar at the left", { "assets/style.css": [[".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: center;", ".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: flex-start;"]] }],
+  ["INSTALL", "a Windows 11 PC's taskbar at the left", { "assets/style.css": [[".taskbar:not(.w10) { display: grid; grid-template-columns: 1fr minmax(0, max-content) 1fr; }", ".taskbar:not(.w10) { display: flex; }"], [".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: center;", ".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: flex-start;"]] }],
+  ["INSTALL", "Activation Lock never shows on the Mac", { "assets/mac.js": [["if (m.lock.on && !m.lock.released) {", "if (false) {"]] }],
   ["INSTALL", "GRUB never lists Windows", { "assets/install.js": [["if (m.inst.os) e.push([\"windows\"", "if (false) e.push([\"windows\""]] }],
   ["INSTALL", "shrinking C: leaves no free space", { "assets/install.js": [["p.bytes -= n * MB; dk.parts.splice(i + 1, 0, { kind: \"unalloc\"", "p.bytes -= n * MB; dk.parts.splice(i + 1, 0, { kind: \"data\""]] }],
   ["INSTALL", "Setup's refusal shown without its words", { "assets/installui.js": [["const e = el(\"p\", \"ins-err\", \"✕ \" + I.error);", "const e = el(\"p\", \"ins-err\", \"✕ Error\");"]] }],
@@ -931,7 +954,7 @@ if (!process.argv.includes("--plant")) {
   console.log(f.length ? f.length + " failure(s)" : "PASS — page: " + (groups || GROUPS).join(", "));
   process.exit(f.length ? 1 : 0);
 } else {
-  let bad = 0; const list = PLANTS.filter((x) => !process.env.ONLY || x[0] === process.env.ONLY);
+  let bad = 0; const list = PLANTS.filter((x) => (!process.env.ONLY || x[0] === process.env.ONLY) && (!process.env.WHAT || x[1].indexOf(process.env.WHAT) >= 0));
   for (const [by, what, rw] of list) {
     const f = await run(rw, [by]); const caught = f.filter((x) => x.startsWith(by));
     if (caught.length) console.log("caught  [" + by + "] " + what + "  ← " + caught[0]);
