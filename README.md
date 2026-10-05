@@ -164,6 +164,11 @@ does. Each ticket names the objective it covers.
     macOS Recovery, erase as APFS in Disk Utility, Activation Lock
     released by device management, Reinstall macOS, Setup Assistant's
     Hello.
+  - OI6: a new company phone for a new starter, on your bench in 3D:
+    enrol it as fully managed from the welcome screen by QR code (a phone
+    that's finished set-up can't be), staff Wi-Fi, the screen lock the
+    policy asks for, and the security update (on the charger), until
+    device management shows it compliant.
 
 The program's rules apply throughout:
 - unlimited tries

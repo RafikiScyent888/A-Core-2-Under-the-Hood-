@@ -2186,3 +2186,84 @@ its preview ("Use the Mac you showed me, build OI5").
   - contrast: the Mac switched off, the startup options, Recovery
     refusing a password, the utilities, the erase sheet, Activation Lock,
     the reinstall and Hello. One new plant.
+### Extra training, OI6: a new company phone, enrolled from the box (5 October 2026)
+
+Build 4 of OS installation, the mobile operating system. The objectives
+were re-read on 5 October 2026; the Core 2 wording is unchanged. The phone
+is the approved one (`phone3d.js`), on the technician's bench this time,
+not reached by Remote help.
+
+- **New files:**
+  - `newphone.js`: the model, on TECH-01's record as
+    `fleet.TECH.newPhones`, so snapshots cover it
+  - `newphoneui.js`: the phone's screen as real HTML, and the picture for
+    its 3D glass
+  - `tickets-newphone.js`: OI6
+  - `phoneview.js` gained a "bottom" view (the USB-C edge)
+- **"Your bench: the new phone"**, a window opened from the ticket. It
+  holds:
+  - the 3D phone, with Front, Back and Bottom edge (USB-C) views
+  - the phone's own screen beside it
+  - "With your own hands": a short press or a press and hold of the power
+    button, and plugging in (or out) the USB-C charger
+  - Rafiki's device management: the device, who it's assigned to, its
+    enrolment, its compliance in words, the company phone policy, and
+    "Show the enrolment QR code" (a code drawn as scenery, with its
+    meaning in words beside it)
+- **The model, as Android sets up a company-owned phone:**
+  - Off: a short press does nothing (with the charger in, it shows the
+    battery and goes dark). Press and hold starts it. Held while on, the
+    power menu.
+  - Welcome: language and Start. Tapping the blank part of the welcome
+    screen six times in the same spot opens the QR set-up, which scans
+    the code device management shows. Then Wi-Fi, then "This device
+    belongs to your organization": Accept & continue makes it fully
+    managed.
+  - The other way in, also accepted: Start, Wi-Fi, Don't copy, and
+    `afw#setup` typed at the Google sign-in, which installs the device
+    policy app; it then scans the same code.
+  - Skip at the sign-in finishes a personal, unmanaged phone. A phone
+    that's finished set-up can't become fully managed (the scanner is only
+    part of set-up). Adding a work account afterwards makes a work
+    profile, which is for personal phones.
+  - The policy's screen lock: a PIN of 6 or more digits with no runs or
+    repeats, or a password; Skip and a pattern are refused in words.
+  - The update: System › Software update, 1 September 2026, which the
+    policy requires. It needs Wi-Fi, and 30% battery or the charger; the
+    phone arrives at 18%.
+  - Erase all data returns it to the welcome screen. The installed
+    Android version and update stay, as they do.
+  - Guest Wi-Fi refuses in words (it needs a web sign-in page that set-up
+    can't open). There's no SIM yet.
+- **OI6 (run):** Priya Nair's TechCom T7, new in the box. Hold the power
+  button; show the QR code; tap the welcome screen six times; scan;
+  Rafiki-Staff (T3amR@fiki2026, in Mason's note); Accept & continue; a
+  6-digit PIN; plug in the charger; install the update. Device management
+  shows it compliant.
+  - **Counted:** finishing set-up without enrolling it; a work account on
+    the finished phone (a work profile); an erase once it's fully managed.
+  - **Never counted:** a short press, scanning before the code is shown,
+    Cancel, the guest Wi-Fi, a mistyped password, a personal email at the
+    sign-in, the policy refusing Skip, a pattern or a weak PIN, the update
+    refused on a low battery, and erasing the unmanaged phone (that's the
+    way back).
+  - The close question: why it was enrolled from the welcome screen, not
+    set up first and enrolled afterwards.
+- **Checks:**
+  - logic: 84 tickets, 128 plants. OI6 is table-driven, plus: the update
+    refuses at 18% without the charger, the policy refuses Skip, a
+    pattern, runs, repeats and a short PIN, a finished personal phone
+    can't be enrolled, a work profile costs one and doesn't close it, the
+    unmanaged phone erased costs nothing and the right path then closes
+    it, the `afw#setup` path closes cleanly, an erase keeps the update,
+    and revert after a personal finish lands before it. Six new plants.
+  - page: LOAD (84; 14 crawl, 14 walk, 56 run); EXTRA (six OS
+    installation tickets); INSTALL drives OI6 through the bench window: a
+    short press explained, a personal finish counted and erased, the QR
+    code shown, six taps, the guest Wi-Fi refused in words, the
+    organisation's screen, a pattern refused, a PIN, the update refused on
+    a low battery, the charger, compliant, Resolve. Two new plants.
+  - contrast: the phone switched off, the welcome screen with the QR
+    code, the QR set-up, the guest Wi-Fi refused, the organisation's
+    screen, the policy's screen lock, the home screen not compliant, the
+    update refused, and compliant. One new plant.

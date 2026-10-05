@@ -51,7 +51,7 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491", OI5: "INC20492" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491", OI5: "INC20492", OI6: "INC20493" };
 const NOTES = {
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB1: "Weather Live topped the Battery page at 52% in the background, with location Allow all the time and Unrestricted battery. Set location to Allow only while using the app and background battery to Restricted. The Battery page now shows about 23 hours.",
@@ -148,9 +148,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 83) F("LOAD: the queue shows " + items.length + " tickets, not 83");
+      if (items.length !== 84) F("LOAD: the queue shows " + items.length + " tickets, not 84");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 14 || count(/Walk: checklist/) !== 14 || count(/Run: on your own/) !== 55) F("LOAD: the queue's labels are not 14 crawl, 14 walk, 55 run");
+      if (count(/Crawl: guided/) !== 14 || count(/Walk: checklist/) !== 14 || count(/Run: on your own/) !== 56) F("LOAD: the queue's labels are not 14 crawl, 14 walk, 56 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
       /* Windows 11: the taskbar's icons sit in a cluster in the middle of the screen, Start first */
       const tbc = await p.evaluate(() => { const b = Array.from(document.querySelectorAll(".task-mid .tb")); const l = b[0].getBoundingClientRect(), r = b[b.length - 1].getBoundingClientRect(); return { off: (l.left + r.right) / 2 - innerWidth / 2, first: b[0].getAttribute("aria-label") }; });
@@ -166,7 +166,7 @@ async function run(rewrites, groups) {
       const order = await p.evaluate(() => Array.from(document.querySelectorAll(".hd2-q h3.qsec, .hd2-q .qi")).map((e) => e.tagName === "H3" ? "H" : (e.querySelector(".badge") ? e.querySelector(".badge").textContent : "NONE")));
       const hx = order.indexOf("H", 1); const sims = order.slice(1, hx), extra = order.slice(hx + 1);
       if (sims.length !== 66 || sims.some((x) => !/^Exam sim · /.test(x))) F("EXTRA: the sims section does not hold 66 tickets each badged Exam sim");
-      if (extra.length !== 17 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12).some((x) => x !== "Extra training · OS installation")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6 and OI1–OI3 badged with their objectives: " + JSON.stringify(extra));
+      if (extra.length !== 18 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12).some((x) => x !== "Extra training · OS installation")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6 and OI1–OI6 badged with their objectives: " + JSON.stringify(extra));
       if (await p.locator(".qi .badge").evaluateAll((bs) => bs.some((b) => !b.querySelector("svg.ico")))) F("EXTRA: a badge has no icon");
       await p.locator(".hd2-jb", { hasText: "Extra training" }).click();
       if (!(await p.locator(".qi", { hasText: INC.X1 }).isVisible())) F("EXTRA: Jump to Extra training does not bring X1 into view");
@@ -370,6 +370,44 @@ async function run(rewrites, groups) {
       if (s5.st !== "done" || s5.g !== 1) F("INSTALL: OI5 through the bench ends at " + s5.st + " with " + s5.g + " wrong moves, not done with 1");
       await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click(); await p.waitForTimeout(200);
       if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("INSTALL: OI5's Resolve was refused");
+      /* OI6, Priya's new phone, through the bench window: a personal
+         finish counted and erased, then the QR set-up from the welcome
+         screen, Wi-Fi, the policy's screen lock, the update on the charger */
+      await take(p, "OI6"); await p.waitForTimeout(200);
+      await hd(p).locator("[data-coach=open-phonebench]").click(); await p.waitForTimeout(300);
+      const pw = p.locator("[data-win=phonebench]"), pb = (n) => pw.getByRole("button", { name: n, exact: true });
+      const phoneSays = async () => (await pw.locator(".ph-screen").innerText());
+      await pb("Press the power button briefly").click();
+      if (!/Nothing happens/.test(await phoneSays()) || (await guesses(p))) F("INSTALL: OI6's short press while off isn't explained, or was counted");
+      await pb("Press and hold the power button").click();
+      if (!/Hi there/.test(await phoneSays())) F("INSTALL: OI6's phone doesn't start at its welcome screen");
+      await pb("Start").click(); await pw.getByRole("radio", { name: "Rafiki-Staff, secured" }).click(); await pw.locator('[id^="np-wpass-"]').fill("T3amR@fiki2026"); await pb("Connect to Rafiki-Staff").click();
+      await pb("Don't copy apps and data").click(); await pb("Skip signing in").click(); await pb("Skip").click(); await pb("Skip the screen lock").click();
+      if ((await guesses(p)) !== 1) F("INSTALL: OI6's unmanaged finish was not counted");
+      if (!/Not enrolled/.test(await pw.locator(".np-comp").innerText())) F("INSTALL: OI6's device management doesn't say the personal phone isn't enrolled");
+      await pb("Settings").click(); await pb("System, Software update, reset options").click(); await pb("Erase all data (factory reset)").click(); await pb("Erase all data").click();
+      if (!/Hi there/.test(await phoneSays()) || (await guesses(p)) !== 1) F("INSTALL: OI6's erase of the unmanaged phone didn't go back to the welcome screen, or was counted");
+      await pb("Show the enrolment QR code for this phone").click();
+      if (!(await pw.locator(".np-qr canvas").count())) F("INSTALL: OI6's device management doesn't show the QR code");
+      for (let i = 0; i < 6; i++) await pb("Tap the blank part of the welcome screen").click();
+      if (!/Scan the QR code from your IT admin/.test(await phoneSays())) F("INSTALL: OI6's six taps didn't open the QR set-up");
+      await pb("Point the phone's camera at the QR code and scan it").click();
+      await pw.getByRole("radio", { name: "Rafiki-Guest, open" }).click(); await pb("Connect to Rafiki-Guest").click();
+      if (!/sign in on a web page/.test(await phoneSays())) F("INSTALL: OI6's guest Wi-Fi isn't refused in words");
+      await pw.getByRole("radio", { name: "Rafiki-Staff, secured" }).click(); await pw.locator('[id^="np-wpass-"]').fill("T3amR@fiki2026"); await pb("Connect to Rafiki-Staff").click();
+      if (!/belongs to your organization/.test(await phoneSays())) F("INSTALL: OI6 doesn't say the phone belongs to the organization");
+      await pb("Accept and continue").click(); await pb("Screen lock: Pattern").click();
+      if (!/doesn't allow a pattern/.test(await phoneSays())) F("INSTALL: OI6's policy doesn't refuse a pattern in words");
+      await pb("Screen lock: PIN").click(); await pw.locator('[id^="np-lock1-"]').fill("284719"); await pw.locator('[id^="np-lock2-"]').fill("284719"); await pb("Confirm the PIN").click();
+      if (!/no screen lock/.test(await pw.locator(".np-comp").innerText()) && !/older than/.test(await pw.locator(".np-comp").innerText())) F("INSTALL: OI6's device management doesn't say why it isn't compliant");
+      await pb("Settings").click(); await pb("System, Software update, reset options").click(); await pb("Software update, Update available").click(); await pb("Download and install the system update").click();
+      if (!/Battery too low/.test(await phoneSays()) || (await guesses(p)) !== 1) F("INSTALL: OI6's update on a low battery isn't refused in words, or was counted");
+      await pb("Plug the USB-C charger into the phone").click(); await pb("Download and install the system update").click();
+      if (!/Compliant/.test(await pw.locator(".np-comp").innerText())) F("INSTALL: OI6's device management doesn't show it compliant after the update");
+      const s6 = await p.evaluate(() => { const E = window.__LAP.engine; return { st: E.ticket().stage(E.fleet()), g: E.T().guesses }; });
+      if (s6.st !== "done" || s6.g !== 1) F("INSTALL: OI6 through the bench ends at " + s6.st + " with " + s6.g + " wrong moves, not done with 1");
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click(); await p.waitForTimeout(200);
+      if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("INSTALL: OI6's Resolve was refused");
     });
 
     /* Instructor mode shows the answer on every ticket page; every ticket
@@ -911,6 +949,8 @@ const PLANTS = [
   ["INSTALL", "the upgrade never finishes at the restart", { "assets/install.js": [["if (I.up && I.up.copied && !I.up.applied) { const r = applyUpgrade(m); if (r) return r; }", ""]] }],
   ["LOAD", "the laptop's taskbar back at the left", { "assets/laptop.css": [[".task { display: grid; grid-template-columns: 1fr auto 1fr; }", ".task { display: flex; }"], [".task-mid { flex: 1; display: flex; justify-content: center;", ".task-mid { flex: 1; display: flex; justify-content: flex-start;"]] }],
   ["INSTALL", "a Windows 11 PC's taskbar at the left", { "assets/style.css": [[".taskbar:not(.w10) { display: grid; grid-template-columns: 1fr minmax(0, max-content) 1fr; }", ".taskbar:not(.w10) { display: flex; }"], [".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: center;", ".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: flex-start;"]] }],
+  ["INSTALL", "the new phone's refusals shown without their words", { "assets/newphoneui.js": [["const err = function () { if (m.error) {", "const err = function () { if (false) {"]] }],
+  ["INSTALL", "the bench's charger never plugs in", { "assets/laptop.js": [["const r = NP.charger(m, !m.battery.charging);", "const r = NP.charger(m, false);"]] }],
   ["INSTALL", "Activation Lock never shows on the Mac", { "assets/mac.js": [["if (m.lock.on && !m.lock.released) {", "if (false) {"]] }],
   ["INSTALL", "GRUB never lists Windows", { "assets/install.js": [["if (m.inst.os) e.push([\"windows\"", "if (false) e.push([\"windows\""]] }],
   ["INSTALL", "shrinking C: leaves no free space", { "assets/install.js": [["p.bytes -= n * MB; dk.parts.splice(i + 1, 0, { kind: \"unalloc\"", "p.bytes -= n * MB; dk.parts.splice(i + 1, 0, { kind: \"data\""]] }],

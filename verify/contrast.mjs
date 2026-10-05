@@ -606,6 +606,30 @@ export async function run(extraCss) {
     await mbb("Install on Macintosh HD").click(); await mbb("Install macOS Sequoia").click(); await page.waitForTimeout(150);
     await sweep(tag + ": OI5, Setup Assistant's Hello");
     await macw.getByRole("button", { name: /^Close Your bench/ }).click();
+    /* OI6: the new phone on the bench: welcome, QR set-up, Wi-Fi, "belongs to your organization", the policy's lock, the update */
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20493" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+    await hd.locator("[data-coach=open-phonebench]").click(); await page.waitForTimeout(1500);
+    const npw = page.locator("[data-win=phonebench]"), npb = (n) => npw.getByRole("button", { name: n, exact: true });
+    await npb("Press the power button briefly").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI6, the new phone on the bench, switched off");
+    await npb("Press and hold the power button").click(); await npb("Show the enrolment QR code for this phone").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI6, the welcome screen and the enrolment QR code");
+    for (let i = 0; i < 6; i++) await npb("Tap the blank part of the welcome screen").click();
+    await page.waitForTimeout(150);
+    await sweep(tag + ": OI6, the QR set-up");
+    await npb("Point the phone's camera at the QR code and scan it").click(); await npw.getByRole("radio", { name: "Rafiki-Guest, open" }).click(); await npb("Connect to Rafiki-Guest").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI6, Wi-Fi refusing the guest network");
+    await npw.getByRole("radio", { name: "Rafiki-Staff, secured" }).click(); await npw.locator('[id^="np-wpass-"]').fill("T3amR@fiki2026"); await npb("Connect to Rafiki-Staff").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI6, this device belongs to your organization");
+    await npb("Accept and continue").click(); await npb("Screen lock: Pattern").click(); await npb("Screen lock: PIN").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI6, the policy's screen lock");
+    await npw.locator('[id^="np-lock1-"]').fill("284719"); await npw.locator('[id^="np-lock2-"]').fill("284719"); await npb("Confirm the PIN").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI6, the home screen, not compliant");
+    await npb("Settings").click(); await npb("System, Software update, reset options").click(); await npb("Software update, Update available").click(); await npb("Download and install the system update").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI6, the update refused on a low battery");
+    await npb("Plug the USB-C charger into the phone").click(); await npb("Download and install the system update").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI6, updated, locked and compliant");
+    await npw.getByRole("button", { name: /^Close Your bench/ }).click();
   }
 
   try {
@@ -658,7 +682,8 @@ const PLANTS = {
   "Health Check's failing rows in a pale red": ".hc-row.hc-bad { color: #e08a8a !important; }",
   "GRUB's menu in a dim grey": ".grub-btn:not(.first), .grub-foot { color: #6b7280 !important; }",
   "the terminal's prompt in a dark green": ".ub-prompt { color: #166534 !important; }",
-  "the Mac's Recovery list in a faint grey": ".mac-item, .mac-sub { color: #9ca3af !important; }"
+  "the Mac's Recovery list in a faint grey": ".mac-item, .mac-sub { color: #9ca3af !important; }",
+  "the new phone's compliance line in a faint grey": ".np-comp, .np-comp strong { color: #9ca3af !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

@@ -92,6 +92,7 @@ import * as PHM from "../assets/phone.js";
 import * as INM from "../assets/install.js";
 import * as OIM from "../assets/tickets-install.js";
 import * as MACM from "../assets/mac.js";
+import * as NPM from "../assets/newphone.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -188,6 +189,7 @@ const NOTES = {
   OI3: "PC Health Check on WS5: the processor isn't currently supported (Core i5-7500, 7th gen, not on the supported list). TPM 2.0, Secure Boot, memory and disk all pass. Changed nothing and forced nothing: escalated for a replacement or ESU decision.",
   OI4: "Shrank C: by 100 GB in Disk Management, left unallocated. Booted the Ubuntu 24.04 USB with F12, chose Install Ubuntu alongside Windows Boot Manager (not Erase disk), ext4, named ws3-dev-ubuntu, user dev. GRUB lists both: Ubuntu signed in, Windows starts.",
   OI5: "Held the power button for startup options, Options, Recovery as rafikiadmin. Disk Utility: erased Macintosh HD as APFS. Activate Mac stopped on Activation Lock (Sam's Apple Account); Mason released it in device management. Reinstalled macOS Sequoia; it shows Setup Assistant's Hello for Priya.",
+  OI6: "Held the power button, then tapped the welcome screen six times for the QR set-up and scanned the enrolment code from device management. Joined Rafiki-Staff, accepted that the organisation owns it (fully managed). Set a 6-digit PIN as the policy requires. The update refused at 18% battery, so I plugged in the charger and installed the 1 September 2026 security update. Device management shows it compliant.",
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB6: "Outlook's background battery use was Restricted and its background data was off, so mail waited until it opened. Set battery to Optimized and turned background data on. A test email arrived by itself.",
   X2: "Opened File History's backups: the 1 October copy of deploy.yml is version 2.3.1, the hotfix. Used Restore to put a copy on Dev's Desktop; today's 2.4.0 in Documents was kept, not overwritten. Opened it to check.",
@@ -848,6 +850,51 @@ XI.OI5 = (D) => { const A = D.MAC, g = (f) => f.TECH.macs.OI5;
       if (!g(E3.fleet()).disk.hasData || t.goal(E3.fleet())) F(P + "MODEL: reinstalling without erasing wiped the Mac, or closed the ticket");
     } };
 };
+/* OI6: a new company phone, set up as fully managed */
+XI.OI6 = (D) => { const N = D.NP, g = (f) => f.TECH.newPhones.OI6;
+  const o = (op, fn, a) => (E) => { const b = E.before(); const res = fn(g(E.fleet())); E.onAct(Object.assign({ machine: "TECH", type: "newphone", op, before: b, res }, a || {})); return res; };
+  const taps = (E) => { for (let i = 0; i < 6; i++) o("tap", (m) => N.tapWelcome(m))(E); };
+  const qr = o("qr", (m) => { m.mdm.qr = true; N.note(m, "qr"); return { ok: true }; });
+  const PIN = "284719";
+  const S = [o("power", (m) => N.power(m, "hold"), { how: "hold" }), qr, taps, o("scan", (m) => N.scan(m)), o("wifi", (m) => N.joinWifi(m, "Rafiki-Staff", "T3amR@fiki2026"), { ssid: "Rafiki-Staff" }),
+    o("accept", (m) => N.accept(m)), o("lock", (m) => N.setLock(m, "pin", PIN, PIN), { kind: "pin" }), o("charger", (m) => N.charger(m, true), { on: true }), o("update", (m) => N.installUpdate(m))];
+  /* the consumer start, up to a finished personal phone */
+  const personal = [o("start", (m) => N.start(m)), o("wifi", (m) => N.joinWifi(m, "Rafiki-Staff", "T3amR@fiki2026"), { ssid: "Rafiki-Staff" }), o("dont-copy", (m) => N.dontCopy(m)), o("skip-account", (m) => N.skipAccount(m)), o("lock", (m) => N.setLock(m, "skip"), { kind: "skip" })];
+  return { get: g, S, leak: [/six times/i, /\bqr\b/i, /press and hold/i, /hold (the|its) power/i, /charger/i, /\bplug/i, /rafiki-staff/i, /\berase/i, /afw#setup/i, /\b(6|six) digits/i, /accept/i],
+    exh: (m) => (!m ? "there's no phone on the bench" : m.power !== "off" ? "the phone starts switched on" : m.enrol !== "none" ? "the phone is already enrolled" : N.patchOK(m) ? "the phone is already up to date" : m.battery.level >= 30 || m.battery.charging ? "the battery is high enough to update without the charger" : null),
+    after: (m) => (m.enrol !== "managed" ? "the phone isn't fully managed" : !m.lock ? "there's no screen lock" : !N.patchOK(m) ? "the phone isn't up to date" : !N.compliance(m).ok ? "device management doesn't show it compliant" : null),
+    near: [["finishing set-up without enrolling it", 1, personal],
+      ["erasing it after it's enrolled", 7, [o("erase", (m) => N.erase(m), { was: "managed" })]]],
+    look: [["a short press while it's off", 0, [o("power", (m) => N.power(m, "press"), { how: "press" })]],
+      ["scanning before the code is shown, then cancelling", 1, [taps, o("scan", (m) => N.scan(m)), o("cancel", (m) => N.cancel(m))]],
+      ["the guest Wi-Fi, and a mistyped staff password", 4, [o("wifi", (m) => N.joinWifi(m, "Rafiki-Guest"), { ssid: "Rafiki-Guest" }), o("wifi", (m) => N.joinWifi(m, "Rafiki-Staff", "t3amrafiki"), { ssid: "Rafiki-Staff" })]],
+      ["Skip, a pattern, 123456 and 111111 at the policy's screen lock", 6, [o("lock", (m) => N.setLock(m, "skip"), { kind: "skip" }), o("lock", (m) => N.setLock(m, "pattern"), { kind: "pattern" }), o("lock", (m) => N.setLock(m, "pin", "123456", "123456"), { kind: "pin" }), o("lock", (m) => N.setLock(m, "pin", "111111", "111111"), { kind: "pin" })]],
+      ["the update refused on a low battery", 7, [o("update", (m) => N.installUpdate(m))]],
+      ["a personal email at the sign-in", 0, [o("power", (m) => N.power(m, "hold"), { how: "hold" }), personal[0], personal[1], personal[2], o("sign-in", (m) => N.signIn(m, "priya.nair@gmail.com"), { email: "an address" })]]],
+    extra: (fresh, F, P, t) => {
+      /* the update needs the charger at 18%, and goes on with it */
+      { const E = fresh(); S.slice(0, 7).forEach((go) => go(E)); const m = g(E.fleet()); if (N.installUpdate(m).ok) F(P + "MODEL: the update installed at " + m.battery.level + "% with no charger"); }
+      /* the policy's screen lock: no skip, no pattern, no runs or repeats */
+      { const E = fresh(); S.slice(0, 6).forEach((go) => go(E)); const m = g(E.fleet());
+        [["skip"], ["pattern"], ["pin", "123456", "123456"], ["pin", "987654", "987654"], ["pin", "111111", "111111"], ["pin", "2847", "2847"]].forEach((x) => { if (N.setLock(JSON.parse(JSON.stringify(m)), x[0], x[1], x[2]).ok) F(P + "MODEL: the policy accepted a screen lock of " + x.join(" ")); }); }
+      /* a finished personal phone can't be enrolled as fully managed; a
+         work account makes a work profile, which doesn't close it */
+      { const E = fresh(); S[0](E); personal.forEach((go) => go(E)); const m = g(E.fleet());
+        if (t.stage(E.fleet()) !== "personal") F(P + "MODEL: a phone finished without enrolling isn't seen as personal (" + t.stage(E.fleet()) + ")");
+        m.mdm.qr = true; N.scan(m); N.joinWifi(m, "Rafiki-Staff", "T3amR@fiki2026"); N.accept(m); if (m.enrol === "managed") F(P + "MODEL: a phone that had finished set-up became fully managed");
+        const g0 = E.T().guesses; o("work-profile", (x) => N.addWorkProfile(x))(E); if (E.T().guesses - g0 !== 1) F(P + "JUDGE: a work profile on the company phone gave " + (E.T().guesses - g0) + " wrong moves, should be 1");
+        if (t.goal(E.fleet())) F(P + "MODEL: a work profile closed the ticket");
+        /* the way back: erase (not counted, nothing to lose), then the right path */
+        const g1 = E.T().guesses; o("erase", (x) => N.erase(x), { was: m.enrol })(E); if (E.T().guesses !== g1) F(P + "JUDGE: erasing the unmanaged phone was counted");
+        S.slice(1).forEach((go) => go(E)); if (!t.goal(E.fleet())) F(P + "SOLVABLE: erasing and enrolling doesn't recover a personal set-up (stage " + t.stage(E.fleet()) + ")"); }
+      /* afw#setup at the sign-in is the other way in */
+      { const E = fresh(); [S[0], o("start", (m) => N.start(m)), o("wifi", (m) => N.joinWifi(m, "Rafiki-Staff", "T3amR@fiki2026"), { ssid: "Rafiki-Staff" }), o("dont-copy", (m) => N.dontCopy(m)), o("sign-in", (m) => N.signIn(m, "afw#setup"), { email: "afw#setup" }), qr, o("scan", (m) => N.scan(m)), o("accept", (m) => N.accept(m))].concat(S.slice(6)).forEach((go) => go(E));
+        if (!t.goal(E.fleet()) || E.T().guesses) F(P + "SOLVABLE: the afw#setup path doesn't close cleanly (stage " + t.stage(E.fleet()) + ", " + E.T().guesses + " wrong)"); }
+      /* an erase keeps the update; revert after a personal finish lands before it */
+      { const E = fresh(); S.forEach((go) => go(E)); const m = g(E.fleet()); N.erase(m); if (!N.patchOK(m)) F(P + "MODEL: erasing the phone took its update away"); }
+      { const E = fresh(); S[0](E); qr(E); personal.forEach((go) => go(E)); E.revert(); if (t.stage(E.fleet()) === "personal") F(P + "SNAPSHOT: revert after a personal finish keeps it"); }
+    } };
+};
 function instTable(D, F, t, X) {
   const P = "EXTRA " + t.id + ": ", fresh = () => { const E = D.createEngine(memStore()); E.openTicket(t.id); return E; };
   { const f = D.makeFleet(); t.setup(f); if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts"); const e = X.exh(X.get ? X.get(f) : f[X.mid]); if (e) F(P + "EXHIBITED: " + e); }
@@ -1444,7 +1491,7 @@ function routerChecks(D, F) {
   ({ f, r } = mk()); if (JSON.stringify(JSON.parse(JSON.stringify(f.TECH.routers))) !== JSON.stringify(f.TECH.routers)) F("ROUTER SNAP: a router doesn't survive the engine's copy");
 }
 
-const BASE = { MAC: Object.assign({}, MACM), IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+const BASE = { NP: Object.assign({}, NPM), MAC: Object.assign({}, MACM), IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
 /* Each plant is one defect a check exists to catch, and the check it must
@@ -1571,6 +1618,12 @@ const PLANTS = [
   ["EXTRA OI5: JUDGE", "erasing as Mac OS Extended isn't counted", () => ({ TICKETS: withTicket("OI5", (t) => ({ judge: (a, f) => (a.op === "erase" ? { guess: false } : t.judge(a, f)) })) })],
   ["EXTRA OI5: SOLVABLE", "the reinstall keeps the old data even after an erase", () => ({ MAC: Object.assign({}, MACM, { reinstall: (m, op, d) => { const r = MACM.reinstall(m, op, d); if (op === "install" && r.ok) m.disk.hasData = true; return r; } }) })],
   ["EXTRA OI5: NO LEAK", "a hint names Disk Utility", () => ({ TICKETS: withTicket("OI5", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0] + " Disk Utility does it.", h[1]]; } })) })],
+  ["EXTRA OI6: MODEL", "the update installs on a low battery without the charger", () => ({ NP: Object.assign({}, NPM, { installUpdate: (m) => { const c = m.battery.charging; m.battery.charging = true; const r = NPM.installUpdate(m); m.battery.charging = c; return r; } }) })],
+  ["EXTRA OI6: JUDGE", "finishing set-up unmanaged isn't counted", () => ({ TICKETS: withTicket("OI6", (t) => ({ judge: (a, f) => (a.op === "lock" ? { guess: false } : t.judge(a, f)) })) })],
+  ["EXTRA OI6: SOLVABLE", "accepting doesn't enrol the phone", () => ({ NP: Object.assign({}, NPM, { accept: (m) => { const r = NPM.accept(m); if (r.ok) m.enrol = "none"; return r; } }) })],
+  ["EXTRA OI6: NO LEAK", "a hint names the six taps", () => ({ TICKETS: withTicket("OI6", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0], h[1] + " Tap it six times."]; } })) })],
+  ["EXTRA OI6: EXHIBITED", "the phone arrives already enrolled", () => ({ TICKETS: withTicket("OI6", (t) => ({ setup: (f) => { t.setup(f); f.TECH.newPhones.OI6.enrol = "managed"; } })) })],
+  ["EXTRA OI6: MODEL", "a finished personal phone can still be scanned and enrolled", () => ({ NP: Object.assign({}, NPM, { scan: (m) => { const d = m.setup.done, sc = m.screen; m.setup.done = false; m.screen = "qr"; const r = NPM.scan(m); m.setup.done = d; if (d) m.screen = sc; return r; }, accept: (m) => { const d = m.setup.done; m.setup.done = false; const r = NPM.accept(m); m.setup.done = d; return r; } }) })],
   ["EXTRA OI5: EXHIBITED", "the Mac arrives already wiped", () => ({ TICKETS: withTicket("OI5", (t) => ({ setup: (f) => { t.setup(f); f.TECH.macs.OI5.disk.hasData = false; f.TECH.macs.OI5.disk.erased = true; } })) })],
 ];
 

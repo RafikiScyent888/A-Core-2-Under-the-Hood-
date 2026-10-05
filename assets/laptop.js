@@ -31,6 +31,8 @@ import * as PH from "./phone.js";
 import * as INS from "./install.js";
 import * as MAC from "./mac.js";
 import { drawMacScreen, paintMac } from "./macui.js";
+import * as NP from "./newphone.js";
+import { drawNewPhoneScreen, paintNewPhone } from "./newphoneui.js";
 import { drawHandset } from "./phoneui.js";
 import * as CH from "./chat.js";
 import * as MB from "./mobile.js";
@@ -113,7 +115,8 @@ const APPS = {
   street: { title: "Street view — Router 3 and its neighbours", mini: "SV", cls: "g-sv", geo: [0.06, 0.03, 0.66, 0.93], draw: drawStreetWin },
   custchat: { title: "Customer chat — Rafiki's IT Services help desk", mini: "CC", cls: "g-cc", geo: [0.30, 0.03, 0.62, 0.93], draw: drawChatWin },
   mobile: { title: "Mobile devices — company phones", mini: "MD", cls: "g-md", geo: [0.04, 0.03, 0.72, 0.93], draw: drawMobileWin },
-  macbench: { title: "Your bench — the Mac", mini: "MC", cls: "g-mac", geo: [0.03, 0.02, 0.80, 0.95], draw: drawMacWin }
+  macbench: { title: "Your bench — the Mac", mini: "MC", cls: "g-mac", geo: [0.03, 0.02, 0.80, 0.95], draw: drawMacWin },
+  phonebench: { title: "Your bench — the new phone", mini: "NP", cls: "g-np", geo: [0.03, 0.02, 0.80, 0.95], draw: drawPhoneBenchWin }
 };
 function appOf(id) { return id.indexOf("rdp:") === 0 ? { title: rosterOf(id.slice(4)).host + " — Remote support", mini: "RS", cls: "g-rdp", geo: [0.08, 0.03, 0.86, 0.92], draw: drawRdp } : APPS[id]; }
 function openWin(id) {
@@ -160,7 +163,7 @@ function drag(w) {
   w.bar.addEventListener("dblclick", function (e) { if (!e.target.closest("button")) { w.max = !w.max; place(w); } });
 }
 function redraw(id) { const w = W[id]; if (w) w.a.draw(w); }
-function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); redraw("floor"); redraw("street"); redraw("custchat"); redraw("mobile"); redraw("macbench"); drawTask(); coachTick(); }
+function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); redraw("floor"); redraw("street"); redraw("custchat"); redraw("mobile"); redraw("macbench"); redraw("phonebench"); drawTask(); coachTick(); }
 
 /* ------------------------------------------------ desktop and taskbar */
 function drawDesk() {
@@ -185,7 +188,7 @@ function drawTask() {
   const ids = pinned.concat(Object.keys(W).filter(function (k) { return pinned.indexOf(k) < 0; }));
   ids.forEach(function (id) {
     const a = appOf(id); const w = W[id];
-    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : id === "floor" ? "Floor plan" : id === "street" ? "Street view" : id === "custchat" ? "Customer chat" : id === "mobile" ? "Mobile devices" : id === "macbench" ? "Your bench: the Mac" : rosterOf(id.slice(4)).host;
+    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : id === "floor" ? "Floor plan" : id === "street" ? "Street view" : id === "custchat" ? "Customer chat" : id === "mobile" ? "Mobile devices" : id === "macbench" ? "Your bench: the Mac" : id === "phonebench" ? "Your bench: the new phone" : rosterOf(id.slice(4)).host;
     const b = btn("", "tb" + (w ? " open" : "") + (front === id && w && !w.min ? " front" : ""), function () {
       if (!w) return openWin(id);
       if (front === id && !w.min) { w.min = true; place(w); front = null; drawTask(); } else { w.min = false; place(w); focusWin(id); }
@@ -337,7 +340,7 @@ function nextStepAdvice(t, st) {
     if (st.stage === "close") return "The phone's fixed and you've checked it. Now answer " + who + "'s question on the ticket.";
     return W.mobile ? t.adviceWork : t.adviceStart;
   }
-  if (t.kind === "install" || t.kind === "mac") return st.stage === "close" ? t.closeAdvice : t.advice(E.fleet());
+  if (t.kind === "install" || t.kind === "mac" || t.kind === "newphone") return st.stage === "close" ? t.closeAdvice : t.advice(E.fleet());
   if (t.kind === "backup") {
     if (st.stage === "close") return t.id === "X1" ? "Farah's file is back and her backup is tested. Now answer her question on the ticket: why wasn't today's rescue a backup?" : "The job's done. Now answer " + who + "'s question on the ticket.";
     if (!W["rdp:" + t.machine] && !ev.length) return t.adviceStart || "Connect to " + r.host + " from the ticket, and look at the file first: open Q3-budget.xlsx in her Documents and see what's in it now.";
@@ -444,8 +447,9 @@ function drawTicket(t) {
   p.appendChild(el("h2", null, t.title));
   const exl = examFor(t); if (exl) { const xb = btn("See this sim the way the exam shows it", "b small", function () { L.examSel = { ex: exl.ex.id, v: exl.v.id }; saveL(); if (W.exam) { redraw("exam"); W.exam.min = false; place(W.exam); focusWin("exam"); } else openWin("exam"); }, "Open Exam Practice at " + exl.ex.sim + (exl.v.base ? ", the sim itself" : ", " + exl.v.title)); xb.classList.add("t-exam"); p.appendChild(xb); }
   const dl = el("dl", "t-grid");
-  const mal = t.kind === "malware", em = t.kind === "email", rt = t.kind === "router", wf = t.kind === "wifi", ch = t.kind === "chat", mo = t.kind === "mobile", mc = t.kind === "mac";
-  if (mc) { [["Status", s[0]], ["Requester", name], ["Device", "MacBook, on your bench (13-inch, Apple silicon)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
+  const mal = t.kind === "malware", em = t.kind === "email", rt = t.kind === "router", wf = t.kind === "wifi", ch = t.kind === "chat", mo = t.kind === "mobile", mc = t.kind === "mac", np = t.kind === "newphone";
+  if (np) { [["Status", s[0]], ["Requester", name], ["Device", "TechCom T7 company phone, new, on your bench"], ["For", "Priya Nair (starts Monday)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
+  else if (mc) { [["Status", s[0]], ["Requester", name], ["Device", "MacBook, on your bench (13-inch, Apple silicon)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (mo) { [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", "Company phone (in Mobile devices, with Remote help)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (ch) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Channel", "Help desk chat"], ["Device", t.channel === "email" ? "Company phone (in Mobile devices)" : "92 Series AX1800 router (shared in the 92 Series app)"], ["Category", t.channel === "email" ? "Communication › Mobile email" : "Communication › Router setup"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (wf) { [["Status", s[0]], ["Requester", "Mason (Team Lead)"], ["Device", "92 Series AP600 access point · 192.168.1.1"], ["Location", t.site.replace("Rafiki's IT Services · ", "")], ["Category", "Network › Wireless"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
@@ -471,6 +475,10 @@ function drawTicket(t) {
     if (planRouter()) { acts.appendChild(coachTag("walk-break", btn("Walk to the break room", "b", function () { walkOver("BREAK"); }))); acts.appendChild(coachTag("open-floor", btn("Open the floor plan", "b", function () { openWin("floor"); }))); }
     acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: every device connects as it should" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
     acts.appendChild(coachTag("escalate", btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); })));
+  } else if (st.stage === "work" && np) {
+    acts.appendChild(coachTag("open-phonebench", btn("Open the phone on your bench", "b pri", function () { openWin("phonebench"); })));
+    acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: the phone is enrolled, compliant and ready for Priya" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
+    acts.appendChild(btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); }));
   } else if (st.stage === "work" && mc) {
     acts.appendChild(coachTag("open-mac", btn("Open the Mac on your bench", "b pri", function () { openWin("macbench"); })));
     acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: the Mac is ready for its new user" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
@@ -786,6 +794,62 @@ function drawMacWin(w) {
   else if (!ui.mounting) { ui.mounting = true; import("./macview.js").then(function (mod) { if (!mod.webglOK()) throw new Error("no webgl"); ui.mac = mod.mountMac(stage, { height: 300, draw: function (c, w2, h2) { ui.paint(c, w2, h2); } }); }).catch(function () { stage.appendChild(el("p", "cc-note", "3D isn't available on this computer: the Mac's screen beside it is the same.")); }); }
   w.onClose = function () { if (ui.mac) { ui.mac.dispose(); ui.mac = null; } };
 }
+/* The new phone on the bench: the approved 3D phone, its screen as real
+   HTML beside it, your hands (the power button, the charger) and Rafiki's
+   device management (the enrolment QR code, the policy, compliance).
+   Everything done goes through the engine as type "newphone". */
+function drawPhoneBenchWin(w) {
+  w.ui = w.ui || {}; const t = E.ticket();
+  const m = t && t.kind === "newphone" ? NP.get(E.fleet(), t.id) : null;
+  if (!m) { if (w.ui.phone) { w.ui.phone.dispose(); w.ui.phone = null; } w.body.innerHTML = ""; w.body.appendChild(el("p", "cc-note", "Nothing on your bench. A phone appears here when its ticket is open.")); return; }
+  if (w.ui.forTicket !== t.id) { if (w.ui.phone) w.ui.phone.dispose(); w.ui = { forTicket: t.id }; }
+  const ui = w.ui, act = function (a) { E.onAct(Object.assign({ machine: "TECH" }, a)); if (!(a.op === "tap" && a.res && a.res.taps)) actLog(a, "the phone on your bench"); after(); };
+  const keep = w.body.querySelector(".np-3d");
+  w.body.innerHTML = ""; w.body.classList.add("macb-host");
+  const grid = el("div", "macb"); w.body.appendChild(grid);
+  const left = el("div", "macb-left"); grid.appendChild(left);
+  const stage = keep || el("div", "mac-3d np-3d"); left.appendChild(stage);
+  const sides = el("div", "macb-row"); sides.setAttribute("role", "group"); sides.setAttribute("aria-label", "Turn the phone");
+  [["front", "Front"], ["back", "Back"], ["bottom", "Bottom edge (USB-C)"]].forEach(function (x) { sides.appendChild(btn(x[1], "b small", function () { if (ui.phone) ui.phone.show(x[0]); }, "Turn the phone: " + x[1])); });
+  left.appendChild(sides);
+  const hands = el("section", "macb-sec"); hands.appendChild(el("h3", null, "With your own hands"));
+  hands.appendChild(el("p", "wo-state", (m.power === "on" ? "It's on." : "It's switched off.") + " " + (m.battery.charging ? "The USB-C charger is plugged in." : "The charger is in the box, not plugged in.")));
+  const hr = el("div", "macb-row");
+  const pw = function (how) { return function () { const b = E.before(); const r = NP.power(m, how); ui.scr = ui.scr || {}; ui.scr.msg = r.text ? { text: r.text, bad: r.ok === false } : null; act({ type: "newphone", op: "power", how: how, res: r, before: b }); }; };
+  hr.appendChild(coachTag("np-press", btn("Press the power button", "b", pw("press"), "Press the power button briefly")));
+  hr.appendChild(coachTag("np-hold", btn("Press and hold the power button", "b", pw("hold"), "Press and hold the power button")));
+  hr.appendChild(coachTag("np-charger", btn(m.battery.charging ? "Unplug the charger" : "Plug in the USB-C charger", "b", function () { const b = E.before(); const r = NP.charger(m, !m.battery.charging); act({ type: "newphone", op: "charger", on: m.battery.charging, res: r, before: b }); if (ui.phone && m.battery.charging) ui.phone.show("bottom"); }, m.battery.charging ? "Unplug the charger" : "Plug the USB-C charger into the phone")));
+  hands.appendChild(hr); left.appendChild(hands);
+  const mdm = el("section", "macb-sec"); mdm.appendChild(el("h3", null, "Device management · Rafiki's IT Services"));
+  const cp = NP.compliance(m);
+  const dl = el("dl", "doc-dl"); [["Device", m.model + " · serial " + m.serial + " · IMEI " + m.imei], ["Assigned to", m.owner + " (starts Monday)"], ["Ownership", "Company-owned"], ["Enrolment", m.enrol === "managed" ? "Enrolled: fully managed" : m.enrol === "profile" ? "Enrolled: personal phone with a work profile" : "Not enrolled"], ["Android", m.enrol === "none" ? "Not reported (not enrolled)" : m.os.version + " · security update " + m.os.patch]].forEach(function (kv) { dl.appendChild(el("dt", null, kv[0])); dl.appendChild(el("dd", null, kv[1])); }); mdm.appendChild(dl);
+  const cl = el("p", "np-comp " + (cp.ok ? "ok" : "bad")); cl.appendChild(el("strong", null, (cp.ok ? "✓ " : "✕ ") + "Compliance: ")); cl.appendChild(document.createTextNode(cp.text)); mdm.appendChild(cl);
+  const pol = el("details", "np-pol"); pol.appendChild(el("summary", null, "Company phone policy"));
+  const pl = el("ul"); ["Enrolment: fully managed (company-owned), by QR code from this page", "Screen lock: a PIN of at least " + NP.POLICY.pinLen + " digits with no runs or repeats, or a password; no pattern", "Security update: " + NP.POLICY.minPatch + " or later", "Apps installed by the organisation: Outlook, Teams"].forEach(function (x) { pl.appendChild(el("li", null, x)); }); pol.appendChild(pl); mdm.appendChild(pol);
+  mdm.appendChild(coachTag("np-qr", btn(m.mdm.qr ? "The enrolment QR code is showing" : "Show the enrolment QR code", "b", function () { if (m.mdm.qr) return; const b = E.before(); m.mdm.qr = true; NP.note(m, "qr"); act({ type: "newphone", op: "qr", res: { ok: true }, before: b }); }, "Show the enrolment QR code for this phone")));
+  if (m.mdm.qr) { const q = el("figure", "np-qr"); q.appendChild(qrCanvas(m.serial)); q.appendChild(el("figcaption", null, "Enrolment code for " + m.model + " " + m.serial + ": fully managed, Rafiki's IT Services. It doesn't carry a Wi-Fi network.")); mdm.appendChild(q); }
+  left.appendChild(mdm);
+  const right = el("div", "macb-right"); grid.appendChild(right);
+  ui.scr = ui.scr || {};
+  drawNewPhoneScreen(right, m, { act: act, before: E.before, draw: function () { redraw("phonebench"); }, ui: ui.scr });
+  ui.paint = paintNewPhone(m, ui.scr);
+  if (ui.phone) ui.phone.redraw();
+  else if (!ui.mounting) { ui.mounting = true; import("./phoneview.js").then(function (mod) { if (!mod.webglOK()) throw new Error("no webgl"); ui.phone = mod.mountPhone(stage, { height: 300, dist: 380, draw: function (c, w2, h2) { ui.paint(c, w2, h2); } }); }).catch(function () { stage.appendChild(el("p", "cc-note", "3D isn't available on this computer: the phone's screen beside it is the same.")); }); }
+  w.onClose = function () { if (ui.phone) { ui.phone.dispose(); ui.phone = null; } };
+}
+/* a QR-style code, drawn the same every time for one serial: scenery, the
+   words beside it say what it is */
+function qrCanvas(seed) {
+  const n = 25, px = 6, c = document.createElement("canvas"); c.width = c.height = (n + 4) * px; c.setAttribute("aria-hidden", "true");
+  const g = c.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height); g.fillStyle = "#000000";
+  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const rnd = function () { h = (h * 1103515245 + 12345) >>> 0; return (h >>> 16) & 1; };
+  const finder = function (x, y) { for (let i = 0; i < 7; i++) for (let j = 0; j < 7; j++) { const edge = i === 0 || j === 0 || i === 6 || j === 6, core = i >= 2 && i <= 4 && j >= 2 && j <= 4; if (edge || core) g.fillRect((x + i + 2) * px, (y + j + 2) * px, px, px); } };
+  const inFinder = function (i, j) { return (i < 8 && j < 8) || (i > n - 9 && j < 8) || (i < 8 && j > n - 9); };
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (!inFinder(i, j) && rnd()) g.fillRect((i + 2) * px, (j + 2) * px, px, px);
+  finder(0, 0); finder(n - 7, 0); finder(0, n - 7);
+  return c;
+}
 /* Everything done in the 92 Series app goes through here: the change to
    the router, then the engine (which judges it), the ticket's activity,
    and Mason. A view that only redraws (a confirm box) is quiet. */
@@ -895,7 +959,8 @@ function actLog(a, host) {
     "router-firmware": function () { return "Checked for firmware updates: " + a.text; },
     "router-ask": function () { return "Asked " + t.who + ": " + a.q + (a.lost ? " (unsaved changes on the page were lost)" : ""); },
     osinst: function () { return osLog(a); },
-    mac: function () { return macLog(a); }
+    mac: function () { return macLog(a); },
+    newphone: function () { return npLog(a); }
   }[a.type];
   if (say) logT(t.id, host + ": " + say());
 }
@@ -953,6 +1018,33 @@ function osLog(a) {
   }[a.op];
   return L2 ? L2() : "Setup: " + a.op;
 }
+function npLog(a) {
+  const r = a.res || {}, ok = r.ok !== false;
+  const L2 = {
+    power: function () { return a.how === "hold" ? "Pressed and held the power button" : "Pressed the power button" + (r.text ? ": " + r.text : ""); },
+    charger: function () { return a.on ? "Plugged in the USB-C charger" : "Unplugged the charger"; },
+    menu: function () { return { off: "Power menu: powered off", restart: "Power menu: restarted", cancel: "Closed the power menu" }[a.pick]; },
+    qr: function () { return "Device management: showed the enrolment QR code"; },
+    tap: function () { return "Tapped the welcome screen six times: the QR set-up opened"; },
+    start: function () { return "Welcome screen: Start"; },
+    scan: function () { return ok ? "Scanned the enrolment QR code" : "Tried to scan: nothing to scan"; },
+    cancel: function () { return "Stopped the set-up: back to the welcome screen"; },
+    wifi: function () { return ok ? "Joined " + a.ssid : "Couldn't join " + a.ssid; },
+    offline: function () { return "Chose Set up offline"; },
+    "dont-copy": function () { return "Copy apps & data: Don't copy"; },
+    "sign-in": function () { return a.email === "afw#setup" ? "Typed afw#setup at the sign-in: the device policy app installed" : "Sign-in refused"; },
+    "skip-account": function () { return "Skipped the Google Account"; },
+    accept: function () { return "Accepted: the organisation owns this phone (fully managed)"; },
+    lock: function () { return ok ? (r.done ? "Set-up finished" + (a.kind === "skip" ? " with no screen lock" : " with a " + (a.kind === "pin" ? "PIN" : "password")) + (r.enrol === "managed" ? "" : ", not enrolled") : "Screen lock set") : "Screen lock refused: " + (m0(a) || "see the phone"); },
+    unlock: function () { return ok ? "Unlocked the phone" : "Wrong PIN at the lock screen"; },
+    "work-profile": function () { return "Added a work account: a work profile"; },
+    update: function () { return ok ? "Installed the security update " + "(the phone restarted)" : "The update didn't install: " + (r.text || "refused"); },
+    erase: function () { return "Erased all data (factory reset)"; }
+  }[a.op];
+  const out = L2 ? L2() : "Phone: " + a.op;
+  return out;
+}
+function m0(a) { return a.res && a.res.text; }
 function macLog(a) {
   const r = a.res || {}, ok = r.ok !== false;
   const L2 = {

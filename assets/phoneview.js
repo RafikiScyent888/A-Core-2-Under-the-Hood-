@@ -24,7 +24,7 @@ export function mountPhone(host, opts) {
   const screen = document.createElement("canvas"); screen.width = 540; screen.height = 1110;
   opts.draw(screen.getContext("2d"), screen.width, screen.height);
   const phone = buildPhone(THREE, { RoundedBoxGeometry: RoundedBoxGeometry, screen: screen }); phone.rotation.y = -0.18; scene.add(phone);
-  const cam = new THREE.PerspectiveCamera(30, Wd() / H, 1, 2000); cam.position.set(14, 8, 270);
+  const cam = new THREE.PerspectiveCamera(30, Wd() / H, 1, 2000); cam.position.set(14, 8, opts.dist || 270);
   const ctl = new OrbitControls(cam, cv); ctl.target.set(0, 0, 0); ctl.enablePan = false; ctl.minDistance = 160; ctl.maxDistance = 520; ctl.update();
   let pending = false; function render() { if (pending) return; pending = true; requestAnimationFrame(function () { pending = false; r.render(scene, cam); }); }
   ctl.addEventListener("change", render);
@@ -32,8 +32,9 @@ export function mountPhone(host, opts) {
   window.addEventListener("resize", resize); render();
   return {
     redraw: function () { opts.draw(screen.getContext("2d"), screen.width, screen.height); phone.userData.screen.needsUpdate = true; render(); },
-    /* turn it round: "back" shows the camera side, "front" the screen */
-    show: function (side) { phone.rotation.y = side === "back" ? Math.PI + 0.25 : -0.18; render(); },
+    /* turn it round: "back" shows the camera side, "front" the screen,
+       "bottom" tips it to show the bottom edge (USB-C, speaker, microphone) */
+    show: function (side) { phone.rotation.set(side === "bottom" ? -1.25 : 0, side === "back" ? Math.PI + 0.25 : side === "bottom" ? 0 : -0.18, 0); render(); },
     dispose: function () { window.removeEventListener("resize", resize); ctl.dispose(); r.dispose(); }
   };
 }
