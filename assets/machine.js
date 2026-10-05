@@ -301,6 +301,8 @@ export function startShell(m) {
 }
 export function shutdown(m) { m.power = "off"; m.crashed = null; m.shellGone = false; note(m, "shutdown"); }
 export function boot(m) {
+  /* a PC a ticket is installing (install.js) starts at its firmware screen */
+  if (m.inst && m.inst.managed) { m.power = "on"; m.crashed = null; m.shellGone = false; m.inst.screen = "post"; m.inst.error = null; note(m, "inst-post"); return { ok: true, say: "The PC is starting: its firmware screen is showing." }; }
   m.power = "on"; m.crashed = null; m.shellGone = false;
   const lines = [];
   if (m.sys.chkdskScheduled) { m.sys.chkdskScheduled = false; if (m.sys.fsErrors) { m.sys.fsErrors = false; lines.push("Scanning and repairing drive (C:): 100% complete. Windows made corrections to the file system."); } }

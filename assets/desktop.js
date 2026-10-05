@@ -16,13 +16,15 @@ import { APPS, CATALOGUE } from "./fleet.js";
 import * as MW from "./malware.js";
 import { drawMail } from "./mailui.js";
 import * as BK from "./backup.js";
+import * as INS from "./install.js";
+import { drawInstall } from "./installui.js";
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function btn(label, cls, fn, aria) { const b = el("button", cls || "w-btn", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
 
 const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update", mail: "Mail", filehist: "File History", props: "Properties" };
 const TOOLS = ["mail", "cmd", "ps", "taskmgr", "eventvwr", "settings", "softcenter", "explorer", "edge", "security", "sysprot", "netconn", "winupdate", "filehist"];
-const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point system restore rstrui", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check", mail: "email outlook inbox messages", filehist: "file history backup back up control panel restore personal files" };
+const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point system restore rstrui computer name rename domain join workgroup", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check", mail: "email outlook inbox messages", filehist: "file history backup back up control panel restore personal files" };
 
 export function createDesktop(host, ctx) {
   let wins = [], active = null, wid = 1, start = false, run = null, dialog = null, bootNote = null;
@@ -102,8 +104,11 @@ export function createDesktop(host, ctx) {
       b.appendChild(el("p", "bsod-code", "Stop code: " + mm.crashed)); b.appendChild(btn("Let it restart", "w-btn bsod-btn", function () { restart("crash"); }));
       screen.appendChild(b); return;
     }
+    /* a PC being installed: its firmware, Windows Setup, or first run */
+    if (INS.screen(mm)) { screen.classList.add("inst"); drawInstall(screen, mm, { act: function (x) { act(x); }, before: ctx.before, draw: draw }); return; }
     const top = el("div", "sign-bar");
-    top.appendChild(el("span", null, mm.host + " · signed in as RAFIKI\\" + mm.user + (mm.userIsAdmin ? " (administrator)" : " (standard user)")));
+    const as = INS.signedInAs(mm);
+    top.appendChild(el("span", null, mm.host + " · signed in as " + (as || "RAFIKI\\" + mm.user + (mm.userIsAdmin ? " (administrator)" : " (standard user)"))));
     screen.appendChild(top);
     const area = el("div", "desk-area" + (mm.shellGone ? " no-shell" : ""));
     if (bootNote) { const n = el("div", "boot-note"); n.setAttribute("role", "status"); n.appendChild(el("span", null, "Restarted. " + bootNote)); n.appendChild(btn("Dismiss", "w-btn small", function () { bootNote = null; draw(); })); area.appendChild(n); }
@@ -479,6 +484,12 @@ export function createDesktop(host, ctx) {
   /* ------------------------------- System Properties, System Protection */
   function drawSysProt(w) {
     const mm = MW.ready(m()); const wrap = el("div", "set sysprot");
+    /* Computer Name: what the PC is called and what it's a member of */
+    wrap.appendChild(el("h4", "set-h", "System Properties › Computer Name"));
+    const dom = mm.domain || "RAFIKI", wg = dom === "WORKGROUP";
+    const cdl = el("dl", "doc-dl"); [["Full computer name", mm.host + (wg ? "" : "." + dom.toLowerCase() + ".local")], [wg ? "Workgroup" : "Domain", wg ? "WORKGROUP" : dom.toLowerCase() + ".local"]].forEach(function (kv) { cdl.appendChild(el("dt", null, kv[0])); cdl.appendChild(el("dd", null, kv[1])); }); wrap.appendChild(cdl);
+    if (INS.managed(mm) && (mm.inst.pendingName || mm.inst.joinPending)) wrap.appendChild(el("p", "dlg-error", "Changes will take effect after you restart this computer."));
+    if (INS.managed(mm)) { const cr = el("div", "dlg-row"); cr.appendChild(btn("Change…", "w-btn", function () { askUAC("System Properties", function () { dialog = { kind: "sysname", step: "form", name: mm.inst.pendingName || mm.host, member: wg && !mm.inst.joinPending ? "workgroup" : "domain", domain: wg ? "" : "RAFIKI" }; draw(); }); }, "Change this computer's name or domain")); wrap.appendChild(cr); }
     wrap.appendChild(el("h4", "set-h", "System Properties › System Protection"));
     if (!mm.restore.available) { wrap.appendChild(el("p", null, "System Restore is not available on Windows Server. Servers are protected with Windows Server Backup instead.")); return wrap; }
     const t = el("table", "ev-table"); const hr = el("tr"); ["Available drives", "Protection"].forEach(function (c) { const th = el("th", null, c); th.setAttribute("scope", "col"); hr.appendChild(th); });
@@ -658,6 +669,44 @@ export function createDesktop(host, ctx) {
         dialog = { kind: "message", title: it.label + " Setup", text: it.label + " was removed." }; act({ type: "cmd", line: "uninstall " + it.key, res: { kind: "change" }, before: before }); draw();
       }));
       row.appendChild(btn("Cancel", "w-btn", close));
+    }
+    if (d.kind === "sysname" && d.step === "form") {
+      box.appendChild(el("h3", "dlg-h", "Computer Name/Domain Changes")); box.appendChild(el("p", null, "You can change the name and the membership of this computer. Changes might affect access to network resources."));
+      const ln = el("label", null, "Computer name"); const nm = el("input", "w-input"); nm.id = "cn-name-" + mm.id; ln.setAttribute("for", nm.id); nm.value = d.name; nm.setAttribute("autocomplete", "off"); nm.setAttribute("spellcheck", "false"); box.appendChild(ln); box.appendChild(nm);
+      const g = el("fieldset", "cn-member"); g.appendChild(el("legend", null, "Member of"));
+      const can = INS.canJoin(mm);
+      [["domain", "Domain"], ["workgroup", "Workgroup"]].forEach(function (o) { const id = "cn-" + o[0] + "-" + mm.id; const r = el("input"); r.type = "radio"; r.name = "cn-member-" + mm.id; r.id = id; r.checked = d.member === o[0]; r.disabled = o[0] === "domain" && !can; r.addEventListener("change", function () { d.name = nm.value; if (d.member === "domain") d.domain = di.value; d.member = o[0]; draw(); }); const l = el("label", null, " " + o[1]); l.setAttribute("for", id); const w = el("div", "cn-opt"); w.appendChild(r); w.appendChild(l); g.appendChild(w); });
+      const di = el("input", "w-input"); di.id = "cn-dom-" + mm.id; di.value = d.member === "domain" ? d.domain : "WORKGROUP"; di.disabled = d.member !== "domain"; di.setAttribute("aria-label", d.member === "domain" ? "Domain" : "Workgroup"); di.setAttribute("autocomplete", "off"); g.appendChild(di);
+      if (!can) g.appendChild(el("p", null, "Windows 11 Home can't join a domain."));
+      box.appendChild(g);
+      if (d.err) { const e = el("p", "dlg-err", d.err); e.setAttribute("role", "alert"); box.appendChild(e); }
+      row.appendChild(btn("OK", "w-btn primary", function () {
+        d.name = nm.value; if (d.member === "domain") d.domain = di.value; d.err = "";
+        if (d.member === "domain" && !mm.inst.joined) { d.step = "creds"; draw(); return; }
+        const before = ctx.before(); const r = INS.changeName(mm, { name: d.name, member: d.member });
+        if (!r.ok) { d.err = r.text; act({ type: "osinst", op: "rename", res: r, before: before, name: d.name, member: d.member }); draw(); return; }
+        dialog = { kind: "restart-now", text: r.text }; act({ type: "osinst", op: "rename", res: r, before: before, name: d.name, member: d.member }); draw();
+      }));
+      row.appendChild(btn("Cancel", "w-btn", close));
+    }
+    if (d.kind === "sysname" && d.step === "creds") {
+      box.appendChild(el("h3", "dlg-h", "Windows Security")); box.appendChild(el("p", null, "Computer Name/Domain Changes: enter the name and password of an account with permission to join the domain."));
+      const u = el("input", "w-input"); u.id = "cn-u-" + mm.id; u.value = d.user || ""; const lu = el("label", null, "User name"); lu.setAttribute("for", u.id); u.setAttribute("autocomplete", "off");
+      const p = el("input", "w-input"); p.id = "cn-p-" + mm.id; p.type = "password"; const lp = el("label", null, "Password"); lp.setAttribute("for", p.id);
+      [lu, u, lp, p].forEach(function (x) { box.appendChild(x); });
+      if (d.err) { const e = el("p", "dlg-err", d.err); e.setAttribute("role", "alert"); box.appendChild(e); }
+      row.appendChild(btn("OK", "w-btn primary", function () {
+        d.user = u.value; const before = ctx.before(); const r = INS.changeName(mm, { name: d.name, member: "domain", domain: d.domain, user: u.value, pass: p.value });
+        act({ type: "osinst", op: "rename", res: r, before: before, name: d.name, member: "domain", domain: d.domain });
+        if (!r.ok) { d.err = r.text; if (!r.needCreds) d.step = "form"; draw(); return; }
+        dialog = { kind: "restart-now", text: r.text }; draw();
+      }, "Join the domain with this account"));
+      row.appendChild(btn("Cancel", "w-btn", function () { d.step = "form"; d.err = ""; draw(); }));
+    }
+    if (d.kind === "restart-now") {
+      box.appendChild(el("h3", "dlg-h", "Computer Name/Domain Changes")); box.appendChild(el("p", null, d.text));
+      row.appendChild(btn("Restart now", "w-btn primary", function () { dialog = null; restart("rename"); }));
+      row.appendChild(btn("Restart later", "w-btn", close));
     }
     if (d.kind === "restorepoint") {
       box.appendChild(el("h3", "dlg-h", "Create a restore point")); const lab = el("label", null, "Type a description to help you identify the restore point:"); const inp = el("input", "w-input"); inp.id = "rp-" + mm.id; lab.setAttribute("for", inp.id); inp.value = "After malware removal";

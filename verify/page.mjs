@@ -51,8 +51,9 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488" };
 const NOTES = {
+  OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB1: "Weather Live topped the Battery page at 52% in the background, with location Allow all the time and Unrestricted battery. Set location to Allow only while using the app and background battery to Restricted. The Battery page now shows about 23 hours.",
   X1: "Restored Q3-budget.xlsx from the 3 October 11:58 previous version, from a restore point. Set up File History to \\\\FS01\\Backups, every hour, turned it on, and tested it: her file is in Restore personal files.",
   R1: "Replaced the default admin password from the sticker with a strong one on Administration, saved it, and restarted the router. Leah's laptop and printer still connect.",
@@ -76,7 +77,7 @@ const NOTES = {
   E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT", "EXTRA", "BACKUP", "MOBILE", "INSTRUCTOR"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT", "EXTRA", "BACKUP", "MOBILE", "INSTALL", "INSTRUCTOR"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -108,6 +109,7 @@ async function run(rewrites, groups) {
     WR1: { "rt-band": "2.4", "rt-chan": "11", "rt-sec": "WPA3", "wb-pass": "Clos3t-AP-2026" },
     N1: { "rt-ssid": "HomeWiFi", "rt-wpass": "MyCCR0ck2!", "rt-sec": "WPA3", "rt-chan": "11", "rt-width": "20" },
     X1: { "fh-loc-WS4": "\\\\FS01\\Backups", "fh-every-WS4": "60" },
+    OI1: { "oobe-name-WS3": "WS3-DEV", "oobe-local-WS3": "benchtech", "oobe-lpass-WS3": "Bench-Local-26", "cn-dom-WS3": "RAFIKI", "cn-u-WS3": "RAFIKI\\itadmin", "cn-p-WS3": "Bench-Tech-2026" },
     MB1: { "ph-loc": "Allow only while using the app", "ph-bat": "Restricted" },
     P1: { "rt-fe": "3389", "rt-fi": "192.168.10.20", "rt-fq": "3389", "rt-dmz": "10.100.0.50", "rt-sec": "WPA2" } };
   async function crawl(p, id, max) {
@@ -128,7 +130,7 @@ async function run(rewrites, groups) {
       if (/TEXTAREA/.test(tag)) { await t.first().fill(NOTES[id]); await p.getByRole("button", { name: "Close the ticket" }).click(); continue; }
       if (/DIV/.test(tag) && /opts/.test(tag)) { const right = await p.evaluate(() => window.__LAP.engine.ticket().close.options.find((o) => o.correct).label); await p.locator(".opt2", { hasText: right }).first().click(); continue; }
       if (/con-in/.test(tag)) { const cmd = await p.locator(".coach-cmd").innerText(); await t.first().fill(cmd); await t.first().press("Enter"); continue; }
-      if ((await t.first().evaluate((e) => e.type || "")) === "checkbox") { await t.first().click(); continue; }
+      if (/^(checkbox|radio)$/.test(await t.first().evaluate((e) => e.type || ""))) { await t.first().click(); continue; }
       if (/fp-mw/.test(tag)) { await t.first().focus(); for (let k = 0; k < 5; k++) await p.keyboard.press("Shift+ArrowRight"); for (let k = 0; k < 2; k++) await p.keyboard.press("Shift+ArrowDown"); continue; }
       { const wid = await t.first().getAttribute("id") || "", V = VALS[id] || {}; if (V[wid] != null) { if (/^SELECT/.test(tag)) await t.first().selectOption(V[wid]); else { await t.first().fill(V[wid]); await t.first().dispatchEvent("change"); } continue; } }
       if (/^INPUT/.test(tag) && /^rt-a/.test(await t.first().getAttribute("id") || "")) { const i = await t.first().getAttribute("id"); await t.first().fill(i === "rt-acur" ? "admin" : "Brooks#Ledger-2026"); await t.first().dispatchEvent("change"); continue; }
@@ -146,9 +148,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 78) F("LOAD: the queue shows " + items.length + " tickets, not 78");
+      if (items.length !== 79) F("LOAD: the queue shows " + items.length + " tickets, not 79");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 13 || count(/Walk: checklist/) !== 13 || count(/Run: on your own/) !== 52) F("LOAD: the queue's labels are not 13 crawl, 13 walk, 52 run");
+      if (count(/Crawl: guided/) !== 14 || count(/Walk: checklist/) !== 13 || count(/Run: on your own/) !== 52) F("LOAD: the queue's labels are not 14 crawl, 13 walk, 52 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
     });
 
@@ -161,7 +163,7 @@ async function run(rewrites, groups) {
       const order = await p.evaluate(() => Array.from(document.querySelectorAll(".hd2-q h3.qsec, .hd2-q .qi")).map((e) => e.tagName === "H3" ? "H" : (e.querySelector(".badge") ? e.querySelector(".badge").textContent : "NONE")));
       const hx = order.indexOf("H", 1); const sims = order.slice(1, hx), extra = order.slice(hx + 1);
       if (sims.length !== 66 || sims.some((x) => !/^Exam sim · /.test(x))) F("EXTRA: the sims section does not hold 66 tickets each badged Exam sim");
-      if (extra.length !== 12 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6).some((x) => x !== "Extra training · Mobile troubleshooting")) F("EXTRA: the extra-training section is not X1–X6 and MB1–MB6 badged with their objectives: " + JSON.stringify(extra));
+      if (extra.length !== 13 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra[12] !== "Extra training · OS installation") F("EXTRA: the extra-training section is not X1–X6, MB1–MB6 and OI1 badged with their objectives: " + JSON.stringify(extra));
       if (await p.locator(".qi .badge").evaluateAll((bs) => bs.some((b) => !b.querySelector("svg.ico")))) F("EXTRA: a badge has no icon");
       await p.locator(".hd2-jb", { hasText: "Extra training" }).click();
       if (!(await p.locator(".qi", { hasText: INC.X1 }).isVisible())) F("EXTRA: Jump to Extra training does not bring X1 into view");
@@ -245,6 +247,43 @@ async function run(rewrites, groups) {
       if (st5.stage !== "done" || st5.g !== 1) F("MOBILE: MB5 is not done with exactly one wrong move: " + JSON.stringify(st5));
       await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click();
       if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("MOBILE: MB5's Resolve was refused");
+    });
+
+    /* OS installation: OI1 by Mason's rings only, at Dev's desk, from a
+       switched-off PC to Dev signed in on the domain. On the way: Setup's
+       refusal of the MBR disk is on the screen in words, the finished PC
+       is WS3-DEV, Windows 11 Pro, on RAFIKI; then, through the screens, a
+       wrong edition is counted and a typo isn't */
+    await step("INSTALL", async (p) => {
+      await signIn(p);
+      if (!(await crawl(p, "OI1", 160))) { if (process.env.SHOT) await p.screenshot({ path: process.env.SHOT }); F("INSTALL: OI1 could not be finished by following Mason's rings (stuck at: " + (await p.locator(".coach-now").innerText().catch(() => "")).split("\n")[0] + ")"); return; }
+      const st = await p.evaluate(() => { const E = window.__LAP.engine, m = E.fleet().WS3; return { stage: E.state().tickets.OI1.stage, g: E.state().tickets.OI1.guesses, host: m.host, dom: m.domain, ed: m.edition, mbr: m.events.some((e) => e.kind === "inst-ws-mbr") }; });
+      if (st.stage !== "done") F("INSTALL: OI1's crawl said done but the ticket is not closed");
+      if (st.g) F("INSTALL: following Mason's rings on OI1 cost " + st.g + " wrong moves");
+      if (!st.mbr) F("INSTALL: the crawl never showed Setup refusing the MBR disk");
+      if (st.host !== "WS3-DEV" || st.dom !== "RAFIKI" || st.ed !== "Windows 11 Pro") F("INSTALL: the finished PC is " + [st.host, st.dom, st.ed].join(", "));
+      /* through the screens, from the start: Setup's words, a typo, a wrong edition */
+      await take(p, "OI1"); await p.waitForTimeout(200);
+      await p.getByRole("button", { name: /^Walk to Dev's desk/ }).click();
+      await p.waitForSelector(".wo-desk", { timeout: 90000 });
+      const mon = p.locator(".wo-monitor");
+      await p.locator('.wo-hands [data-coach="inst-usb-in"]').click(); await p.locator('.wo-hands [data-coach="power"]').click();
+      if (!/Press F2 to enter Setup/.test(await mon.innerText())) F("INSTALL: the firmware's start-up screen doesn't show its keys");
+      await mon.getByRole("button", { name: "Press F12 for the Boot Menu" }).click();
+      await mon.getByRole("button", { name: "Boot from UEFI: WIN11_24H2 (USB)" }).click();
+      await mon.getByRole("button", { name: "Next" }).click();
+      await mon.getByRole("button", { name: "Next" }).click();
+      if (!/Select the box to confirm/.test(await mon.innerText())) F("INSTALL: Next without ticking the box isn't refused in words");
+      await mon.locator('[id^="ws-agree-"]').check(); await mon.getByRole("button", { name: "Next" }).click();
+      await mon.locator('[id^="ws-key-"]').fill("ABCDE"); await mon.getByRole("button", { name: "Next" }).click();
+      if (!/didn't work/.test(await mon.innerText())) F("INSTALL: a mistyped product key isn't refused in words");
+      if ((await guesses(p)) !== 0) F("INSTALL: a typo or an unticked box was counted as a wrong move");
+      await mon.getByRole("button", { name: "I don't have a product key" }).click();
+      await mon.getByRole("radio", { name: "Windows 11 Home", exact: true }).click(); await mon.getByRole("button", { name: "Next" }).click();
+      if ((await guesses(p)) !== 1) F("INSTALL: choosing Home on a Pro-licensed PC was not counted");
+      await mon.getByRole("button", { name: "Accept" }).click();
+      await mon.locator(".ws-part").first().click(); await mon.getByRole("button", { name: "Install Windows on the selected location" }).click();
+      if (!/MBR partition style/.test(await mon.locator(".ins-err").innerText())) F("INSTALL: Setup's refusal of the MBR disk isn't on the screen in words");
     });
 
     /* Instructor mode shows the answer on every ticket page; every ticket
@@ -779,6 +818,10 @@ const PLANTS = [
   ["MOBILE", "uninstalling an app leaves it on the phone", { "assets/phone.js": [["a.installed = false; const lost = a.drafts; a.drafts = 0;", "const lost = a.drafts;"]] }],
   ["MOBILE", "MB1's check step ticks before any change is made", { "assets/laptop.js": [["return !!p && PH.lastAt(p, \"app-set\") >= 0 && PH.lastAt(p, \"view\"", "return !!p && PH.lastAt(p, \"view\""]] }],
   ["INSTRUCTOR", "the instructor's fix read from the office as it is", { "assets/laptop.js": [["const f = isCur ? E.fleet() : (function () { const g = makeFleet(); t.setup(g); return g; })();", "const f = E.fleet();"], ["const mv = (t.moves(f) || []).filter(", "const mv = t.moves(f).filter("]] }],
+  ["INSTALL", "the boot menu's USB entry starts nothing", { "assets/install.js": [["  if (e === \"usb\") {\n    if (!I.media)", "  if (e === \"usb\" && false) {\n    if (!I.media)"]] }],
+  ["INSTALL", "Sign-in options never offers Domain join instead", { "assets/installui.js": [["if (O.showOpts) opts.appendChild(", "if (false) opts.appendChild("]] }],
+  ["INSTALL", "the domain join never takes effect at the restart", { "assets/install.js": [["if (I.joinPending) { I.joinPending = false;", "if (false) { I.joinPending = false;"]] }],
+  ["INSTALL", "Setup's refusal shown without its words", { "assets/installui.js": [["const e = el(\"p\", \"ins-err\", \"✕ \" + I.error);", "const e = el(\"p\", \"ins-err\", \"✕ Error\");"]] }],
   ["CRAWL", "Mason's rings never drawn", { "assets/laptop.js": [["if (t) t.classList.add(\"coach-target\");", ""]] }],
   ["WALK", "the walk ticks only in strict order", { "assets/laptop.js": [["(walk.mode === \"walk\" || i <= firstOpen(walk, c))", "(i <= firstOpen(walk, c))"]] }],
   ["RUN", "Mason never checks in after wrong moves", { "assets/laptop.js": [["if (g.rung > last.rung || (g.rung === 3 && n > last.n)) {", "if (false) {"]] }],

@@ -286,3 +286,52 @@ footer.bot p { max-width: 75ch; margin: 0.3rem 0; }
 .fh-warn { margin: 0.5rem 0; padding: 0.5rem 0.65rem; border: 2px solid #7a5c00; border-left-width: 6px; background: #fff8db; color: #3b2f00; font-weight: 600; }
 .fh-nav { align-items: center; justify-content: space-between; }
 .fh-nav .fh-state { margin: 0; font-size: 1rem; }
+
+/* ---------------- installing an OS: firmware, Windows Setup, first run (install.js) */
+.screen.inst { background: #0b1f4a; }
+.fw { flex: 1; background: #0b1f4a; color: #f1f5f9; padding: 1.2rem 1.4rem; font: 15px/1.5 Consolas, "Cascadia Mono", ui-monospace, monospace; display: grid; align-content: start; gap: 0.55rem; }
+.fw p { margin: 0; }
+.fw-brand { color: #ffe27a; font-weight: 700; }
+.fw-keys { color: #ffffff; font-weight: 700; border-top: 1px solid #8fa3c7; padding-top: 0.5rem; }
+.fw-h { margin: 0.3rem 0 0; font-size: 1.05rem; color: #ffffff; }
+.fw-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.fw-row label { min-width: 15rem; }
+.fw-btn { font: inherit; min-height: 40px; padding: 0.3rem 0.8rem; background: #1e3a8a; color: #ffffff; border: 2px solid #c8ced6; border-radius: 4px; cursor: pointer; text-align: left; }
+.fw-btn:hover:not(:disabled) { background: #1e40af; }
+.fw-btn.wide { width: 100%; }
+.fw-btn.small { min-height: 34px; padding: 0.1rem 0.6rem; }
+.fw-btn:disabled { background: #0b1f4a; color: #e2e8f0; border: 2px dashed #c8ced6; cursor: default; }
+.fw-btn:focus-visible, .fw-sel:focus-visible { outline: 3px solid #ffe27a; outline-offset: 2px; }
+.fw-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.fw-list li { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.fw-list li > span { min-width: 18rem; }
+.fw-dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0; }
+.fw-dl dt { color: #e2e8f0; } .fw-dl dd { margin: 0; color: #ffffff; }
+.fw-sel { font: inherit; min-height: 36px; background: #ffffff; color: #111827; border: 2px solid #c8ced6; border-radius: 4px; padding: 0.1rem 0.4rem; }
+.wsetup, .oobe { flex: 1; display: grid; place-items: center; padding: 1rem; }
+.wsetup { background: #2e1065; }
+.oobe { background: #e8edf8; }
+.ws-box, .oobe-box { width: min(36rem, 100%); background: #ffffff; color: #111827; border: 1px solid #6b7280; border-radius: 8px; padding: 1rem 1.2rem; display: grid; gap: 0.55rem; }
+.ws-box p, .oobe-box p { margin: 0; }
+.ws-box label, .oobe-box label { font-weight: 600; }
+.ws-brand { font-weight: 700; color: #2e1065; }
+.ws-h { margin: 0; font-size: 1.2rem; }
+.ws-kv { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; } .ws-kv span { min-width: 13rem; color: #374151; }
+.ws-row { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; } .ws-row.left { justify-content: flex-start; }
+.ws-radios { display: grid; gap: 0.35rem; }
+.ws-radio { font: inherit; text-align: left; min-height: 40px; padding: 0.35rem 0.7rem; background: #ffffff; color: #111827; border: 1px solid #6b7280; border-radius: 6px; cursor: pointer; }
+.ws-radio.on { border: 2px solid #0b3a82; box-shadow: inset 6px 0 0 #0b3a82; background: #e6edfb; font-weight: 700; }
+.ws-check { display: flex; gap: 0.5rem; align-items: flex-start; font-weight: 600; } .ws-check input { width: 20px; height: 20px; margin-top: 0.15rem; accent-color: #0b3a82; }
+.ws-note { color: #374151; }
+.ws-table { width: 100%; border-collapse: collapse; } .ws-table th, .ws-table td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid #d1d5db; }
+.ws-part { cursor: pointer; } .ws-part:hover { background: #f3f4f6; }
+.ws-part.sel { background: #e6edfb; box-shadow: inset 6px 0 0 #0b3a82; font-weight: 700; }
+.ws-radio:focus-visible, .ws-part:focus-visible, .oobe-link:focus-visible, .ws-box .w-btn:focus-visible, .oobe-box .w-btn:focus-visible, .ws-box .w-input:focus-visible, .oobe-box .w-input:focus-visible, .ws-check input:focus-visible { outline: 3px solid #4c1d95; outline-offset: 2px; }
+.ins-err { margin: 0; color: #7f1d1d; background: #fdecea; border: 1px solid #b91c1c; box-shadow: inset 5px 0 0 #b91c1c; border-radius: 6px; padding: 0.35rem 0.6rem 0.35rem 0.8rem; font-weight: 600; }
+.oobe-big { font-size: 1.6rem; font-weight: 700; }
+.oobe-opts { display: grid; justify-items: start; gap: 0.3rem; }
+.oobe-link { font: inherit; cursor: pointer; color: #0b3a82; font-weight: 700; text-decoration: underline; min-height: 36px; background: none; border: 0; padding: 0; }
+.cn-member { border: 1px solid #6b7280; border-radius: 6px; margin: 0.5rem 0; padding: 0.4rem 0.7rem 0.6rem; display: grid; gap: 0.3rem; }
+.cn-member legend { font-weight: 600; padding: 0 0.3rem; }
+.cn-opt { display: flex; align-items: center; gap: 0.4rem; } .cn-opt label { margin: 0 !important; } .cn-opt input { width: 18px; height: 18px; accent-color: #0b3a82; }
+.cn-member .w-input:disabled { background: #f3f4f6; color: #374151; border-style: dashed; }

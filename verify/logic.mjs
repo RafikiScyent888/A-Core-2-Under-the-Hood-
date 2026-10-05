@@ -89,6 +89,8 @@ import * as MBM from "../assets/mobile.js";
 import * as BKM from "../assets/backup.js";
 import * as XTM from "../assets/tickets-extra.js";
 import * as PHM from "../assets/phone.js";
+import * as INM from "../assets/install.js";
+import * as OIM from "../assets/tickets-install.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -181,6 +183,7 @@ const NOTES = {
   MB3: "Connected, no internet on every network: Private DNS was set to dns.fastsurf-free.net from the faster browsing article. Set Private DNS back to Automatic. Chrome loaded a page.",
   MB4: "The security update needed 3.1 GB and only 0.9 GB was free. Deleted September's site videos from the phone (backed up in OneDrive), kept this week's (only copies). The update installed.",
   MB5: "PDF Scanner Free, installed from a website through Chrome, was adware. Uninstalled it, turned off Install unknown apps for Chrome, and a Play Protect scan found nothing else. Told Farah to use the Play Store.",
+  OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB6: "Outlook's background battery use was Restricted and its background data was off, so mail waited until it opened. Set battery to Optimized and turned background data on. A test email arrived by itself.",
   X2: "Opened File History's backups: the 1 October copy of deploy.yml is version 2.3.1, the hotfix. Used Restore to put a copy on Dev's Desktop; today's 2.4.0 in Documents was kept, not overwritten. Opened it to check.",
   X3: "File History's oldest backup was 4 September because Keep saved versions was 1 month, so the 24 August interview notes were already gone. Set retention to 1 year for HR's policy. Escalated to Tier 2 to restore from FS01's nightly backup.",
@@ -351,6 +354,7 @@ export function check(D) {
   extraChecks(D, F);
   extraMore(D, F);
   mobileChecks(D, F);
+  installChecks(D, F);
   return fails;
 }
 
@@ -388,7 +392,7 @@ function chatDrive(D, t, f) {
    recovery: the fault is on the machine, the right path closes it with
    no wrong moves, the near misses count, rung 3 leaves the right move
    alive at every stage, no hint names the move, the note check holds. */
-const OBJECTIVES = { "Backup and recovery": ["Operational procedures", "setting up workstation backups and recovery processes"], "Mobile troubleshooting": ["Software troubleshooting", "addressing connectivity, app, and performance issues"] };
+const OBJECTIVES = { "OS installation": ["Operating systems", "working with Windows, macOS, Linux, and mobile operating systems"], "Backup and recovery": ["Operational procedures", "setting up workstation backups and recovery processes"], "Mobile troubleshooting": ["Software troubleshooting", "addressing connectivity, app, and performance issues"] };
 function extraChecks(D, F) {
   const X = D.TICKETS.filter((t) => t.extra);
   if (!X.length) { F("EXTRA: no extra-training ticket"); return; }
@@ -670,6 +674,135 @@ function mobileChecks(D, F) {
     if (!D.noteOK(t, D.NOTES[id] || "").ok) F(P + "NOTE: the model note is refused: " + D.noteOK(t, D.NOTES[id] || "").missing.join("; "));
     if (D.noteOK(t, "I looked at the computer for a while and then it was working again, so I closed it.").ok) F(P + "NOTE: a note that says nothing specific is accepted");
   });
+}
+/* ---- EXTRA, OS installation (OI1): the same checks, at the PC's own
+   screen. The path is driven through install.js as the screens drive it,
+   one act per click; D.IN is the model, so a plant can break it. ---- */
+function ir(E, a, fn) { const b = E.before(); const res = fn(E.fleet().WS3); E.onAct(Object.assign({ machine: "WS3", type: "osinst", before: b, res }, a)); return res; }
+const OI = (D) => { const I = D.IN, J = "Bench-Tech-2026";
+  const S = [
+    ["the installer USB in", (E) => ir(E, { op: "media-in" }, (m) => I.insertMedia(m, "win11"))],
+    ["power on", (E) => { const b = E.before(); const m = E.fleet().WS3; M.boot(m); E.onAct({ machine: "WS3", type: "power", op: "on", before: b }); }],
+    ["F12", (E) => ir(E, { op: "key", key: "F12" }, (m) => I.key(m, "F12"))],
+    ["the UEFI USB", (E) => ir(E, { op: "bootfrom", entry: "usb" }, (m) => I.bootFrom(m, "usb"))],
+    ["language", (E) => ir(E, { op: "ws-lang" }, (m) => I.ws(m, "lang"))],
+    ["install, box ticked", (E) => ir(E, { op: "ws-option", choice: "install" }, (m) => I.ws(m, "option", { choice: "install", agree: true }))],
+    ["no product key", (E) => ir(E, { op: "ws-key", none: true }, (m) => I.ws(m, "key", { none: true }))],
+    ["Windows 11 Pro", (E) => ir(E, { op: "ws-edition", edition: "Windows 11 Pro" }, (m) => I.ws(m, "edition", { edition: "Windows 11 Pro" }))],
+    ["the licence terms", (E) => ir(E, { op: "ws-terms" }, (m) => I.ws(m, "terms"))],
+    ["Next on the vendor's partition (refused)", (E) => ir(E, { op: "ws-next", i: 0 }, (m) => I.ws(m, "next", { i: 0 }))],
+    ["delete it", (E) => ir(E, { op: "ws-delete", i: 0 }, (m) => I.ws(m, "delete", { i: 0 }))],
+    ["Next on the unallocated space", (E) => ir(E, { op: "ws-next", i: 0 }, (m) => I.ws(m, "next", { i: 0 }))],
+    ["Install", (E) => ir(E, { op: "ws-install" }, (m) => I.ws(m, "install"))],
+    ["Restart now", (E) => ir(E, { op: "restart" }, (m) => I.restartPC(m))],
+    ["let it start", (E) => ir(E, { op: "key", key: "continue" }, (m) => I.key(m, "continue"))],
+    ["region", (E) => ir(E, { op: "oobe-region" }, (m) => I.oobe(m, "region"))],
+    ["name WS3-DEV", (E) => ir(E, { op: "oobe-name", name: "ws3-dev" }, (m) => I.oobe(m, "name", { name: "ws3-dev" }))],
+    ["work or school", (E) => ir(E, { op: "oobe-how", how: "work" }, (m) => I.oobe(m, "how", { how: "work" }))],
+    ["Domain join instead", (E) => ir(E, { op: "oobe-domain-instead" }, (m) => I.oobe(m, "domain-instead"))],
+    ["a local account", (E) => ir(E, { op: "oobe-local", name: "benchtech" }, (m) => I.oobe(m, "local", { name: "benchtech" }))],
+    ["privacy", (E) => ir(E, { op: "oobe-privacy" }, (m) => I.oobe(m, "privacy"))],
+    ["join RAFIKI", (E) => ir(E, { op: "rename", name: "WS3-DEV", member: "domain", domain: "RAFIKI" }, (m) => I.changeName(m, { name: "WS3-DEV", member: "domain", domain: "RAFIKI", user: "RAFIKI\\itadmin", pass: J }))],
+    ["restart", (E) => { const b = E.before(); const m = E.fleet().WS3; M.shutdown(m); M.boot(m); E.onAct({ machine: "WS3", type: "power", op: "restart", before: b }); }],
+    ["let it start", (E) => ir(E, { op: "key", key: "continue" }, (m) => I.key(m, "continue"))],
+    ["Dev signs in", (E) => ir(E, { op: "signin" }, (m) => I.signIn(m))]];
+  const at = (label) => S.findIndex((x) => x[0] === label);
+  const near = [
+    ["Windows 11 Home", at("Windows 11 Pro"), (E) => ir(E, { op: "ws-edition", edition: "Windows 11 Home" }, (m) => I.ws(m, "edition", { edition: "Windows 11 Home" }))],
+    ["Pro for Workstations", at("Windows 11 Pro"), (E) => ir(E, { op: "ws-edition", edition: "Windows 11 Pro for Workstations" }, (m) => I.ws(m, "edition", { edition: "Windows 11 Pro for Workstations" }))],
+    ["formatting the vendor's partition", at("delete it"), (E) => ir(E, { op: "ws-format", i: 0 }, (m) => I.ws(m, "format", { i: 0 }))],
+    ["Legacy (CSM) boot, saved", at("F12"), (E) => { ir(E, { op: "key", key: "F2" }, (m) => I.key(m, "F2")); ir(E, { op: "fw-set", key: "uefi", value: false }, (m) => I.setFw(m, "uefi", false)); ir(E, { op: "fw-save" }, (m) => I.saveFw(m)); }],
+    ["Secure Boot off, saved", at("F12"), (E) => { ir(E, { op: "key", key: "F2" }, (m) => I.key(m, "F2")); ir(E, { op: "fw-set", key: "secureBoot", value: false }, (m) => I.setFw(m, "secureBoot", false)); ir(E, { op: "fw-save" }, (m) => I.saveFw(m)); }],
+    ["the TPM off, saved", at("F12"), (E) => { ir(E, { op: "key", key: "F2" }, (m) => I.key(m, "F2")); ir(E, { op: "fw-set", key: "tpmOn", value: false }, (m) => I.setFw(m, "tpmOn", false)); ir(E, { op: "fw-save" }, (m) => I.saveFw(m)); }],
+    ["the USB again after Setup's restart", at("let it start"), (E) => { ir(E, { op: "key", key: "F12" }, (m) => I.key(m, "F12")); ir(E, { op: "bootfrom", entry: "usb" }, (m) => I.bootFrom(m, "usb")); }],
+    ["a name that isn't WS3-DEV", at("name WS3-DEV"), (E) => ir(E, { op: "oobe-name", name: "DEV-PATEL" }, (m) => I.oobe(m, "name", { name: "DEV-PATEL" }))],
+    ["set up for personal use", at("work or school"), (E) => ir(E, { op: "oobe-how", how: "personal" }, (m) => I.oobe(m, "how", { how: "personal" }))],
+    ["joining with the name WS3", at("join RAFIKI"), (E) => ir(E, { op: "rename", name: "WS3", member: "domain", domain: "RAFIKI" }, (m) => I.changeName(m, { name: "WS3", member: "domain", domain: "RAFIKI", user: "itadmin", pass: J }))]];
+  const look = [
+    ["PXE from the Boot Menu, then any key", at("the UEFI USB"), (E) => { ir(E, { op: "bootfrom", entry: "pxe" }, (m) => I.bootFrom(m, "pxe")); ir(E, { op: "key", key: "retry" }, (m) => I.restartPC(m)); ir(E, { op: "key", key: "F12" }, (m) => I.key(m, "F12")); }],
+    ["Repair my PC", at("install, box ticked"), (E) => ir(E, { op: "ws-option", choice: "repair" }, (m) => I.ws(m, "option", { choice: "repair" }))],
+    ["the box left unticked", at("install, box ticked"), (E) => ir(E, { op: "ws-option", choice: "install" }, (m) => I.ws(m, "option", { choice: "install", agree: false }))],
+    ["a mistyped product key", at("no product key"), (E) => ir(E, { op: "ws-key", key: "ABCDE-12345" }, (m) => I.ws(m, "key", { key: "ABCDE-12345" }))],
+    ["Back from the licence terms", at("the licence terms"), (E) => ir(E, { op: "ws-back" }, (m) => I.ws(m, "back"))],
+    ["a work email in the Entra ID box", at("Domain join instead"), (E) => ir(E, { op: "oobe-entra", email: "dev@rafiki.local" }, (m) => I.oobe(m, "entra", { email: "dev@rafiki.local" }))],
+    ["a mistyped domain password", at("join RAFIKI"), (E) => ir(E, { op: "rename", name: "WS3-DEV", member: "domain", domain: "RAFIKI" }, (m) => I.changeName(m, { name: "WS3-DEV", member: "domain", domain: "RAFIKI", user: "itadmin", pass: "bench-tech-2026" }))],
+    ["a mistyped domain name", at("join RAFIKI"), (E) => ir(E, { op: "rename", name: "WS3-DEV", member: "domain", domain: "RAFKI" }, (m) => I.changeName(m, { name: "WS3-DEV", member: "domain", domain: "RAFKI", user: "itadmin", pass: J }))]];
+  return { S, near, look, at };
+};
+/* the engine reads tickets.js's own list: while OI1 is checked, the list
+   holds the ticket under test, so a planted ticket is the one judged */
+function installChecks(D, F) {
+  const t = D.TICKETS.find((x) => x.id === "OI1"); if (!t) { F("EXTRA OI1: missing"); return; }
+  const i = TK.TICKETS.findIndex((x) => x.id === "OI1"), keep = TK.TICKETS[i]; TK.TICKETS[i] = t;
+  try { installRun(D, F, t); } finally { TK.TICKETS[i] = keep; }
+}
+function installRun(D, F, t) {
+  const P = "EXTRA OI1: ";
+  const I = D.IN, X = OI(D), fresh = () => { const E = D.createEngine(memStore()); E.openTicket("OI1"); return E; };
+  const upTo = (E, n) => X.S.slice(0, n).forEach((x) => x[1](E));
+  /* EXHIBITED: switched off, nothing on the drive but the vendor's MBR
+     partition, and hardware that does meet Windows 11's requirements */
+  { const f = D.makeFleet(); t.setup(f); const m = f.WS3;
+    if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts");
+    if (m.power === "on") F(P + "EXHIBITED: the PC starts switched on");
+    if (m.inst.os) F(P + "EXHIBITED: there's already an operating system on the drive");
+    if (m.disks[0].style !== "MBR" || !m.disks[0].parts.some((p) => p.label === "VENDOR TEST")) F(P + "EXHIBITED: the drive isn't the vendor's MBR disk with its test partition");
+    if (!I.meets(m)) F(P + "EXHIBITED: the PC doesn't meet Windows 11's requirements, so a clean install can't work"); }
+  /* MODEL: the rules the job turns on, straight from the model */
+  { const E = fresh(); upTo(E, X.at("Next on the vendor's partition (refused)")); const m = E.fleet().WS3;
+    const r = I.ws(m, "next", { i: 0 }); if (r.ok || !r.mbr) F(P + "MODEL: Setup takes an MBR partition on a UEFI PC");
+    I.ws(m, "format", { i: 0 }); if (m.disks[0].style !== "MBR" || I.ws(m, "next", { i: 0 }).ok) F(P + "MODEL: formatting the partition changed the disk's partition style");
+    I.ws(m, "delete", { i: 0 }); if (!I.ws(m, "next", { i: 0 }).ok) F(P + "MODEL: Setup refuses the unallocated space");
+    I.ws(m, "install"); const k = m.disks[0].parts.map((p) => p.kind).join(",");
+    if (m.disks[0].style !== "GPT" || k !== "efi,msr,os,recovery") F(P + "MODEL: installing to the blank disk didn't make the GPT layout (" + m.disks[0].style + ": " + k + ")"); }
+  { const E = fresh(); upTo(E, X.at("join RAFIKI") + 1); const m = E.fleet().WS3;
+    if (m.domain === "RAFIKI" || m.inst.joined) F(P + "MODEL: the domain join took effect before the restart");
+    if (I.signIn(JSON.parse(JSON.stringify(m))).ok) F(P + "MODEL: Dev's domain account signs in before the PC has joined"); }
+  { const E = fresh(); upTo(E, X.at("Windows 11 Pro")); I.ws(E.fleet().WS3, "edition", { edition: "Windows 11 Home" }); upTo2(E, X.at("the licence terms"), X.at("join RAFIKI"));
+    const m = E.fleet().WS3; if (I.changeName(m, { name: "WS3-DEV", member: "domain", domain: "RAFIKI", user: "itadmin", pass: "Bench-Tech-2026" }).ok) F(P + "MODEL: Windows 11 Home joined a domain"); }
+  function upTo2(E, a, b) { X.S.slice(a, b).forEach((x) => x[1](E)); }
+  /* SOLVABLE, SIX, LADDER and NO LEAK at every stage of the right path */
+  const leak = [/\bF12\b/i, /system properties/i, /sysdm/i, /domain join instead/i, /unallocated/i, /\bdelete\b/i, /ws3-dev/i, /windows 11 pro\b/i, /work or school/i, /itadmin/i];
+  const E = fresh(), seen = new Set();
+  const stageCheck = () => {
+    const s = t.stage(E.fleet()), mv = t.moves(E.fleet()); seen.add(s);
+    if (!mv || mv.length !== 6 || mv.filter((x) => x.correct).length !== 1 || mv.some((x) => !x.correct && !String(x.why || "").trim()) || new Set(mv.map((x) => x.label)).size !== 6) { F(P + "SIX: the moves at stage " + s + " are not six, one right, a reason on each wrong one"); return; }
+    const rm = mv.find((x) => x.correct).label.toLowerCase(), h = t.hints(E.fleet());
+    if (!h || h.length < 2) F(P + "NO LEAK: no rung 1 and rung 2 at stage " + s);
+    (h || []).forEach((line, i) => { if (String(line).toLowerCase().indexOf(rm) >= 0) F(P + "NO LEAK: rung " + (i + 1) + " at stage " + s + " contains the right move"); if (s !== "done") leak.forEach((re) => { if (re.test(line)) F(P + "NO LEAK: rung " + (i + 1) + " at stage " + s + " names the answer (" + re + ")"); }); });
+    const saved = E.T().guesses; E.T().guesses = 7; const g = E.guidance(); E.T().guesses = saved;
+    const alive = (g.moves || []).filter((x) => !x.struck);
+    if (g.rung !== 3 || alive.length !== 2 || !alive.some((x) => x.correct)) F(P + "LADDER: rung 3 at stage " + s + " does not leave two alive with the right one among them");
+  };
+  stageCheck(); X.S.forEach((x) => { x[1](E); stageCheck(); });
+  const want = OIM.ORDER.filter((s) => s !== "edition" || true);
+  want.forEach((s) => { if (!seen.has(s)) F(P + "the right path never reached stage " + s); });
+  if (!t.goal(E.fleet())) F(P + "SOLVABLE: the right path does not meet the goal (stage " + t.stage(E.fleet()) + ")");
+  if (E.T().guesses) F(P + "SOLVABLE: the right path cost " + E.T().guesses + " wrong moves (" + E.T().says.join(" | ") + ")");
+  { const m = E.fleet().WS3; if (m.host !== "WS3-DEV" || m.domain !== "RAFIKI" || m.edition !== "Windows 11 Pro" || !I.activated(m) || (m.inst.account || {}).type !== "domain") F(P + "SOLVABLE: the finished PC isn't WS3-DEV, Pro, activated, on RAFIKI, with Dev signed in (" + [m.host, m.domain, m.edition].join(", ") + ")"); }
+  if (!E.submit("resolve").ok) F(P + "SOLVABLE: Resolve refused after the right path");
+  { const E2 = fresh(); upTo(E2, X.S.length - 1); if (t.goal(E2.fleet())) F(P + "SOLVABLE: closes before Dev has signed in"); }
+  /* JUDGE: each near miss costs one; looking and typos cost nothing */
+  X.near.forEach(([label, n, go]) => { const E3 = fresh(); upTo(E3, n); const g0 = E3.T().guesses; go(E3); if (E3.T().guesses - g0 !== 1) F(P + "JUDGE: " + label + " gave " + (E3.T().guesses - g0) + " wrong moves, should be 1"); });
+  X.look.forEach(([label, n, go]) => { const E4 = fresh(); upTo(E4, n); go(E4); if (E4.T().guesses) F(P + "JUDGE: " + label + " cost " + E4.T().guesses + " wrong moves"); });
+  /* SNAPSHOT: going on past a mistake never snapshots it; revert puts
+     the PC back where the student was last right */
+  { const E5 = fresh(); upTo(E5, X.at("Windows 11 Pro")); ir(E5, { op: "ws-edition", edition: "Windows 11 Home" }, (m) => I.ws(m, "edition", { edition: "Windows 11 Home" }));
+    X.S.slice(X.at("the licence terms"), X.at("Restart now")).forEach((x) => x[1](E5)); E5.revert();
+    const s5 = (E5.fleet().WS3.inst.setup || {}).edition; if (s5 && s5 !== "Windows 11 Pro") F(P + "SNAPSHOT: revert after Home and an install brings back Home"); if (t.stage(E5.fleet()) !== "edition") F(P + "SNAPSHOT: revert after Home lands at " + t.stage(E5.fleet()) + ", not the edition"); }
+  { const E6 = fresh(); upTo(E6, X.at("work or school")); ir(E6, { op: "oobe-how", how: "personal" }, (m) => I.oobe(m, "how", { how: "personal" })); ir(E6, { op: "oobe-msa" }, (m) => I.oobe(m, "msa")); E6.revert();
+    if (t.stage(E6.fleet()) !== "how") F(P + "SNAPSHOT: revert after a personal setup lands at " + t.stage(E6.fleet()) + ", not the how-to-set-up screen"); }
+  /* a wrong name is put right the way a technician would: renamed in
+     System Properties with the join, no reinstall */
+  { const E7 = fresh(); upTo(E7, X.at("name WS3-DEV")); ir(E7, { op: "oobe-name", name: "DEV-PATEL" }, (m) => I.oobe(m, "name", { name: "DEV-PATEL" })); X.S.slice(X.at("name WS3-DEV") + 1).forEach((x) => x[1](E7));
+    if (!t.goal(E7.fleet())) F(P + "SOLVABLE: a wrong name can't be put right by renaming it with the join (stage " + t.stage(E7.fleet()) + ")"); }
+  /* the close question, and the note */
+  const co = t.close.options;
+  if (co.length !== 6 || co.filter((x) => x.correct).length !== 1 || co.some((x) => !x.correct && !x.why) || new Set(co.map((x) => x.label)).size !== 6) F(P + "SIX: the close question is not six, one right, a reason on each wrong one");
+  const L = co.map((x) => x.label.length), cl = co.find((x) => x.correct).label.length;
+  if (cl === Math.max(...L)) F(P + "SPREAD: the right close answer is the longest option");
+  if (!D.noteOK(t, D.NOTES.OI1 || "").ok) F(P + "NOTE: the model note is refused: " + D.noteOK(t, D.NOTES.OI1 || "").missing.join("; "));
+  if (D.noteOK(t, "I looked at the computer for a while and then it was working again, so I closed it.").ok) F(P + "NOTE: a note that says nothing specific is accepted");
 }
 function chatChecks(D, F) {
   D_ = D;
@@ -1168,7 +1301,7 @@ function routerChecks(D, F) {
   ({ f, r } = mk()); if (JSON.stringify(JSON.parse(JSON.stringify(f.TECH.routers))) !== JSON.stringify(f.TECH.routers)) F("ROUTER SNAP: a router doesn't survive the engine's copy");
 }
 
-const BASE = { PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+const BASE = { IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
 /* Each plant is one defect a check exists to catch, and the check it must
@@ -1267,6 +1400,17 @@ const PLANTS = [
   ["EXTRA MB6: EXHIBITED", "mail arrives whatever Outlook is allowed", () => ({ PH: Object.assign({}, PHM, { mailPush: () => ({ ok: true, text: "fine" }) }) })],
   ["EXTRA MB1: SPREAD", "the right close answer padded longest", () => ({ TICKETS: withTicket("MB1", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.map((x) => (x.correct ? Object.assign({}, x, { label: x.label + ", even with the screen off" }) : x)) }) })) })],
   ["EXTRA MB1: MODEL", "an app's location doesn't change its battery use", () => ({ PH: Object.assign({}, PHM, { battery: (p) => { const keep = {}; Object.keys(p.dev.apps).forEach((k) => { keep[k] = p.dev.apps[k].location; if (p.dev.apps[k].locDrain) p.dev.apps[k].location = "Allow all the time"; }); const b = PHM.battery(p); Object.keys(keep).forEach((k) => { p.dev.apps[k].location = keep[k]; }); return b; } }) })],
+  ["EXTRA OI1: EXHIBITED", "the vendor's drive arrives GPT", () => ({ TICKETS: withTicket("OI1", (t) => ({ setup: (f) => { t.setup(f); f.WS3.disks[0].style = "GPT"; } })) })],
+  ["EXTRA OI1: MODEL", "Setup takes an MBR partition in UEFI mode", () => ({ IN: Object.assign({}, INM, { ws: (m, op, d) => { if (op === "next" && m.disks[0].style === "MBR") { const st = m.disks[0].style; m.disks[0].style = "GPT"; const r = INM.ws(m, op, d); m.disks[0].style = st; return r; } return INM.ws(m, op, d); } }) })],
+  ["EXTRA OI1: MODEL", "a domain join takes effect at once", () => ({ IN: Object.assign({}, INM, { changeName: (m, d) => { const r = INM.changeName(m, d); if (r.ok && m.inst.joinPending) { m.inst.joined = true; m.domain = "RAFIKI"; } return r; } }) })],
+  ["EXTRA OI1: MODEL", "Home joins a domain", () => ({ IN: Object.assign({}, INM, { changeName: (m, d) => { const k = m.inst.os.name; m.inst.os.name = "Windows 11 Pro"; const r = INM.changeName(m, d); m.inst.os.name = k; return r; } }) })],
+  ["EXTRA OI1: JUDGE", "formatting the vendor partition isn't counted", () => ({ TICKETS: withTicket("OI1", (t) => ({ judge: (a, f, b) => (a.op === "ws-format" ? { guess: false } : t.judge(a, f, b)) })) })],
+  ["EXTRA OI1: JUDGE", "PXE counts as a wrong move", () => ({ TICKETS: withTicket("OI1", (t) => ({ judge: (a, f, b) => (a.op === "bootfrom" && a.entry === "pxe" ? { guess: true, say: "x" } : t.judge(a, f, b)) })) })],
+  ["EXTRA OI1: SNAPSHOT", "the score climbs past a wrong edition", () => ({ TICKETS: withTicket("OI1", (t) => ({ scoreFn: (f) => { const m = f.WS3, S = m.inst.setup || {}, j = OIM.judgeState(m); return S.edition && S.edition !== "Windows 11 Pro" ? j.score + (S.copied ? 6 : ["terms", "disk", "ready"].indexOf(S.step) + 1) : j.score; } })) })],
+  ["EXTRA OI1: SOLVABLE", "the goal forgets Dev's sign-in", () => ({ TICKETS: withTicket("OI1", (t) => ({ goal: (f) => ["signin", "done"].indexOf(t.stage(f)) >= 0 })) })],
+  ["EXTRA OI1: NO LEAK", "a hint names the boot key", () => ({ TICKETS: withTicket("OI1", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0], h[1] + " F12 does it."]; } })) })],
+  ["EXTRA OI1: SIX", "a stage offers five moves", () => ({ TICKETS: withTicket("OI1", (t) => ({ moves: (f) => t.moves(f).slice(0, t.stage(f) === "delete" ? 5 : 6) })) })],
+  ["EXTRA OI1: SPREAD", "the right close answer padded longest", () => ({ TICKETS: withTicket("OI1", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.map((x) => (x.correct ? Object.assign({}, x, { label: x.label + ", and the vendor's disk was MBR from their test rig" }) : x)) }) })) })],
 ];
 
 const plant = process.argv.includes("--plant");

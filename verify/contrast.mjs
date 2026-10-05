@@ -490,6 +490,56 @@ export async function run(extraCss) {
     await mob.locator('.ph-link[aria-label^="Weather Live:"]').click(); await page.waitForTimeout(150);
     await sweep(tag + ": MB1, Weather Live's app info");
     await mob.getByRole("button", { name: /^Close Mobile devices/ }).click();
+    /* OS installation, OI1, at Dev's desk: the firmware, Windows Setup,
+       the first-run setup, and joining the domain */
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20488" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click();
+    await page.evaluate(() => window.__LAP.walkOver("WS3")); if (await page.locator(".wo-skip").count()) await page.locator(".wo-skip").click().catch(() => {});
+    await page.waitForSelector(".wo-desk", { timeout: 90000 }); await page.waitForTimeout(300);
+    const im = page.locator(".wo-monitor"), mb = (n) => im.getByRole("button", { name: n, exact: true });
+    await sweep(tag + ": OI1, at Dev's desk, the PC off");
+    await page.locator('.wo-hands [data-coach="inst-usb-in"]').click(); await page.locator('.wo-hands [data-coach="power"]').click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, the firmware's start-up screen, the USB in");
+    await mb("Press F2 to enter the firmware Setup").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, the firmware's Setup");
+    await mb("Discard the firmware changes and exit").click(); await mb("Press F12 for the Boot Menu").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, the Boot Menu");
+    await mb("Boot from Network boot (PXE)").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, PXE timing out");
+    await mb("Press any key to restart the boot").click(); await mb("Press F12 for the Boot Menu").click(); await mb("Boot from UEFI: WIN11_24H2 (USB)").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, Windows Setup's language settings");
+    await mb("Next").click(); await mb("Next").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, Setup's options, refused for the unticked box");
+    await im.locator('[id^="ws-agree-"]').check(); await mb("Next").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, the product key");
+    await mb("I don't have a product key").click(); await im.getByRole("radio", { name: "Windows 11 Pro", exact: true }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, the edition, Pro selected");
+    await mb("Next").click(); await mb("Accept").click(); await im.locator(".ws-part").first().click(); await mb("Install Windows on the selected location").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, where to install, refused: an MBR disk");
+    await mb("Delete the selected partition").click(); await im.locator(".ws-part").first().click(); await mb("Install Windows on the selected location").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, ready to install");
+    await mb("Install").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, Setup's restart");
+    await mb("Restart now").click(); await mb("Let the PC start from its boot order").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, first-run setup, region");
+    await mb("Yes").click(); await im.locator('[id^="oobe-name-"]').fill("WS3-DEV"); await mb("Next").click(); await im.getByRole("radio", { name: "Set up for work or school" }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, first-run setup, work or school selected");
+    await mb("Next").click(); await im.locator('[id^="oobe-entra-"]').fill("dev@rafiki.local"); await mb("Sign in with this work or school account").click(); await mb("Sign-in options").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, first-run setup, Entra ID refused, Sign-in options open");
+    await mb("Domain join instead").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, first-run setup, the local account");
+    await im.locator('[id^="oobe-local-"]').fill("benchtech"); await mb("Create the local account").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, first-run setup, privacy");
+    await mb("Accept the privacy settings").click(); await im.getByRole("button", { name: "Start menu" }).click(); await im.locator(".sm-search").fill("domain"); await mb("Open System Properties").click(); await page.waitForTimeout(200);
+    await sweep(tag + ": OI1, Windows on a local account, System Properties' Computer Name");
+    await mb("Change this computer's name or domain").click(); await im.locator(".w-dialog").getByRole("button", { name: "Yes" }).click(); await im.locator('[id^="cn-domain-"]').check(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, Computer Name/Domain Changes, Domain chosen");
+    await im.locator('[id^="cn-dom-"]').fill("RAFIKI"); await im.locator(".w-dialog").getByRole("button", { name: "OK" }).click(); await im.locator('[id^="cn-u-"]').fill("itadmin"); await im.locator('[id^="cn-p-"]').fill("wrong"); await mb("Join the domain with this account").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, the join refused for a wrong password");
+    await im.locator('[id^="cn-p-"]').fill("Bench-Tech-2026"); await mb("Join the domain with this account").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, welcome to the domain, restart now");
+    await mb("Restart now").click(); await mb("Let the PC start from its boot order").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": OI1, the sign-in screen on the domain");
+    await page.locator(".wo-back").click({ timeout: 60000 }); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
   }
 
   try {
@@ -532,7 +582,11 @@ const PLANTS = {
   "the backup's date in a faint grey": ".fh-nav .fh-state { color: #9ca3af !important; }",
   "a phone's problem rows in a pale red": ".ph-row.ph-bad .ph-v, .ph-row.ph-alert { color: #d08080 !important; }",
   "the phone's On/Off switches in a faint grey": ".ph-switch:not(.on) { color: #9ca3af !important; }",
-  "the phone's status bar in a faint grey": ".ph-status { color: #9ca3af !important; }"
+  "the phone's status bar in a faint grey": ".ph-status { color: #9ca3af !important; }",
+  "the firmware's text in a dim blue": ".fw p:not(.fw-brand):not(.fw-keys) { color: #5a6f9e !important; }",
+  "Setup's partition rows in a faint grey": ".ws-table td { color: #9ca3af !important; }",
+  "Setup's refusal in a pale red": ".ins-err { color: #e08a8a !important; }",
+  "the first-run setup's Sign-in options link in a pale blue": ".oobe-link { color: #7fa6e0 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

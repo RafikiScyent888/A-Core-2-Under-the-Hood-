@@ -1886,3 +1886,91 @@ accessories are Core 1, and kept out.)
     email; MB1's battery page and app info. Three new plants.
 - **Next:** the owner picks the next objective: OS installation; file
   systems, updates and upgrades; or safety.
+
+### Extra training, OI1: OS installation, a clean install (5 October 2026)
+
+The owner: "OS installation next, build it out, push to Git after each
+build". The objectives were re-read on 5 October 2026; the Core 2 wording
+is unchanged. This covers **Operating systems, OS installation: "working
+with Windows, macOS, Linux, and mobile operating systems"**. Four builds,
+each pushed when verified:
+1. OI1 (crawl): a Windows 11 clean install (this one).
+2. OI2 (walk): an in-place upgrade; OI3 (run): hardware that can't run
+   Windows 11.
+3. OI4, OI5: Linux and macOS.
+4. OI6: a mobile OS.
+
+- **The PC's own screen, at the desk.** A ticket can put a PC under the
+  install model (`m.inst.managed`). It then starts at its firmware screen
+  (POST: F2 Setup, F12 Boot Menu, or let it start from the boot order),
+  and the desk monitor shows the firmware, Windows Setup and the first-run
+  setup as real HTML. Every other PC boots straight to Windows, as before.
+- **New files:** `install.js` (the model, plain JSON on `m.inst`, so
+  snapshots and revert cover it), `installui.js` (the screens),
+  `tickets-install.js` (OI1). Hooks: `machine.boot` (a managed PC starts
+  at POST), `malware.online` (a PC in Setup isn't on the network),
+  `desktop.draw` (the install screens), the desk's hands panel (plug in or
+  take out the installer USB), and System Properties, which now shows
+  **Computer Name** (Change…: rename, join a domain; both wait for a
+  restart).
+- **The model, from Microsoft's own behaviour:**
+  - The firmware: boot mode (UEFI or Legacy/CSM), Secure Boot, the TPM,
+    the boot order. Changes only apply when saved.
+  - Windows 11's requirements: a supported CPU, 4 GB RAM, 64 GB storage,
+    UEFI with Secure Boot, TPM 2.0 on. Setup says "This PC can't run
+    Windows 11" when they're not met.
+  - On a UEFI PC, Setup refuses an MBR disk in Microsoft's own words.
+    Formatting the partition keeps the disk MBR. Deleting it leaves
+    unallocated space, and installing there makes the GPT layout itself
+    (EFI, MSR, Windows, Recovery).
+  - A product key or none: with none, the edition is chosen, and it has to
+    be the edition the licence covers.
+  - **Windows 11 doesn't join an on-premises domain during setup.** Work
+    or school asks for Microsoft Entra ID (Rafiki has none). Sign-in
+    options › Domain join instead makes a local account; the PC joins
+    RAFIKI from System Properties › Computer Name with an account allowed
+    to join PCs (itadmin), and restarts. Then the user signs in with their
+    own domain account. Home can't join a domain at all.
+- **OI1, the crawl (31 steps):** Dev's PC came back from the vendor with a
+  new SSD, blank but for the vendor's MBR test partition, switched off.
+  Walk over, plug in the USB, power on, F12, the UEFI USB, language,
+  install (tick the box), no product key (a digital licence), Windows 11
+  Pro, the licence; Next on the vendor partition is refused (MBR on UEFI);
+  delete it, install to the unallocated space, restart, let it start from
+  the drive; region, the name WS3-DEV, work or school, Domain join
+  instead, a local account, privacy; System Properties, join RAFIKI as
+  itadmin, restart, Dev signs in. Close question: why Setup refused the
+  vendor's partition.
+- **Counted (one each):** another edition (Home, Pro N, Education, Pro for
+  Workstations); a key for Home; formatting instead of deleting; saving
+  the firmware with Legacy boot, Secure Boot off or the TPM off; choosing
+  the USB again after Setup's restart (Setup starts over); a name that
+  isn't WS3-DEV; personal use; a personal Microsoft account; renaming it
+  something else. **Never counted:** PXE, Repair my PC, an unticked box, a
+  mistyped key or password or domain, trying an email in the Entra ID box,
+  Back.
+- **Snapshots never hold a mistake:** the score stops rising at the step
+  where a mistake was made (wrong edition, personal account, firmware
+  security off, wrong name) until it's put right. A wrong name can be put
+  right as a technician would, by renaming it with the join; a wrong
+  edition or a personal account needs a revert.
+- **Found while building:**
+  - The domain-join dialog copied "WORKGROUP" into the domain name when
+    Domain was chosen, so joining went round in a loop between the two
+    dialogs. Found by the page check following Mason's rings; fixed.
+  - After a wrong password, the join dialog emptied the user name as well
+    (Windows keeps it). Found by the contrast sweep's drive; it now keeps
+    what was typed.
+  - Plants that changed OI1's judging were missed: the engine reads
+    `tickets.js`'s own list, not the planted one. The OI1 check now puts
+    the ticket under test in that list while it runs.
+  - Several rung-2 hints gave the move away (unallocated space, "set up
+    for work", "accept it", the domain-join path); rewritten as the
+    principle, and a leak list guards them.
+- **Checks:** logic (OI1: exhibited, the model's rules, solvable, six,
+  ladder, no leak at every stage of the right path, each near miss counts
+  one, looking and typos count none, snapshots, a wrong name renamed, the
+  close question, the note; 11 plants); page (INSTALL: OI1 by Mason's
+  rings, then through the screens: the unticked box and a mistyped key not
+  counted, Home counted, Setup's MBR refusal in words; 4 plants); contrast
+  (every install screen, the domain-join dialogs; 4 plants).

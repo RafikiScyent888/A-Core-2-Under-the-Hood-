@@ -28,6 +28,7 @@ import { drawFloorPlan } from "./floorplan.js";
 import { drawStreetView } from "./streetview.js";
 import { drawCustomerChat, drawMobile, disposePhone } from "./chatui.js";
 import * as PH from "./phone.js";
+import * as INS from "./install.js";
 import { drawHandset } from "./phoneui.js";
 import * as CH from "./chat.js";
 import * as MB from "./mobile.js";
@@ -312,7 +313,7 @@ function askMason(q) {
 function nextStepAdvice(t, st) {
   const r = rosterOf(t.machine), who = t.from.split(" ")[0];
   const ev = evs(t.machine);
-  if (st.stage === "close" && t.kind !== "backup") return t.kind === "malware" ? "Every PC is done. Last of CompTIA's steps: what do you tell the user, so it doesn't happen again? Pick it on the ticket." : "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
+  if (st.stage === "close" && t.kind !== "backup" && t.kind !== "install") return t.kind === "malware" ? "Every PC is done. Last of CompTIA's steps: what do you tell the user, so it doesn't happen again? Pick it on the ticket." : "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
   if (t.kind === "email") { const e = t.current(E.fleet()); if (!e) return "Every email is dealt with. Resolve the ticket."; const p = mailPart(E.fleet(), e), who = staffOf(e.to).first;
     return p === "cat" ? (e.noForward ? who + "'s email can't be forwarded, so go and look at it: connect to " + who + "'s PC from Devices, open Mail there, and read the message and its details. Then say what it is on the ticket." : "Open Mail from the taskbar and read " + who + "'s forward: who it's really from, where its links really go (point at them, don't click), and what it wants. Then say what it is on the ticket.")
       : p === "tell" ? "Now the giveaway: which one detail proves it? The address, a link's real destination, an attachment's full name, or (for one that can't be forwarded) the headers."
@@ -331,6 +332,7 @@ function nextStepAdvice(t, st) {
     if (st.stage === "close") return "The phone's fixed and you've checked it. Now answer " + who + "'s question on the ticket.";
     return W.mobile ? t.adviceWork : t.adviceStart;
   }
+  if (t.kind === "install") return st.stage === "close" ? "Dev is signed in on the domain. Now answer Mason's question on the ticket: why wouldn't Setup install to the vendor's partition?" : t.advice(E.fleet());
   if (t.kind === "backup") {
     if (st.stage === "close") return t.id === "X1" ? "Farah's file is back and her backup is tested. Now answer her question on the ticket: why wasn't today's rescue a backup?" : "The job's done. Now answer " + who + "'s question on the ticket.";
     if (!W["rdp:" + t.machine] && !ev.length) return t.adviceStart || "Connect to " + r.host + " from the ticket, and look at the file first: open Q3-budget.xlsx in her Documents and see what's in it now.";
@@ -844,11 +846,50 @@ function actLog(a, host) {
     "router-reboot": function () { return "Restarted the router" + (a.lost ? ": unsaved changes on the page were lost" : ""); },
     "router-factory": function () { return "Factory reset the router"; },
     "router-firmware": function () { return "Checked for firmware updates: " + a.text; },
-    "router-ask": function () { return "Asked " + t.who + ": " + a.q + (a.lost ? " (unsaved changes on the page were lost)" : ""); }
+    "router-ask": function () { return "Asked " + t.who + ": " + a.q + (a.lost ? " (unsaved changes on the page were lost)" : ""); },
+    osinst: function () { return osLog(a); }
   }[a.type];
   if (say) logT(t.id, host + ": " + say());
 }
 
+/* what installing an operating system looks like on the ticket's log */
+function osLog(a) {
+  const r = a.res || {}, ok = r.ok !== false;
+  const L2 = {
+    key: function () { return a.key === "F2" ? "Pressed F2 for the firmware Setup" : a.key === "F12" ? "Pressed F12 for the Boot Menu" : a.key === "retry" ? "Pressed a key to try starting again" : "Let it start from its boot order"; },
+    bootfrom: function () { return "Started it from " + ({ disk: "the drive", usb: "the installer USB", pxe: "the network (PXE): no server answered" })[a.entry]; },
+    "fw-set": function () { return "Firmware: changed " + ({ uefi: "the boot mode", secureBoot: "Secure Boot", tpmOn: "the TPM setting" })[a.key] + " (not saved yet)"; },
+    "fw-order": function () { return "Firmware: moved a device in the boot order (not saved yet)"; },
+    "fw-save": function () { return r.changed ? "Firmware: saved the changes" : "Firmware: left it, with no changes"; },
+    "fw-discard": function () { return "Firmware: left it, discarding any changes"; },
+    "ws-lang": function () { return "Windows Setup: language settings"; },
+    "ws-option": function () { return a.choice === "repair" ? "Windows Setup: opened Repair my PC" : r.unsupported ? "Windows Setup: this PC can't run Windows 11" : ok ? "Windows Setup: Install Windows 11, everything on the drive to be deleted" : "Windows Setup: the box confirming the drive will be wiped wasn't ticked"; },
+    "ws-key": function () { return a.none ? "Windows Setup: no product key" : ok ? "Windows Setup: typed a product key" : "Windows Setup: that product key didn't work"; },
+    "ws-edition": function () { return "Windows Setup: chose " + a.edition; },
+    "ws-terms": function () { return "Windows Setup: accepted the licence terms"; },
+    "ws-back": function () { return "Windows Setup: went back a screen"; },
+    "ws-delete": function () { return "Windows Setup: deleted a partition"; },
+    "ws-format": function () { return "Windows Setup: formatted a partition"; },
+    "ws-next": function () { return ok ? "Windows Setup: chose where to install" : r.mbr ? "Windows Setup refused: the disk is MBR, and this PC starts in UEFI mode" : "Windows Setup refused that location"; },
+    "ws-install": function () { return "Windows Setup: copied Windows to the drive"; },
+    restart: function () { return "Restarted it"; },
+    "oobe-region": function () { return "First-run setup: region"; },
+    "oobe-name": function () { return ok ? "First-run setup: named it " + r.name : "First-run setup: that name isn't allowed"; },
+    "oobe-how": function () { return "First-run setup: " + (a.how === "work" ? "set up for work or school" : "set up for personal use"); },
+    "oobe-entra": function () { return "First-run setup: tried a Microsoft Entra ID sign-in: no such account"; },
+    "oobe-domain-instead": function () { return "First-run setup: Sign-in options › Domain join instead"; },
+    "oobe-local": function () { return ok ? "First-run setup: created a local account" : "First-run setup: that user name isn't allowed"; },
+    "oobe-privacy": function () { return "First-run setup: accepted the privacy settings. Windows is ready"; },
+    "oobe-msa": function () { return "First-run setup: signed in with a personal Microsoft account"; },
+    "oobe-back": function () { return "First-run setup: went back a screen"; },
+    "oobe-opts": function () { return "First-run setup: " + (r.ok ? "opened or closed Sign-in options" : "Sign-in options"); },
+    rename: function () { return ok ? "System Properties: " + (a.member === "domain" ? "joined the RAFIKI domain, named " : "named it ") + String(a.name || "").trim().toUpperCase() + " (takes effect at a restart)" : "System Properties: " + (r.text || "not changed"); },
+    signin: function () { return ok ? "Dev signed in with RAFIKI\\dev" : "The sign-in was refused"; },
+    "media-in": function () { return "Plugged in the Windows 11 installer USB"; },
+    "media-out": function () { return "Took the Windows 11 installer USB out"; }
+  }[a.op];
+  return L2 ? L2() : "Setup: " + a.op;
+}
 function subj(id) { const e = emailById(id); return e ? e.subject : id; }
 
 /* Remote Desktop Connection: type the computer's name, as technicians do. */
@@ -876,7 +917,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk", MB1: "crawl", MB2: "walk" };
+const LEVEL = { OI1: "crawl", L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk", MB1: "crawl", MB2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -1794,6 +1835,179 @@ WALKS.MB2 = { mode: "walk", machine: "TECH", steps: [
   { goal: "Resolve the ticket", win: "helpdesk", how: "Back in Help Desk.", done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
   { goal: "Answer Brenda, and write the notes", win: "helpdesk", how: "What you cleared, why not storage, and how you checked.", done: function () { const st = E.state().tickets.MB2; return !!(st && st.stage === "done"); } }
 ], end: "That's the walk. The other phone tickets are yours to run." };
+/* ------------------------------------------------ OI1: the crawl */
+function oiEv(kind, test) { return lastAt("WS3", function (e) { return e.kind === kind && (!test || test(e)); }); }
+function oiOn() { const t = E.ticket(); return !!(t && t.id === "OI1"); }
+function oiScr() { return walkUI && walkUI.id === "WS3" ? document.querySelector(".wo-monitor") : null; }
+function oiAt() { if (!walkUI) return document.querySelector('[data-coach="walk"]'); return walkUI.id === "WS3" ? null : document.querySelector(".wo-back"); }
+function oiBtn(label) { const s = oiScr(); return s ? s.querySelector('[aria-label="' + label + '"]') : null; }
+function oiText(re) { const s = oiScr(); return s ? byText(s, re) : null; }
+function oiInput(sel) { const s = oiScr(); const i = s && s.querySelector(sel); return i && !i.value ? i : null; }
+function oiRow(re) { const s = oiScr(); return s ? Array.from(s.querySelectorAll(".ws-part")).filter(function (r) { return re.test(r.getAttribute("aria-label")); })[0] || null : null; }
+function oiRadio(name) { const s = oiScr(); const b = s && s.querySelector('[role="radio"][aria-label="' + name + '"]'); return b && b.getAttribute("aria-checked") !== "true" ? b : null; }
+function oiDlg() { const s = oiScr(); return s ? s.querySelector(".w-dialog") : null; }
+WALKS.OI1 = { machine: "WS3", steps: [
+  { tag: "Get ready", win: "helpdesk",
+    say: "Extra training: OS installation. Read Dev's request and every line of Mason's note, then press Assign to me and start.",
+    why: "Mason's note holds the four facts this job turns on: the edition WS3 is licensed for, that there's no key, its name, and the domain.",
+    target: function () { return document.querySelector('[data-coach="assign"]'); },
+    done: function () { return oiOn() && !!E.T(); } },
+  { tag: "Get ready", win: "helpdesk",
+    say: "Dev's PC is switched off and its drive is empty, so remote support has nothing to connect to. Press Walk to Dev's desk.",
+    why: "Installing an operating system is hands-on: you need the PC's own screen and keyboard from the moment it powers on.",
+    target: oiAt,
+    done: function () { return oiOn() && !!oiScr(); } },
+  { tag: "Start the installer", win: null,
+    say: "Under With your own hands, press Plug in the Windows 11 installer USB.",
+    why: "With nothing on the drive, the PC can only start from something else. The USB holds Windows Setup.",
+    target: function () { return oiAt() || hand("inst-usb-in"); },
+    done: function () { return oiEv("inst-media-in") >= 0; } },
+  { tag: "Start the installer", win: null,
+    say: "Press the power button to switch it on, and read the start-up screen.",
+    why: "This is the firmware's start-up screen (POST). It shows which keys open its Setup and its Boot Menu, for a second or two on a real PC.",
+    target: function () { return oiAt() || hand("power"); },
+    done: function () { return oiEv("inst-post") >= 0; } },
+  { tag: "Start the installer", win: null,
+    say: "Press F12 for the Boot Menu.",
+    why: "The Boot Menu starts the PC from a device just this once, without changing the firmware's boot order.",
+    target: function () { return oiAt() || oiBtn("Press F12 for the Boot Menu"); },
+    done: function () { return oiEv("inst-bootmenu") >= 0; } },
+  { tag: "Start the installer", win: null,
+    say: "Choose UEFI: WIN11_24H2 (USB).",
+    why: "UEFI in the name means it starts in UEFI mode, which Windows 11 needs. Windows Boot Manager is the drive, and there's nothing on it; PXE is the network, and Rafiki has no deployment server.",
+    target: function () { return oiAt() || oiBtn("Boot from UEFI: WIN11_24H2 (USB)"); },
+    done: function () { return oiEv("inst-boot", function (e) { return e.from === "usb"; }) >= 0; } },
+  { tag: "Windows Setup", win: null,
+    say: "Windows Setup has started. The language settings are right: press Next.",
+    why: "These set the language Windows installs in, and the keyboard layout.",
+    target: function () { return oiAt() || oiText(/^Next$/); },
+    done: function () { return oiEv("inst-ws-lang") >= 0; } },
+  { tag: "Windows Setup", win: null,
+    say: "Leave Install Windows 11 selected. Read the box underneath, tick it, then press Next.",
+    why: "A clean install deletes everything on the drive. Setup makes you say so. Repair my PC is for a PC that already has Windows.",
+    target: function () { const s = oiScr(); const cb = s && s.querySelector('[id^="ws-agree-"]'); return oiAt() || (cb && !cb.checked ? cb : oiText(/^Next$/)); },
+    done: function () { return oiEv("inst-ws-option") >= 0; } },
+  { tag: "Windows Setup", win: null,
+    say: "Press I don't have a product key.",
+    why: "Mason's note: WS3's licence is a digital licence held for its motherboard. Windows activates itself once it's online, so no key is typed.",
+    target: function () { return oiAt() || oiBtn("I don't have a product key"); },
+    done: function () { return oiEv("inst-ws-key", function (e) { return e.none; }) >= 0; } },
+  { tag: "Windows Setup", win: null,
+    say: "Choose Windows 11 Pro, then press Next.",
+    why: "With no key typed, you choose the edition, and it has to be the one the licence covers. Home wouldn't activate, and Home can't join a domain.",
+    target: function () { return oiAt() || oiRadio("Windows 11 Pro") || oiText(/^Next$/); },
+    done: function () { return oiEv("inst-ws-edition", function (e) { return e.edition === "Windows 11 Pro"; }) >= 0; } },
+  { tag: "Windows Setup", win: null,
+    say: "Press Accept for the licence terms.",
+    why: "Setup won't go on without it.",
+    target: function () { return oiAt() || oiText(/^Accept$/); },
+    done: function () { return oiEv("inst-ws-terms") >= 0; } },
+  { tag: "Where to install", win: null,
+    say: "Here's the vendor's drive. Select Drive 0 Partition 1: VENDOR TEST, press Next, and read exactly what Setup says.",
+    why: "Never guess at a disk screen: read it. Setup's message names the problem.",
+    target: function () { const s = oiScr(); const row = oiRow(/^Drive 0 Partition 1/); return oiAt() || (row && !row.classList.contains("sel") ? row : s && s.querySelector('[aria-label="Install Windows on the selected location"]')); },
+    done: function () { return oiEv("inst-ws-mbr") >= 0; } },
+  { tag: "Where to install", win: null,
+    say: "\"The selected disk is of the MBR partition style. On EFI systems, Windows can only be installed to GPT disks.\" With the partition still selected, press Delete partition.",
+    why: "The PC starts in UEFI mode, and UEFI needs Windows on a GPT disk. Formatting would empty the partition but leave the disk MBR. Deleting it leaves unallocated space, and Setup lays that out as GPT itself. Only do this on a drive you're meant to wipe.",
+    target: function () { const row = oiRow(/^Drive 0 Partition 1/); return oiAt() || (row && !row.classList.contains("sel") ? row : oiBtn("Delete the selected partition")); },
+    done: function () { return oiEv("inst-ws-delete") >= 0; } },
+  { tag: "Where to install", win: null,
+    say: "Select Drive 0 Unallocated Space, then press Next.",
+    why: "Installing to unallocated space lets Setup make every partition Windows needs: the EFI system partition, the reserved one, Windows itself, and recovery.",
+    target: function () { const s = oiScr(); const row = oiRow(/^Drive 0 Unallocated/); return oiAt() || (row && !row.classList.contains("sel") ? row : s && s.querySelector('[aria-label="Install Windows on the selected location"]')); },
+    done: function () { return oiEv("inst-ws-target") >= 0; } },
+  { tag: "Where to install", win: null,
+    say: "Check the summary (Windows 11 Pro, on the unallocated space), then press Install.",
+    why: "The last look before Setup writes to the drive.",
+    target: function () { return oiAt() || oiText(/^Install$/); },
+    done: function () { return oiEv("inst-ws-install") >= 0; } },
+  { tag: "Where to install", win: null,
+    say: "Windows is copied. Press Restart now.",
+    why: "Setup finishes from the drive it just installed to.",
+    target: function () { return oiAt() || oiText(/^Restart now$/); },
+    done: function () { const c = oiEv("inst-ws-install"); return c >= 0 && oiEv("inst-restart") > c; } },
+  { tag: "Where to install", win: null,
+    say: "Back at the start-up screen: this time press Let it start. Don't use the Boot Menu.",
+    why: "The drive is first in the boot order and now has Windows on it. Choosing the USB again would start Setup over from the beginning.",
+    target: function () { return oiAt() || oiBtn("Let the PC start from its boot order"); },
+    done: function () { return oiEv("inst-boot", function (e) { return e.from === "disk"; }) >= 0; } },
+  { tag: "First-run setup", win: null,
+    say: "Windows' first-run setup. United Kingdom is right: press Yes.",
+    why: "One question per screen from here.",
+    target: function () { return oiAt() || oiText(/^Yes$/); },
+    done: function () { return oiEv("inst-oobe-region") >= 0; } },
+  { tag: "First-run setup", win: null,
+    say: "Name the device WS3-DEV, as Mason's note says, then press Next.",
+    why: "A new drive doesn't make it a new PC. DNS, the asset register and the domain all know it as WS3-DEV.",
+    target: function () { return oiAt() || oiInput('[id^="oobe-name-"]') || oiText(/^Next$/); },
+    done: function () { return oiEv("inst-oobe-name", function (e) { return e.name === "WS3-DEV"; }) >= 0; } },
+  { tag: "First-run setup", win: null,
+    say: "Choose Set up for work or school, then press Next.",
+    why: "It's Rafiki's PC, not someone's own. Personal use would tie it to a personal Microsoft account.",
+    target: function () { return oiAt() || oiRadio("Set up for work or school") || oiText(/^Next$/); },
+    done: function () { return oiEv("inst-oobe-how", function (e) { return e.how === "work"; }) >= 0; } },
+  { tag: "First-run setup", win: null,
+    say: "This screen wants a Microsoft Entra ID account, and Rafiki doesn't use Entra ID. Open Sign-in options, then press Domain join instead.",
+    why: "Rafiki's accounts are in its own Active Directory domain, on its own server. Windows 11 doesn't join an Active Directory domain during setup: it makes a local account, and you join the domain from Windows.",
+    target: function () { const o = oiBtn("Sign-in options"); return oiAt() || (o && o.getAttribute("aria-expanded") !== "true" ? o : oiBtn("Domain join instead")); },
+    done: function () { return oiEv("inst-oobe-domain-instead") >= 0; } },
+  { tag: "First-run setup", win: null,
+    say: "Make the local account: a user name such as benchtech and a password of your own, then press Next.",
+    why: "It's the PC's first account, so it's an administrator. You'll use it to join the domain; Dev never needs it.",
+    target: function () { return oiAt() || oiInput('[id^="oobe-local-"]') || oiInput('[id^="oobe-lpass-"]') || oiText(/^Next$/); },
+    done: function () { return oiEv("inst-oobe-local") >= 0; } },
+  { tag: "First-run setup", win: null,
+    say: "Press Accept on the privacy settings.",
+    why: "Rafiki's policy sets these once the PC is on the domain.",
+    target: function () { return oiAt() || oiText(/^Accept$/); },
+    done: function () { return oiEv("inst-oobe-privacy") >= 0; } },
+  { tag: "Join the domain", win: null,
+    say: "Windows is up, signed in with the local account, on WORKGROUP. Press Start, type domain, and open System Properties.",
+    why: "System Properties (sysdm.cpl) › Computer Name is where a PC's name and its domain are set. Settings › Accounts › Access work or school does the same job.",
+    target: function () { return oiAt() || tool("WS3", "System Properties"); },
+    done: function () { return oiEv("opened", function (e) { return e.app === "sysprot"; }) >= 0; } },
+  { tag: "Join the domain", win: null,
+    say: "Press Change…, say Yes to User Account Control, choose Domain, type RAFIKI, and press OK. When Windows asks, use RAFIKI\\itadmin and Bench-Tech-2026.",
+    why: "Joining needs an account allowed to join PCs to the domain: itadmin, from Mason's note. Dev's own account can't. Check the name says WS3-DEV while you're there.",
+    target: function () {
+      if (oiAt()) return oiAt(); const s = oiScr(); if (!s) return null; const d = oiDlg();
+      if (d && d.classList.contains("uac")) return byText(d, /^Yes$/);
+      if (d && d.classList.contains("sysname")) { const r = d.querySelector('[id^="cn-domain-"][type="radio"]'); if (r && !r.checked) return r; const di = d.querySelector('[id^="cn-dom-"]'); if (di && !di.value) return di; const u = d.querySelector('[id^="cn-u-"]'); if (u && !u.value) return u; const p = d.querySelector('[id^="cn-p-"]'); if (p && !p.value) return p; return d.querySelector(".primary"); }
+      return inWin("WS3", "System Properties", function (w) { return w.querySelector('[aria-label="Change this computer\'s name or domain"]'); });
+    },
+    done: function () { return oiEv("inst-rename", function (e) { return e.domain; }) >= 0; } },
+  { tag: "Join the domain", win: null,
+    say: "\"Welcome to the RAFIKI domain.\" Press Restart now.",
+    why: "A domain join takes effect at the next restart.",
+    target: function () { return oiAt() || oiText(/^Restart now$/); },
+    done: function () { const j = oiEv("inst-rename", function (e) { return e.domain; }); return j >= 0 && oiEv("inst-post") > j; } },
+  { tag: "Join the domain", win: null,
+    say: "Press Let it start.",
+    why: "It starts from the drive, now as a member of RAFIKI.",
+    target: function () { return oiAt() || oiBtn("Let the PC start from its boot order"); },
+    done: function () { const j = oiEv("inst-rename", function (e) { return e.domain; }); return j >= 0 && oiEv("inst-boot", function (e) { return e.from === "disk"; }) > j; } },
+  { tag: "Hand it over", win: null,
+    say: "Dev has come back to the desk. Press Let Dev sign in: Dev types the password.",
+    why: "The user signs in with their own domain account, and Windows makes their profile the first time. You never ask for a user's password.",
+    target: function () { return oiAt() || oiText(/^Let Dev sign in$/); },
+    done: function () { return oiEv("inst-signin") >= 0; } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "Dev is in. Walk back to your desk, and press Resolve on the ticket.",
+    why: "Dev checks it, and the ticket moves on to the write-up.",
+    target: function () { return walkUI ? document.querySelector(".wo-back") : document.querySelector('[data-coach="resolve"]'); },
+    done: function () { const st = E.T(); return oiOn() && !!(st && st.stage !== "work"); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Answer Mason's question: why wouldn't Setup install to the vendor's partition?",
+    why: "Think about the message Setup gave, and how the PC was starting.",
+    target: function () { return document.querySelector("[data-win=helpdesk] .opts"); },
+    done: function () { const st = E.T(); return oiOn() && !!(st && (st.closeOK || st.stage === "done")); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Write the notes: the disk problem and what you did, the edition, the name, the domain join, and that Dev signed in. Then press Close the ticket.",
+    why: "For example: \"Vendor drive was MBR; UEFI needs GPT. Deleted the vendor partition, installed Windows 11 Pro (digital licence) to unallocated space. Named WS3-DEV, joined RAFIKI, Dev signed in.\" Use your own words.",
+    target: function () { return document.querySelector("#res-note"); },
+    done: function () { const st = E.state().tickets.OI1; return !!(st && st.stage === "done"); } }
+], end: "That's a clean install, start to finish: the installer from the Boot Menu in UEFI mode, the edition the licence covers, an MBR disk turned GPT by deleting its partition, the PC's own name, and the domain joined from Windows. More OS-installation tickets follow." };
 WALKS.CE2 = { mode: "walk", machine: "TECH", steps: [
   { goal: "Take the ticket and open the chat", how: "In Help Desk.", done: function () { const t = E.ticket(); return !!(t && t.id === "CE2" && W.custchat); } },
   { goal: "Open the chat professionally", how: "Acknowledge John and offer help.", done: function () { return chatAt("CE2") > 0; } },
@@ -2171,10 +2385,10 @@ function walkOver(id) {
       state.textContent = light + (hands.dataset.cable ? " " + (cable || (m.net.adapter === false ? "The network cable is plugged in, but the light on the port is off: the adapter is disabled in Windows." : "The network cable is plugged in firmly, and the light on the port is blinking.")) : "");
       hands.appendChild(state);
       const row = el("div", "wo-acts");
-      row.appendChild(btn(m.power === "on" ? "Press the power button" : "Press the power button to switch it on", "b", function () {
+      row.appendChild(coachTag("power", btn(m.power === "on" ? "Press the power button" : "Press the power button to switch it on", "b", function () {
         if (m.power !== "on") { M.boot(m); E.onAct({ type: "power", op: "on", host: m.host, machine: id }); actLog({ type: "power", op: "on" }, r.host + " (at the desk)"); local.draw(); refresh(); drawHands(); return; }
         state.textContent = "It's already on. A quick press would ask Windows to shut down; holding it in forces the power off and can lose " + first + "'s work. Leave it unless Windows is completely frozen.";
-      }));
+      })));
       row.appendChild(coachTag("check-cable", btn("Check the network cable", "b", function () { hands.dataset.cable = "1"; drawHands(); })));
       const srv = r.id === "FS01" || r.id === "MAIL01";
       if (hands.dataset.cable && m.net && m.net.cable === false) row.appendChild(coachTag("plug-in", btn(srv ? "Plug its cable back into the switch" : "Plug the cable back in", "b pri", function () { const b = E.before(); MW.setCable(m, true); E.onAct({ type: "cable", op: "on", host: m.host, machine: id, before: b }); const t2 = E.ticket(); if (t2) logT(t2.id, r.host + ": plugged the network cable back in"); local.draw(); refresh(); drawHands(); })));
@@ -2190,7 +2404,14 @@ function walkOver(id) {
           ? coachTag("usb-out", btn("Take the USB stick out", "b", function () { MW.removeUSB(m); logT(t3.id, r.host + ": took the USB stick out"); local.draw(); refresh(); drawHands(); }))
           : coachTag("usb-in", btn("Plug in the USB stick (Defender definitions, from your bench)", "b", function () { MW.insertUSB(m); logT(t3.id, r.host + ": plugged in the USB stick with the Defender definitions package (mpam-fe.exe)"); local.draw(); refresh(); drawHands(); })));
       }
+      /* installing an OS: the installer USB from the bench */
+      if (t3 && t3.kind === "install" && INS.managed(m)) {
+        const media = function (on) { const b = E.before(); if (on) INS.insertMedia(m, "win11"); else INS.removeMedia(m); const a = { type: "osinst", op: on ? "media-in" : "media-out", machine: id, before: b }; E.onAct(a); actLog(a, r.host + " (at the desk)"); local.draw(); refresh(); drawHands(); };
+        row.appendChild(m.inst.media ? coachTag("inst-usb-out", btn("Take the installer USB out", "b", function () { media(false); }))
+          : coachTag("inst-usb-in", btn("Plug in the Windows 11 installer USB (from your bench)", "b", function () { media(true); })));
+      }
       hands.appendChild(row);
+      if (INS.managed(m) && m.inst.media) hands.appendChild(el("p", "wo-state", "The Windows 11 installer USB (" + INS.MEDIA[m.inst.media].label + ") is in the front of the tower."));
       if (MW.ready(m).usb) hands.appendChild(el("p", "wo-state", "The USB stick is in: it shows in File Explorer as " + m.usb.label + "."));
     }
     drawHands();
