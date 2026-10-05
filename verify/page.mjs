@@ -51,8 +51,9 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486" };
 const NOTES = {
+  MB1: "Weather Live topped the Battery page at 52% in the background, with location Allow all the time and Unrestricted battery. Set location to Allow only while using the app and background battery to Restricted. The Battery page now shows about 23 hours.",
   X1: "Restored Q3-budget.xlsx from the 3 October 11:58 previous version, from a restore point. Set up File History to \\\\FS01\\Backups, every hour, turned it on, and tested it: her file is in Restore personal files.",
   R1: "Replaced the default admin password from the sticker with a strong one on Administration, saved it, and restarted the router. Leah's laptop and printer still connect.",
   W1: "Set MainOffice1 with the new password, WPA3 because every device supports it, 2.4 GHz for the thick walls, channel 6. Saved and restarted; the Office 3 tablet connects.",
@@ -75,7 +76,7 @@ const NOTES = {
   E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT", "EXTRA", "BACKUP"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT", "EXTRA", "BACKUP", "MOBILE", "INSTRUCTOR"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -107,6 +108,7 @@ async function run(rewrites, groups) {
     WR1: { "rt-band": "2.4", "rt-chan": "11", "rt-sec": "WPA3", "wb-pass": "Clos3t-AP-2026" },
     N1: { "rt-ssid": "HomeWiFi", "rt-wpass": "MyCCR0ck2!", "rt-sec": "WPA3", "rt-chan": "11", "rt-width": "20" },
     X1: { "fh-loc-WS4": "\\\\FS01\\Backups", "fh-every-WS4": "60" },
+    MB1: { "ph-loc": "Allow only while using the app", "ph-bat": "Restricted" },
     P1: { "rt-fe": "3389", "rt-fi": "192.168.10.20", "rt-fq": "3389", "rt-dmz": "10.100.0.50", "rt-sec": "WPA2" } };
   async function crawl(p, id, max) {
     await take(p, id).catch(() => {});
@@ -144,9 +146,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 72) F("LOAD: the queue shows " + items.length + " tickets, not 72");
+      if (items.length !== 78) F("LOAD: the queue shows " + items.length + " tickets, not 78");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 12 || count(/Walk: checklist/) !== 12 || count(/Run: on your own/) !== 48) F("LOAD: the queue's labels are not 12 crawl, 12 walk, 48 run");
+      if (count(/Crawl: guided/) !== 13 || count(/Walk: checklist/) !== 13 || count(/Run: on your own/) !== 52) F("LOAD: the queue's labels are not 13 crawl, 13 walk, 52 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
     });
 
@@ -159,7 +161,7 @@ async function run(rewrites, groups) {
       const order = await p.evaluate(() => Array.from(document.querySelectorAll(".hd2-q h3.qsec, .hd2-q .qi")).map((e) => e.tagName === "H3" ? "H" : (e.querySelector(".badge") ? e.querySelector(".badge").textContent : "NONE")));
       const hx = order.indexOf("H", 1); const sims = order.slice(1, hx), extra = order.slice(hx + 1);
       if (sims.length !== 66 || sims.some((x) => !/^Exam sim · /.test(x))) F("EXTRA: the sims section does not hold 66 tickets each badged Exam sim");
-      if (extra.length !== 6 || extra.some((x) => x !== "Extra training · Backup and recovery")) F("EXTRA: the extra-training section is not X1–X6 badged with their objective: " + JSON.stringify(extra));
+      if (extra.length !== 12 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6).some((x) => x !== "Extra training · Mobile troubleshooting")) F("EXTRA: the extra-training section is not X1–X6 and MB1–MB6 badged with their objectives: " + JSON.stringify(extra));
       if (await p.locator(".qi .badge").evaluateAll((bs) => bs.some((b) => !b.querySelector("svg.ico")))) F("EXTRA: a badge has no icon");
       await p.locator(".hd2-jb", { hasText: "Extra training" }).click();
       if (!(await p.locator(".qi", { hasText: INC.X1 }).isVisible())) F("EXTRA: Jump to Extra training does not bring X1 into view");
@@ -216,6 +218,49 @@ async function run(rewrites, groups) {
       if (st5.stage !== "done" || st5.g) F("BACKUP: X5 is not done with no wrong moves after System Restore and a test: " + JSON.stringify(st5));
       await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click();
       if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("BACKUP: X5's Resolve was refused");
+    });
+
+    /* Mobile: MB1 by Mason's rings only; MB5 through the phone's screen,
+       with the fake warning tapped (counted) on the way */
+    await step("MOBILE", async (p) => {
+      await signIn(p);
+      if (!(await crawl(p, "MB1"))) F("MOBILE: MB1 could not be finished by following Mason's rings");
+      else { const st = await p.evaluate(() => window.__LAP.engine.state().tickets.MB1); if (st.stage !== "done") F("MOBILE: MB1's crawl said done but the ticket is not closed"); if (st.guesses) F("MOBILE: following Mason's rings on MB1 cost " + st.guesses + " wrong moves"); }
+      await p.getByRole("button", { name: "Close the walkthrough" }).click().catch(() => {});
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await take(p, "MB5"); await hd(p).locator("[data-coach=open-mobile]").click(); await p.waitForTimeout(400);
+      const m = p.locator("[data-win=mobile]");
+      if (!/YOUR PHONE IS INFECTED/.test(await m.locator(".ph-screen").innerText())) F("MOBILE: MB5's fake warning isn't on the lock screen");
+      await m.getByRole("button", { name: "Tap the infected warning: clean now" }).click(); await p.waitForTimeout(150);
+      if ((await guesses(p)) !== 1) F("MOBILE: tapping the fake cleaner was not counted");
+      const ph = (n) => m.getByRole("button", { name: n, exact: true });
+      await ph("Settings").click(); await m.locator(".ph-link", { hasText: "Apps" }).first().click();
+      await m.getByRole("button", { name: "PDF Scanner Free: app info" }).click();
+      if (!/Chrome \(unknown sources\)/.test(await m.locator(".ph-screen").innerText())) F("MOBILE: the app's info doesn't say where it came from");
+      await ph("Uninstall PDF Scanner Free").click(); await m.locator(".ph-confirm").getByRole("button", { name: "Uninstall" }).click(); await p.waitForTimeout(150);
+      await ph("Back").click(); await ph("Back").click(); await m.locator(".ph-link", { hasText: "Security & privacy" }).click();
+      await m.getByRole("button", { name: /^Install unknown apps from Chrome: on/ }).click();
+      await ph("Scan with Play Protect").click(); await p.waitForTimeout(150);
+      if (!/No harmful apps found/.test(await m.locator(".ph-screen").innerText())) F("MOBILE: Play Protect's clean result isn't shown");
+      const st5 = await p.evaluate(() => { const E = window.__LAP.engine; return { stage: E.ticket().stage(E.fleet()), g: E.T().guesses }; });
+      if (st5.stage !== "done" || st5.g !== 1) F("MOBILE: MB5 is not done with exactly one wrong move: " + JSON.stringify(st5));
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click();
+      if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("MOBILE: MB5's Resolve was refused");
+    });
+
+    /* Instructor mode shows the answer on every ticket page; every ticket
+       must draw, whether or not it has been started, with no script error
+       (a not-yet-started phone ticket once blanked the whole Help Desk) */
+    await step("INSTRUCTOR", async (p) => {
+      await signIn(p);
+      await p.locator(".tb", { hasText: "Settings" }).click(); await p.locator("#instructorBtn").click(); await p.locator("#pin-in").fill("3693"); await p.locator("#pin-in").press("Enter"); await p.waitForTimeout(200);
+      await take(p, "X5"); await p.waitForTimeout(200);
+      const n = await p.locator(".qi").count(); let bad = [];
+      for (let i = 0; i < n; i++) {
+        await p.locator(".qi").nth(i).click();
+        const ok = await p.evaluate(() => { const t = document.querySelector("[data-win=helpdesk] .hd2-t"), ins = t && t.querySelector(".ins"); return !!(ins && /Fix: \S/.test(ins.textContent)); });
+        if (!ok) bad.push(i);
+      }
+      if (bad.length) F("INSTRUCTOR: " + bad.length + " ticket pages did not draw with the instructor's fix (queue positions " + bad.slice(0, 8).join(", ") + ")");
     });
 
     await step("CRAWL", async (p) => {
@@ -731,6 +776,9 @@ const PLANTS = [
   ["EXTRA", "turning File History on makes no copy", { "assets/backup.js": [["const r = runNow(m); return", "const r = { text: \"\" }; return"]] }],
   ["BACKUP", "Restore to… ignores the folder chosen", { "assets/backup.js": [["const p = split(path), dir = folder || p[0];", "const p = split(path), dir = p[0];"]] }],
   ["BACKUP", "System Restore doesn't roll the driver back", { "assets/backup.js": [["M.note(m, \"driver-rolled-back\", { app: a.name, driver: a.driverBad.driver }); a.driverBad = null;", ""]] }],
+  ["MOBILE", "uninstalling an app leaves it on the phone", { "assets/phone.js": [["a.installed = false; const lost = a.drafts; a.drafts = 0;", "const lost = a.drafts;"]] }],
+  ["MOBILE", "MB1's check step ticks before any change is made", { "assets/laptop.js": [["return !!p && PH.lastAt(p, \"app-set\") >= 0 && PH.lastAt(p, \"view\"", "return !!p && PH.lastAt(p, \"view\""]] }],
+  ["INSTRUCTOR", "the instructor's fix read from the office as it is", { "assets/laptop.js": [["const f = isCur ? E.fleet() : (function () { const g = makeFleet(); t.setup(g); return g; })();", "const f = E.fleet();"], ["const mv = (t.moves(f) || []).filter(", "const mv = t.moves(f).filter("]] }],
   ["CRAWL", "Mason's rings never drawn", { "assets/laptop.js": [["if (t) t.classList.add(\"coach-target\");", ""]] }],
   ["WALK", "the walk ticks only in strict order", { "assets/laptop.js": [["(walk.mode === \"walk\" || i <= firstOpen(walk, c))", "(i <= firstOpen(walk, c))"]] }],
   ["RUN", "Mason never checks in after wrong moves", { "assets/laptop.js": [["if (g.rung > last.rung || (g.rung === 3 && n > last.n)) {", "if (false) {"]] }],

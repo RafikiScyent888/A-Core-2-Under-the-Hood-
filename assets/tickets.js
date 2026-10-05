@@ -32,6 +32,7 @@ import { NR } from "./tickets-nr.js";
 import { WR } from "./tickets-wr.js";
 import { CHATS } from "./tickets-chat.js";
 import { EXTRA } from "./tickets-extra.js";
+import { MOBILE_TICKETS } from "./tickets-mobile.js";
 
 function works(m, app) { return M.launchApp(M.clone(m), app).ok; }
 function has(m, kind, test) { return m.events.some(function (e) { return e.kind === kind && (!test || test(e)); }); }
@@ -317,6 +318,7 @@ WR.forEach(function (t) { TICKETS.push(t); });
 CHATS.forEach(function (t) { TICKETS.push(t); });
 /* Extra training: its own section of the queue, after the sims */
 EXTRA.forEach(function (t) { TICKETS.push(t); });
+MOBILE_TICKETS.forEach(function (t) { TICKETS.push(t); });
 
 /* How far along a Tier 2 fix is: used so a step that helps is never
    counted as a guess, even when the program does not run yet. */

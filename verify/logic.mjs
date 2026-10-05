@@ -88,6 +88,7 @@ import * as CHM from "../assets/chat.js";
 import * as MBM from "../assets/mobile.js";
 import * as BKM from "../assets/backup.js";
 import * as XTM from "../assets/tickets-extra.js";
+import * as PHM from "../assets/phone.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -175,6 +176,12 @@ const NOTES = {
   CR4: "Firmware 1.0.4 had an update. Grace saved settings and installed 1.1.2 from Administration without unplugging it; it restarted with her settings. A security update.",
   CR5: "WPA3 only locked out Mia's old WPA2-only laptop. Set WPA2/WPA3 transition so the laptop uses WPA2 and newer devices WPA3; saved, restarted, all connected.",
   CR6: "The router was on channel 6 at 40 MHz, overlapping the café on 1 and the flat on 6. Ben set channel 11 at 20 MHz; saved, restarted, no overlap on the scan.",
+  MB1: "Weather Live topped the Battery page at 52% in the background, with location Allow all the time and Unrestricted battery. Set location to Allow only while using the app and background battery to Restricted. The Battery page now shows about 23 hours.",
+  MB2: "SalesPad crashed on opening after its update. Cleared its cache only, not storage, so the 3 offline orders were kept. Opened it again: it works and the orders are there.",
+  MB3: "Connected, no internet on every network: Private DNS was set to dns.fastsurf-free.net from the faster browsing article. Set Private DNS back to Automatic. Chrome loaded a page.",
+  MB4: "The security update needed 3.1 GB and only 0.9 GB was free. Deleted September's site videos from the phone (backed up in OneDrive), kept this week's (only copies). The update installed.",
+  MB5: "PDF Scanner Free, installed from a website through Chrome, was adware. Uninstalled it, turned off Install unknown apps for Chrome, and a Play Protect scan found nothing else. Told Farah to use the Play Store.",
+  MB6: "Outlook's background battery use was Restricted and its background data was off, so mail waited until it opened. Set battery to Optimized and turned background data on. A test email arrived by itself.",
   X2: "Opened File History's backups: the 1 October copy of deploy.yml is version 2.3.1, the hotfix. Used Restore to put a copy on Dev's Desktop; today's 2.4.0 in Documents was kept, not overwritten. Opened it to check.",
   X3: "File History's oldest backup was 4 September because Keep saved versions was 1 month, so the 24 August interview notes were already gone. Set retention to 1 year for HR's policy. Escalated to Tier 2 to restore from FS01's nightly backup.",
   X4: "File History was set to a KINGSTON USB stick that left with the temp. Changed the drive to \\\\FS01\\Backups, pressed Run now, then checked Restore personal files: today's visitor log is backed up.",
@@ -343,6 +350,7 @@ export function check(D) {
   chatChecks(D, F);
   extraChecks(D, F);
   extraMore(D, F);
+  mobileChecks(D, F);
   return fails;
 }
 
@@ -380,7 +388,7 @@ function chatDrive(D, t, f) {
    recovery: the fault is on the machine, the right path closes it with
    no wrong moves, the near misses count, rung 3 leaves the right move
    alive at every stage, no hint names the move, the note check holds. */
-const OBJECTIVES = { "Backup and recovery": ["Operational procedures", "setting up workstation backups and recovery processes"] };
+const OBJECTIVES = { "Backup and recovery": ["Operational procedures", "setting up workstation backups and recovery processes"], "Mobile troubleshooting": ["Software troubleshooting", "addressing connectivity, app, and performance issues"] };
 function extraChecks(D, F) {
   const X = D.TICKETS.filter((t) => t.extra);
   if (!X.length) { F("EXTRA: no extra-training ticket"); return; }
@@ -545,6 +553,116 @@ function extraMore(D, F) {
     X.near.forEach(([label, go]) => { const E3 = D.createEngine(memStore()); E3.openTicket(id); go(E3, B); if (E3.T().guesses !== 1) F(P + "JUDGE: " + label + " gave " + E3.T().guesses + " wrong moves, should be 1"); });
     { const E4 = D.createEngine(memStore()); E4.openTicket(id); X.look.forEach((go) => go(E4, B)); if (E4.T().guesses) F(P + "JUDGE: looking cost " + E4.T().guesses + " wrong moves"); }
     /* close question, note, objective */
+    const co = t.close.options;
+    if (co.length !== 6 || co.filter((x) => x.correct).length !== 1 || co.some((x) => !x.correct && !x.why) || new Set(co.map((x) => x.label)).size !== 6) F(P + "SIX: the close question is not six, one right, a reason on each wrong one");
+    const L = co.map((x) => x.label.length), cl = co.find((x) => x.correct).label.length;
+    if (cl === Math.max(...L)) F(P + "SPREAD: the right close answer is the longest option");
+    if (!D.noteOK(t, D.NOTES[id] || "").ok) F(P + "NOTE: the model note is refused: " + D.noteOK(t, D.NOTES[id] || "").missing.join("; "));
+    if (D.noteOK(t, "I looked at the computer for a while and then it was working again, so I closed it.").ok) F(P + "NOTE: a note that says nothing specific is accepted");
+  });
+}
+/* ---- EXTRA, mobile (MB1–MB6): the same checks, on the phone. ---- */
+function pr(E, id, a, fn) { const b = E.before(); const p = E.fleet().TECH.phones[id]; const res = fn(p); E.onAct(Object.assign({ machine: "TECH", type: "phone", before: b, res }, a)); return res; }
+function pv(E, id, page) { return pr(E, id, { op: "view", page }, (p) => { PHM.note(p, "view", { page }); return null; }); }
+const XM = {
+  MB1: { leak: [/weather live/i, /allow only while/i, /\brestricted\b/i],
+    exh: (H, p) => H.battery(p).hours >= 10 ? "the battery already lasts" : H.battery(p).list[0].id !== "weather" ? "the weather app isn't the top drain" : null,
+    solve: [(E, H) => pv(E, "MB1", "settings"), (E, H) => pv(E, "MB1", "battery"), (E, H) => pv(E, "MB1", "app:weather"),
+      (E, H) => pr(E, "MB1", { op: "app-set", app: "weather", key: "location", value: "Allow only while using the app" }, (p) => H.setApp(p, "weather", "location", "Allow only while using the app")),
+      (E, H) => pr(E, "MB1", { op: "app-set", app: "weather", key: "battery", value: "Restricted" }, (p) => H.setApp(p, "weather", "battery", "Restricted")),
+      (E, H) => pv(E, "MB1", "battery")],
+    after: (H, p) => H.battery(p).hours < 18 ? "the battery still doesn't last the day" : null,
+    near: [["Battery Saver", (E, H) => pr(E, "MB1", { op: "saver", on: true }, (p) => { p.dev.battery.saver = true; return { ok: true }; })],
+      ["uninstalling the app she wants", (E, H) => pr(E, "MB1", { op: "uninstall", app: "weather" }, (p) => H.uninstall(p, "weather"))],
+      ["location Don't allow", (E, H) => pr(E, "MB1", { op: "app-set", app: "weather", key: "location", value: "Don't allow" }, (p) => H.setApp(p, "weather", "location", "Don't allow"))],
+      ["restricting Outlook", (E, H) => pr(E, "MB1", { op: "app-set", app: "outlook", key: "battery", value: "Restricted" }, (p) => H.setApp(p, "outlook", "battery", "Restricted"))]],
+    look: [(E, H) => pr(E, "MB1", { op: "open", app: "weather" }, (p) => H.openApp(p, "weather")), (E, H) => pr(E, "MB1", { op: "force-stop", app: "weather" }, (p) => H.forceStop(p, "weather")), (E, H) => pr(E, "MB1", { op: "restart" }, (p) => H.restart(p))] },
+  MB2: { leak: [/clear(ing)? (the )?cache/i, /\bcache\b/i],
+    exh: (H, p) => H.openApp(clone(p), "salespad").ok ? "SalesPad opens" : H.app(p, "salespad").drafts !== 3 ? "the three orders aren't there" : null,
+    solve: [(E, H) => pr(E, "MB2", { op: "open", app: "salespad" }, (p) => H.openApp(p, "salespad")), (E, H) => pv(E, "MB2", "app:salespad"),
+      (E, H) => pr(E, "MB2", { op: "clear-cache", app: "salespad" }, (p) => H.clearCache(p, "salespad")), (E, H) => pr(E, "MB2", { op: "open", app: "salespad" }, (p) => H.openApp(p, "salespad"))],
+    after: (H, p) => H.app(p, "salespad").drafts !== 3 ? "the orders were lost" : null,
+    near: [["Clear storage", (E, H) => pr(E, "MB2", { op: "clear-storage", app: "salespad" }, (p) => H.clearStorage(p, "salespad"))],
+      ["uninstalling SalesPad", (E, H) => pr(E, "MB2", { op: "uninstall", app: "salespad" }, (p) => H.uninstall(p, "salespad"))],
+      ["airplane mode", (E, H) => pr(E, "MB2", { op: "airplane", on: true }, (p) => H.setNet(p, "airplane", true))]],
+    look: [(E, H) => pr(E, "MB2", { op: "force-stop", app: "salespad" }, (p) => H.forceStop(p, "salespad")), (E, H) => pr(E, "MB2", { op: "restart" }, (p) => H.restart(p)), (E, H) => pr(E, "MB2", { op: "open", app: "salespad" }, (p) => H.openApp(p, "salespad"))] },
+  MB3: { leak: [/private dns/i, /automatic/i],
+    exh: (H, p) => H.internet(p).ok ? "the internet works" : !/Private DNS/.test(H.internet(p).text) ? "the fault isn't Private DNS" : null,
+    solve: [(E, H) => pr(E, "MB3", { op: "open", app: "chrome" }, (p) => H.openApp(p, "chrome")), (E, H) => pv(E, "MB3", "network"),
+      (E, H) => pr(E, "MB3", { op: "private-dns", value: "Automatic" }, (p) => H.setNet(p, "privateDns", "Automatic")), (E, H) => pr(E, "MB3", { op: "open", app: "chrome" }, (p) => H.openApp(p, "chrome"))],
+    near: [["forgetting the office Wi-Fi", (E, H) => pr(E, "MB3", { op: "forget", ssid: "Rafiki-Staff" }, (p) => H.forgetNetwork(p, "Rafiki-Staff"))],
+      ["reset network settings", (E, H) => pr(E, "MB3", { op: "reset-network" }, (p) => H.resetNetwork(p))],
+      ["airplane mode on", (E, H) => pr(E, "MB3", { op: "airplane", on: true }, (p) => H.setNet(p, "airplane", true))],
+      ["another dead DNS server", (E, H) => pr(E, "MB3", { op: "private-dns", value: "dns.example.invalid" }, (p) => H.setNet(p, "privateDns", "dns.example.invalid"))]],
+    look: [(E, H) => pr(E, "MB3", { op: "restart" }, (p) => H.restart(p)), (E, H) => pr(E, "MB3", { op: "open", app: "chrome" }, (p) => H.openApp(p, "chrome"))] },
+  MB4: { leak: [/september/i, /onedrive/i],
+    exh: (H, p) => H.free(p) >= p.dev.update.gb ? "there's already room for the update" : H.free(p) + H.app(p, "chrome").cacheGB + H.app(p, "teams").cacheGB >= p.dev.update.gb ? "clearing caches alone would make room" : null,
+    solve: [(E, H) => pr(E, "MB4", { op: "install-update" }, (p) => H.installUpdate(p)), (E, H) => pv(E, "MB4", "storage"),
+      (E, H) => pr(E, "MB4", { op: "delete", item: "sept" }, (p) => H.deleteItem(p, "sept")), (E, H) => pr(E, "MB4", { op: "install-update" }, (p) => H.installUpdate(p))],
+    after: (H, p) => !p.dev.storage.items.some((x) => x.id === "week") ? "this week's videos were deleted" : null,
+    near: [["deleting this week's videos", (E, H) => pr(E, "MB4", { op: "delete", item: "week" }, (p) => H.deleteItem(p, "week"))],
+      ["clearing Teams' storage", (E, H) => pr(E, "MB4", { op: "clear-storage", app: "teams" }, (p) => H.clearStorage(p, "teams"))],
+      ["uninstalling Outlook", (E, H) => pr(E, "MB4", { op: "uninstall", app: "outlook" }, (p) => H.uninstall(p, "outlook"))]],
+    look: [(E, H) => pr(E, "MB4", { op: "install-update" }, (p) => H.installUpdate(p)), (E, H) => pr(E, "MB4", { op: "clear-cache", app: "chrome" }, (p) => H.clearCache(p, "chrome"))] },
+  MB5: { leak: [/pdf scanner/i, /unknown apps/i, /play protect/i],
+    exh: (H, p) => !H.adware(p) ? "no adware" : !p.dev.unknown.Chrome ? "unknown sources already off" : null,
+    solve: [(E, H) => pv(E, "MB5", "apps"), (E, H) => pv(E, "MB5", "app:pdfscan"),
+      (E, H) => pr(E, "MB5", { op: "uninstall", app: "pdfscan" }, (p) => H.uninstall(p, "pdfscan")),
+      (E, H) => pr(E, "MB5", { op: "unknown", src: "Chrome", on: false }, (p) => H.setUnknown(p, "Chrome", false)),
+      (E, H) => pr(E, "MB5", { op: "scan" }, (p) => H.scan(p))],
+    near: [["installing the fake cleaner", (E, H) => pr(E, "MB5", { op: "install-cleaner" }, (p) => { H.note(p, "install-cleaner"); return { ok: false, text: "scam" }; })],
+      ["uninstalling Teams", (E, H) => pr(E, "MB5", { op: "uninstall", app: "teams" }, (p) => H.uninstall(p, "teams"))],
+      ["clearing Chrome's cache", (E, H) => pr(E, "MB5", { op: "clear-cache", app: "chrome" }, (p) => H.clearCache(p, "chrome"))]],
+    look: [(E, H) => pr(E, "MB5", { op: "scan" }, (p) => H.scan(p)), (E, H) => pr(E, "MB5", { op: "open", app: "outlook" }, (p) => H.openApp(p, "outlook"))] },
+  MB6: { leak: [/optimized/i, /background data/i, /unrestricted/i],
+    exh: (H, p) => H.mailPush(p).ok ? "mail already arrives by itself" : null,
+    solve: [(E, H) => pr(E, "MB6", { op: "test-mail" }, (p) => H.testMail(p)), (E, H) => pv(E, "MB6", "app:outlook"),
+      (E, H) => pr(E, "MB6", { op: "app-set", app: "outlook", key: "battery", value: "Optimized" }, (p) => H.setApp(p, "outlook", "battery", "Optimized")),
+      (E, H) => pr(E, "MB6", { op: "app-set", app: "outlook", key: "bgData", value: true }, (p) => H.setApp(p, "outlook", "bgData", true)),
+      (E, H) => pr(E, "MB6", { op: "test-mail" }, (p) => H.testMail(p))],
+    near: [["Battery Saver", (E, H) => pr(E, "MB6", { op: "saver", on: true }, (p) => { p.dev.battery.saver = true; return { ok: true }; })],
+      ["Data Saver", (E, H) => pr(E, "MB6", { op: "data-saver", on: true }, (p) => H.setNet(p, "dataSaver", true))],
+      ["clearing Outlook's storage", (E, H) => pr(E, "MB6", { op: "clear-storage", app: "outlook" }, (p) => H.clearStorage(p, "outlook"))]],
+    look: [(E, H) => pr(E, "MB6", { op: "test-mail" }, (p) => H.testMail(p)), (E, H) => pr(E, "MB6", { op: "open", app: "outlook" }, (p) => H.openApp(p, "outlook"))] }
+};
+function mobileChecks(D, F) {
+  const H = D.PH;
+  /* MODEL: the battery estimate follows each setting. MB1's location alone
+     and its background battery alone each lengthen it; both reach a day */
+  { const t = D.TICKETS.find((x) => x.id === "MB1"), f = D.makeFleet(); t.setup(f); const p = f.TECH.phones.MB1, h0 = H.battery(p).hours;
+    const a = p.dev.apps.weather, keep = [a.location, a.battery];
+    a.location = "Allow only while using the app"; const hLoc = H.battery(p).hours; a.location = keep[0];
+    a.battery = "Restricted"; const hBat = H.battery(p).hours; a.location = "Allow only while using the app"; const hBoth = H.battery(p).hours;
+    if (!(hLoc > h0)) F("EXTRA MB1: MODEL: changing location alone doesn't lengthen the battery estimate (" + h0 + " to " + hLoc + " hours)");
+    if (!(hBat > h0)) F("EXTRA MB1: MODEL: restricting background battery alone doesn't lengthen the estimate");
+    if (!(hBoth >= 18)) F("EXTRA MB1: MODEL: both changes together don't reach a day (" + hBoth + " hours)"); }
+  Object.keys(XM).forEach((id) => {
+    const t = D.TICKETS.find((x) => x.id === id), X = XM[id], P = "EXTRA " + id + ": ";
+    if (!t) { F(P + "missing"); return; }
+    const f = D.makeFleet(); t.setup(f); const p0 = f.TECH.phones[id];
+    if (!p0) { F(P + "EXHIBITED: no phone"); return; }
+    if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts");
+    const ex = X.exh(H, p0); if (ex) F(P + "EXHIBITED: " + ex);
+    const E = D.createEngine(memStore()); E.openTicket(id); const tt = E.ticket();
+    const stageCheck = () => {
+      const s = tt.stage(E.fleet()), mv = t.moves(E.fleet());
+      if (!mv || mv.length !== 6 || mv.filter((x) => x.correct).length !== 1 || mv.some((x) => !x.correct && !String(x.why || "").trim()) || new Set(mv.map((x) => x.label)).size !== 6) { F(P + "SIX: the moves at stage " + s + " are not six, one right, a reason on each wrong one"); return; }
+      const rm = mv.find((x) => x.correct).label.toLowerCase(), h = t.hints(E.fleet());
+      if (!h || h.length < 2) F(P + "NO LEAK: no rung 1 and rung 2 at stage " + s);
+      (h || []).forEach((line, i) => { if (String(line).toLowerCase().indexOf(rm) >= 0) F(P + "NO LEAK: rung " + (i + 1) + " at stage " + s + " contains the right move"); X.leak.forEach((re) => { if (re.test(line)) F(P + "NO LEAK: rung " + (i + 1) + " at stage " + s + " names the answer (" + re + ")"); }); });
+      const saved = E.T().guesses; E.T().guesses = 7; const g = E.guidance(); E.T().guesses = saved;
+      const alive = (g.moves || []).filter((x) => !x.struck);
+      if (g.rung !== 3 || alive.length !== 2 || !alive.some((x) => x.correct)) F(P + "LADDER: rung 3 at stage " + s + " does not leave two alive with the right one among them");
+    };
+    stageCheck(); X.solve.forEach((go) => { go(E, H); stageCheck(); });
+    if (!t.goal(E.fleet())) F(P + "SOLVABLE: the right path does not meet the goal (stage " + tt.stage(E.fleet()) + ")");
+    if (E.T().guesses) F(P + "SOLVABLE: the right path cost " + E.T().guesses + " wrong moves");
+    if (X.after) { const a = X.after(H, E.fleet().TECH.phones[id]); if (a) F(P + "SOLVABLE: " + a); }
+    if (!E.submit(t.outcome).ok) F(P + "SOLVABLE: " + t.outcome + " refused after the right path");
+    { const E2 = D.createEngine(memStore()); E2.openTicket(id); X.solve.slice(0, -1).forEach((go) => go(E2, H)); if (t.goal(E2.fleet())) F(P + "SOLVABLE: closes without the last step of the path"); }
+    X.near.forEach(([label, go]) => { const E3 = D.createEngine(memStore()); E3.openTicket(id); go(E3, H); if (E3.T().guesses !== 1) F(P + "JUDGE: " + label + " gave " + E3.T().guesses + " wrong moves, should be 1"); });
+    { const E3 = D.createEngine(memStore()); E3.openTicket(id); pr(E3, id, { op: "factory-reset" }, (p) => H.factoryReset(p)); if (E3.T().guesses !== 1) F(P + "JUDGE: a factory reset gave " + E3.T().guesses + " wrong moves, should be 1"); if (tt.stage(E3.fleet()) !== "wiped") F(P + "JUDGE: a factory reset doesn't leave the phone erased"); }
+    { const E4 = D.createEngine(memStore()); E4.openTicket(id); X.look.forEach((go) => go(E4, H)); if (E4.T().guesses) F(P + "JUDGE: looking (or a safe first step) cost " + E4.T().guesses + " wrong moves"); }
     const co = t.close.options;
     if (co.length !== 6 || co.filter((x) => x.correct).length !== 1 || co.some((x) => !x.correct && !x.why) || new Set(co.map((x) => x.label)).size !== 6) F(P + "SIX: the close question is not six, one right, a reason on each wrong one");
     const L = co.map((x) => x.label.length), cl = co.find((x) => x.correct).label.length;
@@ -1050,7 +1168,7 @@ function routerChecks(D, F) {
   ({ f, r } = mk()); if (JSON.stringify(JSON.parse(JSON.stringify(f.TECH.routers))) !== JSON.stringify(f.TECH.routers)) F("ROUTER SNAP: a router doesn't survive the engine's copy");
 }
 
-const BASE = { BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+const BASE = { PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
 /* Each plant is one defect a check exists to catch, and the check it must
@@ -1140,6 +1258,15 @@ const PLANTS = [
   ["EXTRA X5: SOLVABLE", "System Restore leaves the driver in place", () => ({ BK: Object.assign({}, BKM, { systemRestore: (w, i) => { const keep = (w.apps || []).map((a) => a.driverBad); const r = BKM.systemRestore(w, i); (w.apps || []).forEach((a, k) => { a.driverBad = keep[k]; }); return r; } }) })],
   ["EXTRA X6: NO LEAK", "a hint names the number", () => ({ TICKETS: withTicket("X6", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0], h[1] + " Every 15 minutes will do."]; } })) })],
   ["EXTRA X6: SPREAD", "the right close answer padded longest", () => ({ TICKETS: withTicket("X6", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.map((x) => (x.correct ? Object.assign({}, x, { label: x.label + ", and the auditors check both" }) : x)) }) })) })],
+  ["EXTRA MB1: SOLVABLE", "an app's settings don't change its battery use", () => ({ PH: Object.assign({}, PHM, { battery: (p) => { const b = PHM.battery(p); return Object.assign({}, b, { hours: 5 }); } }) })],
+  ["EXTRA MB2: EXHIBITED", "SalesPad starts already working", () => ({ TICKETS: withTicket("MB2", (t) => ({ setup: (f) => { t.setup(f); f.TECH.phones.MB2.dev.apps.salespad.broken = null; } })) })],
+  ["EXTRA MB2: SOLVABLE", "clearing the cache doesn't fix the crash", () => ({ PH: Object.assign({}, PHM, { clearCache: (p, id) => { const a = p.dev.apps[id]; const b = a.broken; const r = PHM.clearCache(p, id); a.broken = b; return r; } }) })],
+  ["EXTRA MB3: NO LEAK", "a hint names the setting", () => ({ TICKETS: withTicket("MB3", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0] + " Look at Private DNS.", h[1]]; } })) })],
+  ["EXTRA MB4: SOLVABLE", "deleting a backed-up item deletes everything", () => ({ PH: Object.assign({}, PHM, { deleteItem: (p, id) => { const r = PHM.deleteItem(p, id); p.dev.storage.items = []; return r; } }) })],
+  ["EXTRA MB5: EXHIBITED", "unknown sources already off", () => ({ TICKETS: withTicket("MB5", (t) => ({ setup: (f) => { t.setup(f); f.TECH.phones.MB5.dev.unknown.Chrome = false; } })) })],
+  ["EXTRA MB6: EXHIBITED", "mail arrives whatever Outlook is allowed", () => ({ PH: Object.assign({}, PHM, { mailPush: () => ({ ok: true, text: "fine" }) }) })],
+  ["EXTRA MB1: SPREAD", "the right close answer padded longest", () => ({ TICKETS: withTicket("MB1", (t) => ({ close: Object.assign({}, t.close, { options: t.close.options.map((x) => (x.correct ? Object.assign({}, x, { label: x.label + ", even with the screen off" }) : x)) }) })) })],
+  ["EXTRA MB1: MODEL", "an app's location doesn't change its battery use", () => ({ PH: Object.assign({}, PHM, { battery: (p) => { const keep = {}; Object.keys(p.dev.apps).forEach((k) => { keep[k] = p.dev.apps[k].location; if (p.dev.apps[k].locDrain) p.dev.apps[k].location = "Allow all the time"; }); const b = PHM.battery(p); Object.keys(keep).forEach((k) => { p.dev.apps[k].location = keep[k]; }); return b; } }) })],
 ];
 
 const plant = process.argv.includes("--plant");

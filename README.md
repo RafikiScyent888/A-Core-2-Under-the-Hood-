@@ -42,7 +42,9 @@ on the laptop:
   waits while you check the real thing.
 - **Mobile devices:** the company's phones. The customer's phone in 3D,
   its mail settings as real text, Sync now, and the mail server's
-  settings to match against.
+  settings to match against. On the mobile tickets, **Remote help**: the
+  phone's own screen beside it, to use as the owner would (notifications,
+  Network & internet, Battery, Storage, Apps, Security, System).
 - **Exam Practice** shows each sim laid out the way the exam shows it: the
   Port Forwarding diagram, the Wi-Fi office map, the three houses of
   Neighboring Routers, the Tier 1 Router scenario, the Wireless
@@ -70,8 +72,8 @@ Live: https://rafikiscyent888.github.io/A-Core-2-Under-the-Hood-/
 
 | | Tickets | How much help |
 |---|---|---|
-| **Crawl** | L1, D1, M1, E1, R1, W1, P1, N1, WR1, CE1, CR1: the sims themselves; X1, the first extra-training ticket | Mason walks you through every step and rings what to press |
-| **Walk** | L2, D2, M2, E2, R2, W2, P2, N2, WR2, CE2, CR2, X2 | A checklist that ticks itself off as you work, with "How?" pointers |
+| **Crawl** | L1, D1, M1, E1, R1, W1, P1, N1, WR1, CE1, CR1: the sims themselves; X1 and MB1, the first extra-training tickets | Mason walks you through every step and rings what to press |
+| **Walk** | L2, D2, M2, E2, R2, W2, P2, N2, WR2, CE2, CR2, X2, MB2 | A checklist that ticks itself off as you work, with "How?" pointers |
 | **Run** | the rest, 3 to 6 of each | On your own, as in the exam. Mason checks in after your third wrong move |
 
 The L tickets come from the Application Launch sim (Tier 1), the D
@@ -130,6 +132,20 @@ does. Each ticket names the objective it covers.
     untouched.
   - X6: the auditors' two numbers: how often (every 15 minutes) and how
     long (two years, and no longer).
+- **MB, Mobile troubleshooting** (Software troubleshooting), six tickets on
+  company phones, by Remote help:
+  - MB1: battery dead by lunch: a weather app tracking location all day,
+    unrestricted in the background.
+  - MB2: an app crashing after its update: clear the cache, not the
+    storage, which holds three unsynced orders.
+  - MB3: "Connected, no internet" on every network: a Private DNS server
+    from an article.
+  - MB4: an update that won't install: free space from what's backed up,
+    never the only copies.
+  - MB5: ads and fake virus warnings: a scanner app from a website; remove
+    it, close unknown sources, scan.
+  - MB6: mail only arriving when Outlook opens: let the mail app run and
+    use data in the background.
 
 The program's rules apply throughout:
 - unlimited tries

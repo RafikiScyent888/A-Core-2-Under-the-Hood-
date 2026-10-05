@@ -598,3 +598,42 @@ tr.coach-target td:first-child { box-shadow: inset 4px 4px 0 #b88a00, inset 0 -4
 .badge.b-sim { background: var(--sim-bg); color: var(--sim-ink); border-color: var(--sim-rule); }
 .badge.b-extra { background: var(--xt-bg); color: var(--xt-ink); border-color: var(--xt-rule); border-style: dashed; }
 .hd2-t > .badge { margin: 0 0 0.4rem; font-size: 0.9rem; }
+
+/* ---- Remote help on a company phone (phoneui.js). The phone's own
+   screen is light, as a real phone's is; every state is said in words
+   (On/Off, "Problem:", ✕), with colour as an extra signal only. */
+.ph-help { margin: 0; }
+.ph-side { display: grid; gap: 0.8rem; align-content: start; }
+.ph-screen { position: relative; background: #ffffff; color: #111827; border: 2px solid #374151; border-radius: 22px; padding: 0.6rem 0.8rem 0.9rem; max-width: 30rem; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.ph-status { display: flex; justify-content: space-between; gap: 0.6rem; font-size: 0.85rem; font-weight: 600; color: #1f2937; border-bottom: 1px solid #d1d5db; padding-bottom: 0.3rem; flex-wrap: wrap; }
+.ph-nav { display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0; }
+.ph-title { margin: 0; font-size: 1.15rem; flex: 1; }
+.ph-back { font: inherit; font-size: 0.9rem; min-height: 34px; padding: 0.15rem 0.6rem; border-radius: 999px; border: 1px solid #6b7280; background: #f3f4f6; color: #111827; cursor: pointer; }
+.ph-body { display: grid; gap: 0.35rem; }
+.ph-h { margin: 0.5rem 0 0.1rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #374151; }
+.ph-row, .ph-link { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.45rem 0.6rem; border-radius: 10px; background: #f3f4f6; color: #111827; }
+.ph-link { font: inherit; text-align: left; width: 100%; border: 1px solid #d1d5db; cursor: pointer; min-height: 40px; }
+.ph-link:hover { border-color: #374151; }
+.ph-k { font-weight: 600; }
+.ph-v { color: #1f2937; }
+.ph-row.ph-bad { background: #fdecea; color: #7f1d1d; box-shadow: inset 5px 0 0 #b91c1c; }
+.ph-row.ph-bad .ph-v, .ph-row.ph-alert .ph-v { color: #7f1d1d; }
+.ph-row.ph-good { background: #e8f5ec; color: #14532d; box-shadow: inset 5px 0 0 #15803d; }
+.ph-row.ph-good .ph-v { color: #14532d; }
+.ph-row.ph-alert { background: #fdecea; color: #7f1d1d; box-shadow: inset 5px 0 0 #b91c1c; font-weight: 700; }
+.ph-row.ph-note { background: #eef3fb; box-shadow: inset 5px 0 0 #0b3a82; }
+.ph-switch, .ph-opt { font: inherit; min-height: 34px; min-width: 4.5rem; padding: 0.15rem 0.7rem; border-radius: 999px; border: 2px solid #6b7280; background: #ffffff; color: #111827; cursor: pointer; font-weight: 700; }
+.ph-switch.on, .ph-opt.on { background: #0b3a82; border-color: #0b3a82; color: #ffffff; }
+.ph-opt { width: 100%; text-align: left; border-radius: 10px; }
+.ph-sel { min-width: 14rem; }
+.ph-acts { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.ph-screen .b.small { background: #f3f4f6; color: #111827; border-color: #6b7280; }
+.ph-screen .b.small.pri { background: #0b3a82; color: #ffffff; border-color: #0b3a82; }
+.ph-screen .w-input { background: #ffffff; color: #111827; border: 1px solid #6b7280; }
+.ph-confirm { margin-top: 0.6rem; padding: 0.6rem 0.7rem; border: 2px solid #111827; border-radius: 12px; background: #fffbea; color: #111827; }
+.ph-confirm p { margin: 0 0 0.5rem; }
+.ph-msg { margin: 0.6rem 0 0; padding: 0.45rem 0.6rem; border-radius: 10px; background: #e8f5ec; color: #14532d; box-shadow: inset 5px 0 0 #15803d; }
+.ph-msg.bad { background: #fdecea; color: #7f1d1d; box-shadow: inset 5px 0 0 #b91c1c; }
+.ph-tools { display: grid; gap: 0.4rem; justify-items: start; }
+.ph-tools h3 { margin: 0; font-size: 1rem; }
+.ph-screen .ph-back:focus-visible, .ph-screen .ph-link:focus-visible, .ph-screen .ph-switch:focus-visible, .ph-screen .ph-opt:focus-visible, .ph-screen button:focus-visible { outline: 3px solid #4c1d95; outline-offset: 2px; }

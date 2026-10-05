@@ -11,7 +11,7 @@
    before (machine.js, cmd.js, tickets.js, engine.js). The PCs reached by
    remote session are drawn by desktop.js.
    ===================================================================== */
-import { ROSTER, rosterOf } from "./fleet.js";
+import { ROSTER, rosterOf, makeFleet } from "./fleet.js";
 import * as M from "./machine.js";
 import { createEngine, rungFor } from "./engine.js";
 import { createDesktop } from "./desktop.js";
@@ -27,6 +27,8 @@ import { drawRouter } from "./routerui.js";
 import { drawFloorPlan } from "./floorplan.js";
 import { drawStreetView } from "./streetview.js";
 import { drawCustomerChat, drawMobile, disposePhone } from "./chatui.js";
+import * as PH from "./phone.js";
+import { drawHandset } from "./phoneui.js";
 import * as CH from "./chat.js";
 import * as MB from "./mobile.js";
 import * as RT from "./router.js";
@@ -325,6 +327,10 @@ function nextStepAdvice(t, st) {
   if (t.kind === "router") { const rr = RT.get(E.fleet(), t.id), who = t.who;
     if (!W.router) return "Open the 92 Series app from " + who + "'s ticket: they've shared their router with us. Read the Status page first: is the internet up, and which devices are on?";
     return "Read the router's Status page word for word, then the page that matches what " + who + " asked about. Remember a router has three versions of its settings: what's typed on the page, what's saved, and what it's running. Anything only someone standing at the router can see, ask " + who + " with the Call panel on the ticket."; }
+  if (t.kind === "mobile") {
+    if (st.stage === "close") return "The phone's fixed and you've checked it. Now answer " + who + "'s question on the ticket.";
+    return W.mobile ? t.adviceWork : t.adviceStart;
+  }
   if (t.kind === "backup") {
     if (st.stage === "close") return t.id === "X1" ? "Farah's file is back and her backup is tested. Now answer her question on the ticket: why wasn't today's rescue a backup?" : "The job's done. Now answer " + who + "'s question on the ticket.";
     if (!W["rdp:" + t.machine] && !ev.length) return t.adviceStart || "Connect to " + r.host + " from the ticket, and look at the file first: open Q3-budget.xlsx in her Documents and see what's in it now.";
@@ -431,15 +437,16 @@ function drawTicket(t) {
   p.appendChild(el("h2", null, t.title));
   const exl = examFor(t); if (exl) { const xb = btn("See this sim the way the exam shows it", "b small", function () { L.examSel = { ex: exl.ex.id, v: exl.v.id }; saveL(); if (W.exam) { redraw("exam"); W.exam.min = false; place(W.exam); focusWin("exam"); } else openWin("exam"); }, "Open Exam Practice at " + exl.ex.sim + (exl.v.base ? ", the sim itself" : ", " + exl.v.title)); xb.classList.add("t-exam"); p.appendChild(xb); }
   const dl = el("dl", "t-grid");
-  const mal = t.kind === "malware", em = t.kind === "email", rt = t.kind === "router", wf = t.kind === "wifi", ch = t.kind === "chat";
-  if (ch) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Channel", "Help desk chat"], ["Device", t.channel === "email" ? "Company phone (in Mobile devices)" : "92 Series AX1800 router (shared in the 92 Series app)"], ["Category", t.channel === "email" ? "Communication › Mobile email" : "Communication › Router setup"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
+  const mal = t.kind === "malware", em = t.kind === "email", rt = t.kind === "router", wf = t.kind === "wifi", ch = t.kind === "chat", mo = t.kind === "mobile";
+  if (mo) { [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", "Company phone (in Mobile devices, with Remote help)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
+  else if (ch) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Channel", "Help desk chat"], ["Device", t.channel === "email" ? "Company phone (in Mobile devices)" : "92 Series AX1800 router (shared in the 92 Series app)"], ["Category", t.channel === "email" ? "Communication › Mobile email" : "Communication › Router setup"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (wf) { [["Status", s[0]], ["Requester", "Mason (Team Lead)"], ["Device", "92 Series AP600 access point · 192.168.1.1"], ["Location", t.site.replace("Rafiki's IT Services · ", "")], ["Category", "Network › Wireless"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (rt) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Device", "92 Series AX1800 router (shared in the 92 Series app)"], ["Location", "Customer site: remote"], ["Category", "Network › Router"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", mal ? "Every PC on the network (see Devices)" : em ? "Mail: " + t.mails.length + " emails" + (t.devices.length ? ", one on " + rosterOf(t.devices[0]).host : "") : r.host + " · " + r.ip], ["Location", mal ? "The whole office" : em ? "Help desk mailbox" : r.where], ["Category", t.category || (mal ? "Security › Malware" : em ? "Security › Email threats" : "Software › Application")], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); });
   p.appendChild(dl);
 
   const m = el("section", "t-sec"); m.appendChild(el("h3", null, "Request"));
-  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, mal || em || rt || wf || ch ? name : name + " (" + r.host + ")")); mh.appendChild(el("span", null, mal || wf ? "assigned by your team lead" : ch ? "by chat" : rt ? "by phone" : em ? (t.devices.length ? "by phone" : "help desk mailbox") : "via email")); msg.appendChild(mh);
+  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, mal || em || rt || wf || ch || mo ? name : name + " (" + r.host + ")")); mh.appendChild(el("span", null, mal || wf ? "assigned by your team lead" : ch ? "by chat" : mo ? "by email" : rt ? "by phone" : em ? (t.devices.length ? "by phone" : "help desk mailbox") : "via email")); msg.appendChild(mh);
   t.brief.forEach(function (x) { msg.appendChild(el("p", null, x)); }); m.appendChild(msg); p.appendChild(m);
 
   const acts = el("div", "t-acts");
@@ -456,6 +463,10 @@ function drawTicket(t) {
     if (planRouter()) { acts.appendChild(coachTag("walk-break", btn("Walk to the break room", "b", function () { walkOver("BREAK"); }))); acts.appendChild(coachTag("open-floor", btn("Open the floor plan", "b", function () { openWin("floor"); }))); }
     acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: every device connects as it should" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
     acts.appendChild(coachTag("escalate", btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); })));
+  } else if (st.stage === "work" && mo) {
+    acts.appendChild(coachTag("open-mobile", btn("Open Mobile devices", "b pri", function () { openWin("mobile"); })));
+    acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: " + first + " confirms it works" : "Tried to resolve: " + (x.say || "not fixed yet")); after(); })));
+    acts.appendChild(btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); }));
   } else if (st.stage === "work" && ch) {
     acts.appendChild(coachTag("open-chat", btn("Open the customer chat", "b pri", function () { openWin("custchat"); })));
     acts.appendChild(coachTag(t.channel === "email" ? "open-mobile" : "open-router", btn(t.channel === "email" ? "Open Mobile devices" : "Open the 92 Series app", "b", function () { openWin(t.channel === "email" ? "mobile" : "router"); })));
@@ -502,7 +513,10 @@ function drawTicket(t) {
   lg.appendChild(ul); p.appendChild(lg);
 
   if (instructor) {
-    const f = E.fleet(); const mv = t.moves(f).filter(function (x) { return x.correct; })[0];
+    /* the ticket's own starting point when it isn't the one being worked:
+       its machines (or phone) aren't set up in the current office */
+    const f = isCur ? E.fleet() : (function () { const g = makeFleet(); t.setup(g); return g; })();
+    const mv = (t.moves(f) || []).filter(function (x) { return x.correct; })[0];
     const a = el("div", "ins"); a.appendChild(el("strong", null, "Instructor: ")); a.appendChild(document.createTextNode("Fix: " + (mv ? mv.label : "") + ". Outcome: " + t.outcome + ". Cause: " + t.close.options.filter(function (x) { return x.correct; })[0].label + ".")); p.appendChild(a);
   }
   return p;
@@ -706,6 +720,15 @@ function drawChatWin(w) {
 }
 function drawMobileWin(w) {
   w.ui = w.ui || {}; w.body.classList.add("mdm-host");
+  const mt = E.ticket(), mst = E.T();
+  if (mt && mt.kind === "mobile" && mst && mst.stage !== "done") {
+    if (w.ui.forTicket !== mt.id) { disposePhone(w.ui); w.ui = { forTicket: mt.id }; }
+    drawHandset(w.body, { ticket: E.ticket, phone: function () { return MB.get(E.fleet(), mt.id); }, before: E.before, redraw: function () { redraw("mobile"); },
+      dispose: function () { disposePhone(w.ui); },
+      act: function (a) { E.onAct(Object.assign({ machine: "TECH" }, a)); if (a.op !== "view") logT(mt.id, "On " + mt.from.split(" ")[0] + "'s phone: " + a.op.replace(/-/g, " ") + (a.app ? " (" + a.app + ")" : "") + (a.res && a.res.text ? ": " + a.res.text : "")); after(); } }, w.ui);
+    w.onClose = function () { disposePhone(w.ui); };
+    return;
+  }
   const t = chatTicketNow(), p = t && t.channel === "email" ? MB.get(E.fleet(), t.id) : null;
   /* opening it shows the phone: that's a look at the phone */
   if (p && w.ui.seen !== t.id && (w.ui.tab || "phone") === "phone") { w.ui.seen = t.id; MB.note(p, "view-phone"); setTimeout(function () { E.onAct({ type: "mdm-view", machine: "TECH", before: E.before() }); after(); }, 0); }
@@ -853,7 +876,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk" };
+const LEVEL = { L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk", MB1: "crawl", MB2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -1699,6 +1722,78 @@ WALKS.X2 = { mode: "walk", machine: "WS3", steps: [
   { goal: "Resolve the ticket", win: "helpdesk", how: "Back in Help Desk.", done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
   { goal: "Answer Dev's question, and write the notes", win: "helpdesk", how: "Which copy, where it went, and that today's was kept.", done: function () { const st = E.state().tickets.X2; return !!(st && st.stage === "done"); } }
 ], end: "That's the walk: the right copy, put where it couldn't overwrite today's work, and checked. The rest of the backup tickets are yours to run." };
+/* ------------------------------------------------ MB1: the crawl, MB2: the walk */
+function mdw() { return document.querySelector('[data-win="mobile"]'); }
+function ph(id) { return MB.get(E.fleet(), id); }
+function phView(id, page) { const p = ph(id); return p ? PH.lastAt(p, "view", function (e) { return e.page === page; }) : -1; }
+function phBtn(label) { const w = mdw(); return w && w.querySelector('[aria-label="' + label + '"]'); }
+function phPage() { const w = mdw(), h = w && w.querySelector(".ph-title"); return h ? h.textContent : null; }
+WALKS.MB1 = { machine: "TECH", steps: [
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Extra training again: mobile troubleshooting. Read Rosa's request, then press Assign to me and start.",
+    why: "Note what she says she'd like to keep, and what changed last week.",
+    target: function () { return document.querySelector('[data-coach="assign"]'); },
+    done: function () { const t = E.ticket(); return !!(t && t.id === "MB1" && E.T()); } },
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Press Open Mobile devices. Rosa accepts Remote help, and her phone's screen appears.",
+    why: "Company phones are enrolled, so you can see and use the screen with the owner's OK.",
+    target: function () { return W.mobile ? null : document.querySelector('[data-coach="open-mobile"]'); },
+    done: function () { return !!W.mobile; } },
+  { tag: "Find the evidence", win: "mobile",
+    say: "Read her notifications: what does the phone say about its battery? Then press Settings, at the bottom of her home screen.",
+    why: "The phone's own words are your first evidence.",
+    target: function () { return phBtn("Settings"); },
+    done: function () { return phView("MB1", "settings") >= 0; } },
+  { tag: "Find the evidence", win: "mobile",
+    say: "Press Battery.",
+    why: "The Battery page lists what has used the battery since it was last charged.",
+    target: function () { const w = mdw(); return w && Array.prototype.filter.call(w.querySelectorAll(".ph-link"), function (b) { return /^Battery,/.test(b.getAttribute("aria-label") || ""); })[0]; },
+    done: function () { return phView("MB1", "battery") >= 0; } },
+  { tag: "Work out the cause", win: "mobile",
+    say: "One app is using over half the battery: Weather Live, running Unrestricted. Press it to open its app info.",
+    why: "An app Rosa opens once a morning shouldn't be the biggest user of her battery.",
+    target: function () { const w = mdw(); return w && w.querySelector('.ph-link[aria-label^="Weather Live:"]'); },
+    done: function () { return phView("MB1", "app:weather") >= 0; } },
+  { tag: "Fix it", win: "mobile",
+    say: "Under Permissions, its Location is Allow all the time. Change it to Allow only while using the app.",
+    why: "Tracking her location all day keeps waking the phone. The forecast only needs her location while she's looking at it.",
+    target: function () { const w = mdw(); return w && w.querySelector("#ph-loc"); },
+    done: function () { const a = ph("MB1") && PH.app(ph("MB1"), "weather"); return !!a && a.location !== "Allow all the time" && a.location !== "Don't allow"; } },
+  { tag: "Fix it", win: "mobile",
+    say: "Under Battery, change Background battery use from Unrestricted to Restricted.",
+    why: "Restricted stops it running when she isn't using it. It still works the moment she opens it.",
+    target: function () { const w = mdw(); return w && w.querySelector("#ph-bat"); },
+    done: function () { const a = ph("MB1") && PH.app(ph("MB1"), "weather"); return !!a && a.battery !== "Unrestricted"; } },
+  { tag: "Test it", win: "mobile",
+    say: "Check the result: press Back until you reach Settings, then Battery, and read the estimate.",
+    why: "A fix isn't finished until you've seen it work.",
+    target: function () { const pg = phPage(); if (pg === "Settings") { const w = mdw(); return w && Array.prototype.filter.call(w.querySelectorAll(".ph-link"), function (b) { return /^Battery,/.test(b.getAttribute("aria-label") || ""); })[0]; } return phBtn("Back"); },
+    done: function () { const p = ph("MB1"); return !!p && PH.lastAt(p, "app-set") >= 0 && PH.lastAt(p, "view", function (e) { return e.page === "battery"; }) > PH.lastAt(p, "app-set"); } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "About a full day again. Go back to Help Desk and press Resolve.",
+    why: "Rosa checks it at lunchtime tomorrow; the ticket moves on to the write-up.",
+    target: function () { return document.querySelector('[data-coach="resolve"]'); },
+    done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Rosa asks whether her battery was wearing out. Pick the true answer.",
+    why: "What the app was doing while she wasn't using it.",
+    target: function () { return document.querySelector("[data-win=helpdesk] .opts"); },
+    done: function () { const st = E.T(); return !!(st && (st.closeOK || st.stage === "done")); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Write the notes: what was draining it, the two settings you changed, and what the Battery page said afterwards. Then press Close the ticket.",
+    why: "For example: \"Weather Live used 52% in the background with location Allow all the time. Set location to while using and battery to Restricted. Battery page now shows about 23 hours.\"",
+    target: function () { return document.querySelector("#res-note"); },
+    done: function () { const st = E.state().tickets.MB1; return !!(st && st.stage === "done"); } }
+], end: "That's mobile troubleshooting, crawled: the phone's own evidence first, the one app behind it, the two settings that stopped it, and the result checked. Brenda's SalesPad is next, with a checklist." };
+WALKS.MB2 = { mode: "walk", machine: "TECH", steps: [
+  { goal: "Take the ticket and open Brenda's phone", win: "helpdesk", how: "Assign it, then Open Mobile devices.", done: function () { const t = E.ticket(); return !!(t && t.id === "MB2" && W.mobile); } },
+  { goal: "See it for yourself", how: "Open SalesPad on her home screen and read what happens.", done: function () { const p = ph("MB2"); return !!p && PH.lastAt(p, "open", function (e) { return e.app === "salespad"; }) >= 0; } },
+  { goal: "Look at the app's info", how: "Settings, Apps, SalesPad: what does it keep on the phone?", done: function () { return phView("MB2", "app:salespad") >= 0; } },
+  { goal: "Fix it without losing the orders", how: "Of the two kinds of clearing, only one leaves app data alone.", done: function () { const t = E.ticket(); return !!t && t.id === "MB2" && ["test", "done"].indexOf(t.stage(E.fleet())) >= 0; } },
+  { goal: "Test it, orders and all", how: "Open SalesPad again.", done: function () { const t = E.ticket(); return !!t && t.id === "MB2" && t.stage(E.fleet()) === "done"; } },
+  { goal: "Resolve the ticket", win: "helpdesk", how: "Back in Help Desk.", done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
+  { goal: "Answer Brenda, and write the notes", win: "helpdesk", how: "What you cleared, why not storage, and how you checked.", done: function () { const st = E.state().tickets.MB2; return !!(st && st.stage === "done"); } }
+], end: "That's the walk. The other phone tickets are yours to run." };
 WALKS.CE2 = { mode: "walk", machine: "TECH", steps: [
   { goal: "Take the ticket and open the chat", how: "In Help Desk.", done: function () { const t = E.ticket(); return !!(t && t.id === "CE2" && W.custchat); } },
   { goal: "Open the chat professionally", how: "Acknowledge John and offer help.", done: function () { return chatAt("CE2") > 0; } },

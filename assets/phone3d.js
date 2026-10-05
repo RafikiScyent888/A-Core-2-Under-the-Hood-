@@ -49,7 +49,11 @@ export function buildPhone(THREE, opts) {
   scr.colorSpace = THREE.SRGBColorSpace; scr.anisotropy = 8;
   g.userData.screen = scr;   /* redraw the canvas and set needsUpdate to change what's on screen */
   const screenGeo = new THREE.ShapeGeometry(roundRect(sw, sh, R - 2.2), 20); fitUV(screenGeo, sw, sh);
-  add(screenGeo, new THREE.MeshPhysicalMaterial({ map: scr, emissive: 0xffffff, emissiveMap: scr, emissiveIntensity: 0.9, roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 0.35 }), 0, 0, T / 2 + 0.07).castShadow = false;
+  /* a display shows its own pixels, unlit and untouched by the scene's
+     tone mapping, so the screen's words stay crisp; a faint glass layer
+     on top carries the reflections */
+  add(screenGeo, new THREE.MeshBasicMaterial({ map: scr, toneMapped: false }), 0, 0, T / 2 + 0.07).castShadow = false;
+  add(screenGeo, new THREE.MeshPhysicalMaterial({ color: 0x000000, transparent: true, opacity: 0.08, roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 0.5, depthWrite: false }), 0, 0, T / 2 + 0.11).castShadow = false;
   add(new THREE.CircleGeometry(1.6, 24), hole, 0, H / 2 - 6.2, T / 2 + 0.09);                 /* punch-hole camera */
   add(new RB(10, 0.7, 0.4, 1, 0.3), new THREE.MeshStandardMaterial({ color: 0x23262b, roughness: 0.6 }), 0, H / 2 - 1.4, T / 2 - 0.05); /* earpiece */
 

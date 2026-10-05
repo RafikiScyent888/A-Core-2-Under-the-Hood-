@@ -1808,5 +1808,81 @@ different real decision:
     reconnect and ScanEasy working). Two new plants.
   - contrast: the backup browser, Restore to, Replace, the reconnect
     warning, ScanEasy's crash. Two new plants.
+- **Next:** the owner chose mobile (below).
+
+### Extra training, MB1–MB6: Mobile troubleshooting (5 October 2026, live)
+
+The owner: "Mobile next, build it out". The objectives were re-read on
+5 October 2026; the Core 2 wording is unchanged. This build covers
+**Software troubleshooting, Mobile troubleshooting: "addressing
+connectivity, app, and performance issues"**. (Phone hardware and
+accessories are Core 1, and kept out.)
+
+- **Remote help on company phones, in Mobile devices.** The owner accepts
+  the request; the technician sees and uses the phone's own screen, as
+  real HTML beside the approved 3D phone (`phone3d.js`), whose glass shows
+  the same page. Pages: the lock screen (notifications and apps), Network
+  & internet, Battery, Storage, Apps and each app's info, Security &
+  privacy, System. A help desk tool sends a test email to the phone.
+- **New files:** `phone.js` (the phone's operating system, plain JSON on
+  the phone record as `dev`: the record's `os` was already a string),
+  `phoneui.js` (the screens), `tickets-mobile.js` (MB1–MB6).
+- **The model** works everything out from the settings: each app's battery
+  drain from its background battery setting and location permission (hours
+  left, warmth); the internet from airplane mode, Wi-Fi, mobile data and
+  Private DNS; open, force stop, clear cache (keeps data), clear storage
+  (loses anything unsynced), update, uninstall; storage and what's backed
+  up; a system update needing its size free; apps from outside the store,
+  the per-app unknown-apps switch, Play Protect; whether mail arrives by
+  itself.
+- **Restart and Force stop are safe first steps:** they never count, even
+  when they don't help (the phone says so). A factory reset always counts
+  and erases the phone (revert puts it back).
+- **The tickets:**
+
+  | | Level | Who | Symptom | Cause, and the fix |
+  |---|---|---|---|---|
+  | MB1 | Crawl (11 steps) | Rosa | battery dead by lunch, warm | Weather Live: location all the time, Unrestricted. While using, Restricted, then check Battery |
+  | MB2 | Walk (7 items) | Brenda | SalesPad closes since its update | clear cache, not storage (3 unsynced orders), then test |
+  | MB3 | Run | John | "Connected, no internet" everywhere | Private DNS to a dead server from an article: back to Automatic, then load a page |
+  | MB4 | Run | Dev | update fails: not enough space | delete September's videos (in OneDrive); caches alone fall short; never this week's (only copies) |
+  | MB5 | Run | Farah | ads, fake "infected!", data warning | sideloaded PDF Scanner Free: uninstall, unknown apps off for Chrome, Play Protect scan |
+  | MB6 | Run | Mason | mail only when Outlook opens | Outlook Restricted with background data off: Optimized, data on, test email |
+
+- **Also changed:** the 3D phone's screen is now drawn unlit and outside
+  tone mapping, as a display shows its pixels, with a faint glass layer on
+  top; its words had washed out to pale grey. The phone itself is
+  unchanged.
+- **Found while building:**
+  - MB1's crawl jumped from step 4 to Resolve: "check the Battery page
+    after your change" counted as done the first time the page was opened,
+    when no change had been made, and the crawl's catch-up skipped ahead.
+    It now needs a change first; a page plant guards it.
+  - The right close answer was the longest option in four tickets;
+    reworded (the check caught it).
+  - **Instructor mode blanked the whole Help Desk** when a not-yet-started
+    phone ticket was selected: the instructor's "Fix:" line asked for the
+    ticket's moves in the current office, where its phone didn't exist.
+    The line now reads the ticket's own starting point whenever it isn't
+    the one being worked, which also corrects the fix it showed for other
+    unstarted tickets (it was reading another ticket's machines). Found
+    by the contrast sweep, which runs in instructor mode; a new page group
+    (INSTRUCTOR) opens every ticket with instructor mode on.
+  - A page plant (location not changing the battery) was missed: no check
+    read the estimate itself. That's the model's job, so logic now checks
+    that each of MB1's two changes lengthens it and both reach a day.
+- **Checks:**
+  - logic: 78 tickets, 93 plants. MB1–MB6 table-driven as X2–X6, plus a
+    factory reset counted and erasing the phone, safe first steps costing
+    nothing, and MB1's battery model. Nine new plants.
+  - page: LOAD (78; 13 crawl, 13 walk, 52 run); EXTRA (MB1–MB6 badged
+    "Extra training · Mobile troubleshooting"); MOBILE (MB1 by Mason's
+    rings with no wrong moves; MB5 through the screens, the fake cleaner
+    tapped and counted, then uninstall, unknown apps off, the scan, and
+    Resolve); INSTRUCTOR (every ticket's page draws with the instructor's
+    fix). Three new plants.
+  - contrast: MB5's lock screen, app info with a confirmation, Security;
+    MB3's network page; MB4's storage and refused update; MB6's test
+    email; MB1's battery page and app info. Three new plants.
 - **Next:** the owner picks the next objective: OS installation; file
-  systems, updates and upgrades; mobile; or safety.
+  systems, updates and upgrades; or safety.

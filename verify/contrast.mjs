@@ -45,6 +45,8 @@ export async function run(extraCss) {
   const S = serve(ROOT);
   const B = await browser();
   const page = await B.newPage({ viewport: { width: 1400, height: 1000 } });
+  /* a script error on the page is reported, not left to look like a blank window */
+  page.on("pageerror", (e) => console.log("PAGE ERROR: " + e.message + " | " + String(e.stack || "").split("\n").slice(1, 3).join(" | ")));
   page.setDefaultTimeout(20000);
   const found = new Map();
   if (extraCss) await page.addInitScript((css) => { document.addEventListener("DOMContentLoaded", () => { const s = document.createElement("style"); s.textContent = css; document.head.appendChild(s); }); }, extraCss);
@@ -459,12 +461,41 @@ export async function run(extraCss) {
     await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20480" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
     await page.locator('[data-win="rdp:WS2"]').getByRole("button", { name: "Open the ScanEasy shortcut on the desktop" }).click(); await page.waitForTimeout(150);
     await sweep(tag + ": X5, ScanEasy stopped working");
+    /* the phones: Remote help screens for MB1, MB3, MB4, MB5 and MB6 */
+    const mob = page.locator("[data-win=mobile]");
+    const phone = async (inc) => { await toFront("helpdesk"); await page.locator(".qi", { hasText: inc }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=open-mobile]").click(); await page.waitForTimeout(2500); };
+    const tap = (n) => mob.getByRole("button", { name: n, exact: true });
+    const go = async (txt) => { await mob.locator(".ph-link", { hasText: txt }).first().click(); await page.waitForTimeout(150); };
+    await phone("INC20486");
+    await sweep(tag + ": MB5, the lock screen with ads, the fake warning and the data warning");
+    await tap("Settings").click(); await go("Apps"); await mob.getByRole("button", { name: "PDF Scanner Free: app info" }).click(); await tap("Uninstall PDF Scanner Free").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": MB5, app info with the uninstall confirmation");
+    await mob.locator(".ph-confirm").getByRole("button", { name: "Cancel" }).click();
+    await tap("Back").click(); await tap("Back").click(); await go("Security & privacy");
+    await sweep(tag + ": MB5, Security & privacy, unknown apps allowed");
+    await mob.getByRole("button", { name: /^Close Mobile devices/ }).click();
+    await phone("INC20484"); await tap("Settings").click(); await go("Network & internet");
+    await sweep(tag + ": MB3, Network & internet, connected with no internet");
+    await mob.getByRole("button", { name: /^Close Mobile devices/ }).click();
+    await phone("INC20485"); await tap("Settings").click(); await go("Storage");
+    await sweep(tag + ": MB4, Storage, files backed up and not");
+    await tap("Back").click(); await go("System"); await tap("Download and install the system update").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": MB4, the update refused for space");
+    await mob.getByRole("button", { name: /^Close Mobile devices/ }).click();
+    await phone("INC20487"); await mob.getByRole("button", { name: /^Send a test email/ }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": MB6, a test email that waits");
+    await mob.getByRole("button", { name: /^Close Mobile devices/ }).click();
+    await phone("INC20482"); await tap("Settings").click(); await go("Battery");
+    await sweep(tag + ": MB1, Battery, a few hours left and warm");
+    await mob.locator('.ph-link[aria-label^="Weather Live:"]').click(); await page.waitForTimeout(150);
+    await sweep(tag + ": MB1, Weather Live's app info");
+    await mob.getByRole("button", { name: /^Close Mobile devices/ }).click();
   }
 
   try {
+    /* PASSES=dark runs one theme, for chasing a failure quickly */
     await pass("dark", false);
-    await pass("light", false);
-    await pass("dark", true);
+    if (process.env.PASSES !== "dark") { await pass("light", false); await pass("dark", true); }
   } catch (e) { await page.screenshot({ path: (process.env.SHOT || "/tmp") + "/contrast-drive-error.png" }).catch(() => {}); found.set("DRIVE ERROR", { key: "DRIVE ERROR after '" + where + "': " + String(e.message).split("\n")[0], worst: 0, need: 7, states: new Set(["-"]), sample: "" }); }
   await B.close(); S.close();
   return [...found.values()].sort((a, b) => a.worst - b.worst);
@@ -498,7 +529,10 @@ const PLANTS = {
   "Previous Versions' rows in a faint grey": ".props .ev-table td { color: #9ca3af !important; }",
   "File History's message in a faint grey": ".fh-msg, .dlg-error { color: #8b93a1 !important; }",
   "the reconnect-your-drive warning in a dim amber": ".fh-warn { color: #a08a30 !important; }",
-  "the backup's date in a faint grey": ".fh-nav .fh-state { color: #9ca3af !important; }"
+  "the backup's date in a faint grey": ".fh-nav .fh-state { color: #9ca3af !important; }",
+  "a phone's problem rows in a pale red": ".ph-row.ph-bad .ph-v, .ph-row.ph-alert { color: #d08080 !important; }",
+  "the phone's On/Off switches in a faint grey": ".ph-switch:not(.on) { color: #9ca3af !important; }",
+  "the phone's status bar in a faint grey": ".ph-status { color: #9ca3af !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {
