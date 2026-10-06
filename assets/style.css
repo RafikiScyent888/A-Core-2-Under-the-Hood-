@@ -171,7 +171,8 @@ footer.bot p { max-width: 75ch; margin: 0.3rem 0; }
 .fx-dir, .fx-f { font: inherit; text-align: left; width: 100%; min-height: 34px; padding: 0.25rem 0.5rem; background: #fff; color: #111827; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
 .fx-dir:hover, .fx-f:hover { border-color: #9ca3af; }
 .fx-file.sel .fx-f { background: #0b3a82; color: #fff; }
-.fx-acts { display: flex; gap: 0.6rem; align-items: center; padding: 0.5rem 0.7rem; border-top: 1px solid #e5e7eb; }
+.fx-acts { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; padding: 0.5rem 0.7rem; border-top: 1px solid #e5e7eb; }
+.fx-drive { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; padding: 0.45rem 0.7rem; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
 .taskbar { display: flex; gap: 0.35rem; align-items: center; background: #f3f4f6; border-top: 1px solid #9ca3af; padding: 0.3rem 0.5rem; }
 .tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: center; min-width: 0; }
 .taskbar.w10 .tb-mid { justify-content: flex-start; }

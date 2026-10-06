@@ -29,6 +29,7 @@
    No DOM here either; the checks drive this under node.
    ===================================================================== */
 import * as M from "./machine.js";
+import * as FX from "./fsys.js";
 import * as MW from "./malware.js";
 
 const NOT_RECOGNIZED = function (w) {
@@ -41,6 +42,7 @@ const HELP_LIST = [
   ["CD", "Displays the name of or changes the current directory."],
   ["CHKDSK", "Checks a disk and displays a status report."],
   ["CLS", "Clears the screen."],
+  ["CONVERT", "Converts FAT volumes to NTFS. You cannot convert the current drive."],
   ["COPY", "Copies one or more files to another location."],
   ["DEL", "Deletes one or more files."],
   ["DIR", "Displays a list of files and subdirectories in a directory."],
@@ -86,6 +88,7 @@ const USAGE = {
   chkdsk: "Checks a disk and displays a status report.\n\nCHKDSK [volume[[path]filename]]] [/F] [/V] [/R] [/X] [/SCAN]\n\n  volume          Specifies the drive letter (followed by a colon).\n  /F              Fixes errors on the disk.\n  /R              Locates bad sectors and recovers readable information\n                  (implies /F).\n  /X              Forces the volume to dismount first if necessary.\n  /SCAN           Runs an online scan on the volume.",
   shutdown: "Usage: shutdown [/i | /l | /s | /sg | /r | /g | /a | /p | /h | /e | /o] [/hybrid] [/soft] [/fw] [/f]\n    [/m \\\\computer][/t xxx][/d [p|u:]xx:yy [/c \"comment\"]]\n\n    /s         Shutdown the computer.\n    /r         Full shutdown and restart the computer.\n    /a         Abort a system shutdown.\n    /t xxx     Set the time-out period before shutdown to xxx seconds.\n    /f         Force running applications to close without forewarning users.",
   diskpart: "Microsoft DiskPart version 10.0.22621.1\n\nDISKPART opens its own prompt. Inside it:\n\n  LIST DISK        Display a list of disks.\n  SELECT DISK n    Shift the focus to disk n.\n  DETAIL DISK      Display the properties of the selected disk.\n  LIST VOLUME      Display a list of volumes.\n  LIST PARTITION   Display the partitions on the selected disk.\n  CLEAN            Clear the configuration information, or all information,\n                   off the disk.\n  CONVERT GPT      Convert the selected, empty disk to GPT.\n  CONVERT MBR      Convert the selected, empty disk to MBR.\n  CREATE PARTITION PRIMARY [SIZE=n]\n  FORMAT FS=<NTFS|EXFAT|FAT32> [LABEL=\"x\"] [QUICK]\n  ASSIGN [LETTER=x]\n  EXIT             Exit DiskPart.",
+  convert: "Converts a FAT volume to NTFS.\n\nCONVERT volume /FS:NTFS [/V]\n\n  volume      Specifies the drive letter (followed by a colon).\n  /FS:NTFS    Specifies that the volume will be converted to NTFS.\n  /V          Specifies that Convert will be run in verbose mode.\n\nThe files on the volume are kept. The conversion is one way: NTFS can't be\nconverted back without formatting.",
   format: "Formats a disk for use with Windows.\n\nFORMAT volume [/FS:file-system] [/V:label] [/Q]\n\n  volume          Specifies the drive letter (followed by a colon).\n  /FS:filesystem  Specifies the type of the file system (FAT32, exFAT, NTFS).\n  /V:label        Specifies the volume label.\n  /Q              Performs a quick format.",
   ipconfig: "USAGE:\n    ipconfig [/allcompartments] [/? | /all |\n                                 /renew [adapter] | /release [adapter] |\n                                 /flushdns | /displaydns ]\n\n    /all         Display full configuration information.\n    /release     Release the IPv4 address for the specified adapter.\n    /renew       Renew the IPv4 address for the specified adapter.\n    /flushdns    Purges the DNS Resolver cache.",
   ping: "Usage: ping [-t] [-n count] target_name\n\nOptions:\n    -t             Ping the specified host until stopped.\n    -n count       Number of echo requests to send.",
@@ -118,7 +121,7 @@ export const LAUNCH = {
 /* Programs PowerShell runs exactly as cmd would, because they are .exe
    files rather than cmdlets. */
 const NATIVE = ["dir", "cd", "chdir", "md", "mkdir", "hostname", "whoami", "winver", "tasklist", "taskkill", "sfc", "dism", "dism.exe", "chkdsk",
-  "shutdown", "diskpart", "format", "ipconfig", "ping", "pathping", "tracert", "nslookup", "netstat", "net", "gpupdate", "gpresult", "robocopy", "xcopy", "regsvr32", "copy", "del", "rd", "rmdir", "runas"];
+  "shutdown", "diskpart", "format", "convert", "ipconfig", "ping", "pathping", "tracert", "nslookup", "netstat", "net", "gpupdate", "gpresult", "robocopy", "xcopy", "regsvr32", "copy", "del", "rd", "rmdir", "runas"];
 
 function pad(s, n) { s = String(s); return s.length >= n ? s.slice(0, n) : s + " ".repeat(n - s.length); }
 function lpad(s, n) { s = String(s); return s.length >= n ? s : " ".repeat(n - s.length) + s; }
@@ -215,7 +218,7 @@ export function createShell(m, opts) {
     /* drive change: C: */
     if (/^[a-z]:$/.test(w0)) {
       const L = w0[0].toUpperCase();
-      if (!M.usedLetters(m).concat(["C"]).includes(L) || L === "D") return { out: "The device is not ready.", kind: "error" };
+      if (!FX.drive(m, L) && (!M.usedLetters(m).concat(["C"]).includes(L) || L === "D")) return { out: "The device is not ready.", kind: "error" };
       sh.cwd = L + ":\\"; return { out: "", kind: "look" };
     }
     if (LAUNCH[w0]) return { out: "", kind: "look", open: LAUNCH[w0] };
@@ -245,6 +248,7 @@ export function createShell(m, opts) {
       case "start": return launch(rest.filter(function (x) { return x !== '""'; })[0] || "");
       case "diskpart": return enterDiskpart();
       case "format": return format(rest, low);
+      case "convert": return convertCmd(low);
       case "ipconfig": return ipconfig(low);
       case "ping": return ping(rest);
       case "pathping": case "tracert": return trace(w0, rest);
@@ -406,7 +410,8 @@ export function createShell(m, opts) {
     }
     if (!n) return { out: "File Not Found", kind: "look" };
     const L = n.path[0];
-    const lines = [" Volume in drive " + L + " has no label.", " Volume Serial Number is 6E2A-91C4", "", " Directory of " + n.path, ""];
+    const fxd = FX.drive(m, L);
+    const lines = [fxd ? " Volume in drive " + L + " is " + fxd.label : " Volume in drive " + L + " has no label.", " Volume Serial Number is 6E2A-91C4", "", " Directory of " + n.path, ""];
     const stamp = "09/30/2026  08:14 AM";
     if (n.path.length > 3) { lines.push(stamp + "    <DIR>          ."); lines.push(stamp + "    <DIR>          .."); }
     n.dirs.forEach(function (d) { lines.push(stamp + "    <DIR>          " + d); });
@@ -417,6 +422,7 @@ export function createShell(m, opts) {
     return { out: lines.join("\n"), kind: "look" };
   }
   function freeOn(L) {
+    if (FX.drive(m, L)) return FX.free(m, L);
     let free = 0;
     m.disks.forEach(function (d) { d.parts.forEach(function (p) { if (p.letter === L) free = p.bytes * (p.kind === "os" ? 0.38 : 0.99); }); });
     return free;
@@ -484,6 +490,7 @@ export function createShell(m, opts) {
     const dn = to.m.fs[dkey] || to.m.fs[String(to.path).toLowerCase()];
     if (!dn) return fail("The system cannot find the path specified.");
     if (/^c:\\(windows|program files)/i.test(to.path) && !sh.elevated && to.m === m) return { out: "Access is denied.\n        0 file(s) copied.", kind: "refused" };
+    { const c = FX.canCopy(to.m, f, dn.path); if (!c.ok) { FX.note(to.m, "fx-copy-failed", { name: f.name, to: dn.path, tooLarge: !!c.tooLarge }); return { out: (c.tooLarge ? "The file is too large for the destination file system." : "There is not enough space on the disk.") + "\n        0 file(s) copied.", kind: "error", fx: { op: "copy-failed", tooLarge: !!c.tooLarge } }; } }
     dn.files = dn.files.filter(function (x) { return x.name.toLowerCase() !== f.name.toLowerCase(); }).concat([Object.assign({}, f)]);
     M.note(to.m, "copy", { from: from.path + "\\" + f.name, to: dn.path, name: f.name, bits: f.bits || null, fromHost: from.m.host });
     if (w0 === "robocopy") return { kind: "change", out: "\n-------------------------------------------------------------------------------\n   ROBOCOPY     ::     Robust File Copy for Windows\n-------------------------------------------------------------------------------\n\n  Source : " + (from.shown || from.path).replace(/\\$/, "") + "\\\n    Dest : " + (to.shown || dn.path).replace(/\\$/, "") + "\\\n\n   Files : " + f.name + "\n\n------------------------------------------------------------------------------\n\n               Total    Copied   Skipped  Mismatch    FAILED    Extras\n    Files :         1         1         0         0         0         0\n\n   Ended : " + m.clock };
@@ -616,6 +623,24 @@ export function createShell(m, opts) {
 
   function answerYN(line) {
     const a = line.trim().toLowerCase();
+    if (sh.pendingYN === "format-enter") return doFormat();
+    if (sh.pendingYN === "format-label") {
+      const d = FX.drive(m, sh.fmt.L);
+      if (a !== d.label.toLowerCase()) { sh.mode = "cmd"; sh.pendingYN = null; sh.fmt = null; return { out: "An incorrect volume label was entered for this drive.", kind: "error" }; }
+      sh.pendingYN = "format-yn"; return { out: "WARNING, ALL DATA ON NON-REMOVABLE DISK\nDRIVE " + d.letter + ": WILL BE LOST!\nProceed with Format (Y/N)? ", kind: "look", ask: true };
+    }
+    if (sh.pendingYN === "format-yn") {
+      if (a === "y" || a === "yes") return doFormat();
+      if (a === "n" || a === "no") { sh.mode = "cmd"; sh.pendingYN = null; sh.fmt = null; return { out: "", kind: "look" }; }
+      return { out: "Proceed with Format (Y/N)? ", kind: "error", ask: true };
+    }
+    if (sh.pendingYN === "convert-label") {
+      const L = sh.cvt.L; sh.mode = "cmd"; sh.pendingYN = null; sh.cvt = null;
+      const d = FX.drive(m, L), n = FX.filesOn(m, L).length;
+      const r = FX.convert(m, L, "NTFS", line.trim());
+      if (!r.ok) return { out: r.text, kind: "error" };
+      return { out: "Volume " + d.label + " created 14/03/2019 09:02\nVolume Serial Number is 4A1C-77E2\nWindows is verifying files and folders...\nFile and folder verification is complete.\n\nWindows has scanned the file system and found no problems.\nNo further action is required.\n" + lpad(commas(n), 12) + " files on the volume.\nDetermining disk space required for file system conversion...\nConverting file system\nConversion complete", kind: "change", fx: { op: "convert", letter: L, kept: n } };
+    }
     if (sh.pendingYN === "chkdsk") {
       if (a === "y" || a === "yes") {
         sh.mode = "cmd"; sh.pendingYN = null;
@@ -725,7 +750,39 @@ export function createShell(m, opts) {
     if (!sh.elevated) return { out: "Access denied as you do not have sufficient privileges.\nYou have to invoke this utility running in elevated mode.", kind: "refused" };
     if (vol === "c:") return { out: "The type of the file system is NTFS.\nFormat cannot run because the volume is in use by another\nprocess.  Format may run if this volume is dismounted first.\nALL OPENED HANDLES TO THIS VOLUME WOULD THEN BE INVALID.", kind: "refused" };
     if (m.formatHook) { const r = m.formatHook(vol.toUpperCase()[0], low, sh); if (r) return r; }
+    const d = FX.drive(m, vol);
+    if (d) {
+      const fsw = low.filter(function (x) { return /^\/fs:/.test(x); })[0];
+      const fs = fsw ? ({ ntfs: "NTFS", exfat: "exFAT", fat32: "FAT32" })[fsw.slice(4)] : d.fs;
+      if (!fs) return { out: "The specified file system is not supported.", kind: "error" };
+      const lab = rest.filter(function (x) { return /^\/v:/i.test(x); })[0];
+      sh.fmt = { L: d.letter, fs: fs, label: lab ? lab.slice(3).replace(/"/g, "") : null };
+      sh.mode = "yn";
+      if (d.removable) { sh.pendingYN = "format-enter"; return { out: "Insert new disk for drive " + d.letter + ":\nand press ENTER when ready...", kind: "look", ask: true }; }
+      sh.pendingYN = "format-label"; return { out: "The type of the file system is " + d.fs.toUpperCase() + ".\nEnter current volume label for drive " + d.letter + ": ", kind: "look", ask: true };
+    }
     return { out: "The system cannot find the drive specified.", kind: "error" };
+  }
+
+  function doFormat() {
+    const f = sh.fmt, d = FX.drive(m, f.L), was = d.fs; sh.mode = "cmd"; sh.pendingYN = null; sh.fmt = null;
+    const r = FX.format(m, f.L, f.fs, f.label);
+    if (!r.ok) return { out: r.text + "\nFormat failed.", kind: "error" };
+    return { out: "The type of the file system is " + was.toUpperCase() + ".\nThe new file system is " + f.fs.toUpperCase() + ".\nQuickFormatting " + d.gb + " GB\nCreating file system structures.\nFormat complete.\n" + lpad(d.gb + " GB", 15) + " total disk space.\n" + lpad(d.gb + " GB", 15) + " are available.", kind: "change", fx: { op: "format", letter: f.L, fs: f.fs, lost: r.lost } };
+  }
+  function convertCmd(low) {
+    const vol = low.filter(function (x) { return /^[a-z]:$/.test(x); })[0];
+    const fsw = low.filter(function (x) { return /^\/fs:/.test(x); })[0];
+    if (!vol || !fsw) return { out: USAGE.convert, kind: "help" };
+    if (!sh.elevated) return { out: "Access denied as you do not have sufficient privileges.\nYou have to invoke this utility running in elevated mode.", kind: "refused" };
+    if (vol === "c:") return { out: "Convert cannot gain exclusive access to the C: drive,\nso it cannot convert it now.", kind: "refused" };
+    const d = FX.drive(m, vol); if (!d) return { out: "The system cannot find the drive specified.", kind: "error" };
+    const target = fsw.slice(4).toUpperCase();
+    if (target !== "NTFS") return { out: "Invalid parameter - " + fsw.toUpperCase(), kind: "error" };
+    if (d.fs === "NTFS") return { out: "The type of the file system is NTFS.\nDrive " + d.letter + ": is already NTFS.", kind: "error" };
+    if (d.fs === "exFAT") return { out: "The type of the file system is EXFAT.\nCONVERT is not available for EXFAT drives.", kind: "error" };
+    sh.cvt = { L: d.letter }; sh.mode = "yn"; sh.pendingYN = "convert-label";
+    return { out: "The type of the file system is " + d.fs.toUpperCase() + ".\nEnter current volume label for drive " + d.letter + ": ", kind: "look", ask: true };
   }
 
   /* -------------------- DiskPart -------------------- */

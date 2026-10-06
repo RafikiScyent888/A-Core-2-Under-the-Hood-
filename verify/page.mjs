@@ -51,8 +51,9 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491", OI5: "INC20492", OI6: "INC20493" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491", OI5: "INC20492", OI6: "INC20493", FS1: "INC20494", FS4: "INC20495" };
 const NOTES = {
+  FS1: "Copying the 6 GB video failed: the stick was FAT32, which can't hold a file of 4 GB or more. Copied her pitch and price list to her Desktop first, formatted the stick as exFAT because the client's Mac must write to it (a Mac only reads NTFS), then copied her files back and the video on.",
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB1: "Weather Live topped the Battery page at 52% in the background, with location Allow all the time and Unrestricted battery. Set location to Allow only while using the app and background battery to Restricted. The Battery page now shows about 23 hours.",
   X1: "Restored Q3-budget.xlsx from the 3 October 11:58 previous version, from a restore point. Set up File History to \\\\FS01\\Backups, every hour, turned it on, and tested it: her file is in Restore personal files.",
@@ -77,7 +78,7 @@ const NOTES = {
   E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT", "EXTRA", "BACKUP", "MOBILE", "INSTALL", "INSTRUCTOR"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT", "EXTRA", "BACKUP", "MOBILE", "INSTALL", "FILES", "INSTRUCTOR"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -132,6 +133,8 @@ async function run(rewrites, groups) {
       if (/con-in/.test(tag)) { const cmd = await p.locator(".coach-cmd").innerText(); await t.first().fill(cmd); await t.first().press("Enter"); continue; }
       if (/^(checkbox|radio)$/.test(await t.first().evaluate((e) => e.type || ""))) { await t.first().click(); continue; }
       if (/fp-mw/.test(tag)) { await t.first().focus(); for (let k = 0; k < 5; k++) await p.keyboard.press("Shift+ArrowRight"); for (let k = 0; k < 2; k++) await p.keyboard.press("Shift+ArrowDown"); continue; }
+      /* a list Mason names the choice for: pick the option his step names */
+      if (/^SELECT/.test(tag) && /^fx(copy-to|fmt-fs)-/.test(await t.first().getAttribute("id") || "")) { const say = await p.locator(".coach-say").innerText(); const opts = await t.first().evaluate((e) => Array.from(e.options).map((o) => [o.value, o.textContent])); const hit = opts.filter((o) => o[0] && say.indexOf(o[1]) >= 0).sort((a, b) => b[1].length - a[1].length)[0]; if (hit) { await t.first().selectOption(hit[0]); continue; } }
       { const wid = await t.first().getAttribute("id") || "", V = VALS[id] || {}; if (V[wid] != null) { if (/^SELECT/.test(tag)) await t.first().selectOption(V[wid]); else { await t.first().fill(V[wid]); await t.first().dispatchEvent("change"); } continue; } }
       if (/^INPUT/.test(tag) && /^rt-a/.test(await t.first().getAttribute("id") || "")) { const i = await t.first().getAttribute("id"); await t.first().fill(i === "rt-acur" ? "admin" : "Brooks#Ledger-2026"); await t.first().dispatchEvent("change"); continue; }
       if (/INPUT/.test(tag)) { const c = p.locator(".w-dialog.uac-creds:visible").first(); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); continue; }
@@ -148,9 +151,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 84) F("LOAD: the queue shows " + items.length + " tickets, not 84");
+      if (items.length !== 86) F("LOAD: the queue shows " + items.length + " tickets, not 86");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 14 || count(/Walk: checklist/) !== 14 || count(/Run: on your own/) !== 56) F("LOAD: the queue's labels are not 14 crawl, 14 walk, 56 run");
+      if (count(/Crawl: guided/) !== 15 || count(/Walk: checklist/) !== 14 || count(/Run: on your own/) !== 57) F("LOAD: the queue's labels are not 15 crawl, 14 walk, 57 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
       /* Windows 11: the taskbar's icons sit in a cluster in the middle of the screen, Start first */
       const tbc = await p.evaluate(() => { const b = Array.from(document.querySelectorAll(".task-mid .tb")); const l = b[0].getBoundingClientRect(), r = b[b.length - 1].getBoundingClientRect(); return { off: (l.left + r.right) / 2 - innerWidth / 2, first: b[0].getAttribute("aria-label") }; });
@@ -166,7 +169,7 @@ async function run(rewrites, groups) {
       const order = await p.evaluate(() => Array.from(document.querySelectorAll(".hd2-q h3.qsec, .hd2-q .qi")).map((e) => e.tagName === "H3" ? "H" : (e.querySelector(".badge") ? e.querySelector(".badge").textContent : "NONE")));
       const hx = order.indexOf("H", 1); const sims = order.slice(1, hx), extra = order.slice(hx + 1);
       if (sims.length !== 66 || sims.some((x) => !/^Exam sim · /.test(x))) F("EXTRA: the sims section does not hold 66 tickets each badged Exam sim");
-      if (extra.length !== 18 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12).some((x) => x !== "Extra training · OS installation")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6 and OI1–OI6 badged with their objectives: " + JSON.stringify(extra));
+      if (extra.length !== 20 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12, 18).some((x) => x !== "Extra training · OS installation") || extra.slice(18).some((x) => x !== "Extra training · File systems")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6, OI1–OI6 and FS1, FS4 badged with their objectives: " + JSON.stringify(extra));
       if (await p.locator(".qi .badge").evaluateAll((bs) => bs.some((b) => !b.querySelector("svg.ico")))) F("EXTRA: a badge has no icon");
       await p.locator(".hd2-jb", { hasText: "Extra training" }).click();
       if (!(await p.locator(".qi", { hasText: INC.X1 }).isVisible())) F("EXTRA: Jump to Extra training does not bring X1 into view");
@@ -413,6 +416,41 @@ async function run(rewrites, groups) {
     /* Instructor mode shows the answer on every ticket page; every ticket
        must draw, whether or not it has been started, with no script error
        (a not-yet-started phone ticket once blanked the whole Help Desk) */
+    /* File systems: FS1 by Mason's rings only (Brenda's stick: the failed
+       copy, FAT32 in Properties, her files saved, exFAT, back, the video);
+       FS4 through the screens (Farah's D:: FAT32 with no Security tab,
+       a format started and closed, convert at an administrator prompt
+       with the volume label, the archive copied, nothing counted) */
+    await step("FILES", async (p) => {
+      await signIn(p);
+      if (!(await crawl(p, "FS1", 120))) { if (process.env.SHOT) await p.screenshot({ path: process.env.SHOT }); F("FILES: FS1 could not be finished by following Mason's rings (stuck at: " + (await p.locator(".coach-now").innerText().catch(() => "")).split("\n")[0] + ")"); return; }
+      const f1 = await p.evaluate(() => { const st = window.__LAP.engine.state().tickets.FS1, m = window.__LAP.engine.machine("WS2"); return { stage: st && st.stage, g: st && st.guesses, fs: m.fx.drives.E.fs, n: Object.keys(m.fs).filter((k) => k.indexOf("e:") === 0).reduce((a, k) => a + m.fs[k].files.length, 0) }; });
+      if (f1.stage !== "done" || f1.g || f1.fs !== "exFAT" || f1.n !== 3) F("FILES: FS1 by Mason's rings ends " + JSON.stringify(f1) + ", not done with no wrong moves and an exFAT stick holding all three files");
+      await p.getByRole("button", { name: "Close the walkthrough" }).click().catch(() => {});
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await take(p, "FS4"); const r4 = await connect(p, "WS4");
+      await tool(r4, "files", "Open File Explorer"); await r4.getByRole("button", { name: "Folder Downloads" }).click(); await r4.getByRole("button", { name: "File Audit-2026-archive.zip" }).click();
+      await r4.getByRole("button", { name: "Copy Audit-2026-archive.zip to another folder or drive" }).click(); await r4.locator('[id^="fxcopy-to-"]').selectOption("D:\\Finance"); await r4.getByRole("button", { name: "Copy Audit-2026-archive.zip to the chosen folder" }).click();
+      if (!/too large for the destination file system/.test(await r4.locator(".w-dialog").innerText())) F("FILES: FS4's copy to FAT32 isn't refused in Windows' words");
+      await r4.locator(".w-dialog").getByRole("button", { name: "OK" }).click();
+      await r4.getByRole("button", { name: "Go to the drive DATA (D:)" }).click(); await r4.getByRole("button", { name: "Properties of DATA (D:)" }).click();
+      { const t = await r4.locator(".w-dialog").innerText(); const fsRow = await r4.locator(".w-dialog dt", { hasText: "File system" }).evaluate((e) => e.nextElementSibling.textContent); if (fsRow !== "FAT32" || !/can't hold permissions/.test(t)) F("FILES: D:'s Properties don't show File system FAT32 and no Security tab (" + fsRow + ")"); }
+      await r4.locator(".w-dialog").getByRole("button", { name: "OK" }).click();
+      await r4.getByRole("button", { name: "Format DATA (D:)" }).click(); { const c = r4.locator(".w-dialog.uac-creds"); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); }
+      { const o = await r4.locator('[id^="fxfmt-fs-"]').evaluate((e) => Array.from(e.options).map((x) => x.value).join(",")); if (/FAT32/.test(o)) F("FILES: Format offers FAT32 for a 465 GB drive (" + o + ")"); }
+      await r4.locator(".w-dialog").getByRole("button", { name: "Close" }).click();
+      await admin(r4); await typed(r4, "convert D: /FS:NTFS"); await typed(r4, "FINANCE");
+      if (!/incorrect volume label/.test(await r4.locator(".con-out").last().innerText())) F("FILES: convert took the wrong volume label");
+      await typed(r4, "convert D: /FS:NTFS"); await typed(r4, "DATA");
+      if (!/Conversion complete/.test(await r4.locator(".con-out").last().innerText())) F("FILES: convert D: /FS:NTFS with the volume label didn't complete");
+      await tool(r4, "files", "Open File Explorer"); await r4.getByRole("button", { name: "Folder Downloads" }).click(); await r4.getByRole("button", { name: "File Audit-2026-archive.zip" }).click();
+      await r4.getByRole("button", { name: "Copy Audit-2026-archive.zip to another folder or drive" }).click(); await r4.locator('[id^="fxcopy-to-"]').selectOption("D:\\Finance"); await r4.getByRole("button", { name: "Copy Audit-2026-archive.zip to the chosen folder" }).click();
+      if (!/Copied Audit-2026-archive\.zip/.test(await r4.locator(".w-dialog").innerText())) F("FILES: the archive didn't copy to D: after the convert");
+      const f4 = await p.evaluate(() => { const E = window.__LAP.engine; return { st: E.ticket().stage(E.fleet()), g: E.T().guesses }; });
+      if (f4.st !== "done" || f4.g) F("FILES: FS4 through the screens ends at " + f4.st + " with " + f4.g + " wrong moves, not done with none");
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click(); await p.waitForTimeout(200);
+      if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("FILES: FS4's Resolve was refused");
+    });
+
     await step("INSTRUCTOR", async (p) => {
       await signIn(p);
       await p.locator(".tb", { hasText: "Settings" }).click(); await p.locator("#instructorBtn").click(); await p.locator("#pin-in").fill("3693"); await p.locator("#pin-in").press("Enter"); await p.waitForTimeout(200);
@@ -949,6 +987,8 @@ const PLANTS = [
   ["INSTALL", "the upgrade never finishes at the restart", { "assets/install.js": [["if (I.up && I.up.copied && !I.up.applied) { const r = applyUpgrade(m); if (r) return r; }", ""]] }],
   ["LOAD", "the laptop's taskbar back at the left", { "assets/laptop.css": [[".task { display: grid; grid-template-columns: 1fr auto 1fr; }", ".task { display: flex; }"], [".task-mid { flex: 1; display: flex; justify-content: center;", ".task-mid { flex: 1; display: flex; justify-content: flex-start;"]] }],
   ["INSTALL", "a Windows 11 PC's taskbar at the left", { "assets/style.css": [[".taskbar:not(.w10) { display: grid; grid-template-columns: 1fr minmax(0, max-content) 1fr; }", ".taskbar:not(.w10) { display: flex; }"], [".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: center;", ".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: flex-start;"]] }],
+  ["FILES", "Format keeps the drive's old file system", { "assets/desktop.js": [["const r = FX.format(mm, d.L, d.fs, d.label);", "const r = FX.format(mm, d.L, FX.drive(mm, d.L).fs, d.label);"]] }],
+  ["FILES", "a drive's Properties don't say its file system", { "assets/desktop.js": [['["File system", dv.fs]', '["File system", "Local"]']] }],
   ["INSTALL", "the new phone's refusals shown without their words", { "assets/newphoneui.js": [["const err = function () { if (m.error) {", "const err = function () { if (false) {"]] }],
   ["INSTALL", "the bench's charger never plugs in", { "assets/laptop.js": [["const r = NP.charger(m, !m.battery.charging);", "const r = NP.charger(m, false);"]] }],
   ["INSTALL", "Activation Lock never shows on the Mac", { "assets/mac.js": [["if (m.lock.on && !m.lock.released) {", "if (false) {"]] }],

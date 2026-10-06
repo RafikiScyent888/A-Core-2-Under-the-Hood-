@@ -32,6 +32,7 @@ import * as INS from "./install.js";
 import * as MAC from "./mac.js";
 import { drawMacScreen, paintMac } from "./macui.js";
 import * as NP from "./newphone.js";
+import * as FX from "./fsys.js";
 import { drawNewPhoneScreen, paintNewPhone } from "./newphoneui.js";
 import { drawHandset } from "./phoneui.js";
 import * as CH from "./chat.js";
@@ -321,7 +322,7 @@ function askMason(q) {
 function nextStepAdvice(t, st) {
   const r = rosterOf(t.machine), who = t.from.split(" ")[0];
   const ev = evs(t.machine);
-  if (st.stage === "close" && t.kind !== "backup" && t.kind !== "install") return t.kind === "malware" ? "Every PC is done. Last of CompTIA's steps: what do you tell the user, so it doesn't happen again? Pick it on the ticket." : "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
+  if (st.stage === "close" && t.kind !== "backup" && t.kind !== "files" && t.kind !== "install") return t.kind === "malware" ? "Every PC is done. Last of CompTIA's steps: what do you tell the user, so it doesn't happen again? Pick it on the ticket." : "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
   if (t.kind === "email") { const e = t.current(E.fleet()); if (!e) return "Every email is dealt with. Resolve the ticket."; const p = mailPart(E.fleet(), e), who = staffOf(e.to).first;
     return p === "cat" ? (e.noForward ? who + "'s email can't be forwarded, so go and look at it: connect to " + who + "'s PC from Devices, open Mail there, and read the message and its details. Then say what it is on the ticket." : "Open Mail from the taskbar and read " + who + "'s forward: who it's really from, where its links really go (point at them, don't click), and what it wants. Then say what it is on the ticket.")
       : p === "tell" ? "Now the giveaway: which one detail proves it? The address, a link's real destination, an attachment's full name, or (for one that can't be forwarded) the headers."
@@ -341,7 +342,7 @@ function nextStepAdvice(t, st) {
     return W.mobile ? t.adviceWork : t.adviceStart;
   }
   if (t.kind === "install" || t.kind === "mac" || t.kind === "newphone") return st.stage === "close" ? t.closeAdvice : t.advice(E.fleet());
-  if (t.kind === "backup") {
+  if (t.kind === "backup" || t.kind === "files") {
     if (st.stage === "close") return t.id === "X1" ? "Farah's file is back and her backup is tested. Now answer her question on the ticket: why wasn't today's rescue a backup?" : "The job's done. Now answer " + who + "'s question on the ticket.";
     if (!W["rdp:" + t.machine] && !ev.length) return t.adviceStart || "Connect to " + r.host + " from the ticket, and look at the file first: open Q3-budget.xlsx in her Documents and see what's in it now.";
     return t.adviceWork || "Two jobs on this ticket, in this order: get her spreadsheet back, then make sure she can never lose more than she said she can afford. Read her message again for the times she gives you, and Mason's note for where backups go.";
@@ -1092,7 +1093,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { OI1: "crawl", OI2: "walk", L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk", MB1: "crawl", MB2: "walk" };
+const LEVEL = { FS1: "crawl", OI1: "crawl", OI2: "walk", L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk", MB1: "crawl", MB2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -1925,6 +1926,108 @@ WALKS.X1 = { machine: "WS4", steps: [
     target: function () { return document.querySelector("#res-note"); },
     done: function () { const st = E.state().tickets.X1; return !!(st && st.stage === "done"); } }
 ], end: "That's backup and recovery: one file back from Previous Versions (not System Restore, which leaves documents alone), then a real backup on another device, as often as the user can afford to lose, tested. More extra-training tickets follow once this one's shape is right." };
+/* ------------------------------------------------ FS1: extra training,
+   file systems. A crawl through Brenda's USB stick. */
+function fs1m() { return E.machine("WS2"); }
+function fs1On(L, name) { const m = fs1m(); return !!m && m.fx && FX.filesOn(m, L).some(function (f) { return f.name === name; }); }
+function fs1Ex() { const m = fs1m(); return !!m && !!m.fx && FX.drive(m, "E").fs === "exFAT"; }
+function fs1Desk(name) { const m = fs1m(), d = m && m.fs["c:\\users\\bsmith\\desktop"]; return !!d && d.files.some(function (f) { return f.name === name; }); }
+function fxQ(r, label) { if (!r) return null; return r.querySelector('[aria-label="' + label + '"]') || Array.prototype.filter.call(r.querySelectorAll("button:not([aria-label])"), function (b) { return b.textContent === label; })[0] || null; }
+function fxPath(r) { const a = r && r.querySelector('section.win[aria-label="File Explorer"] .fx-addr'); return a ? a.value : null; }
+/* the next thing to press to get File Explorer to a folder */
+function fxGo(r, dir) {
+  if (!r) return null;
+  if (!r.querySelector('section.win[aria-label="File Explorer"]')) return fxQ(r, "Open File Explorer") || r.querySelector(".tb-start");
+  const at = (fxPath(r) || "").toLowerCase(), want = dir.toLowerCase();
+  if (at === want) return null;
+  if (/^e:/.test(want)) return fxQ(r, "Go to the USB drive SALES (E:)");
+  if (/^e:/.test(at)) return fxQ(r, "Up");
+  const parts = dir.split("\\"), have = at.split("\\").filter(Boolean);
+  for (let i = 1; i < parts.length; i++) if (have[i] !== parts[i].toLowerCase()) return fxQ(r, "Folder " + parts[i]) || fxQ(r, "Up");
+  return fxQ(r, "Up");
+}
+/* copy one file somewhere: walk Explorer there, select it, Copy to…, choose, Copy */
+function fxCopyTarget(r, dir, name, dest) {
+  if (!r) return null;
+  const msg = r.querySelector(".w-dialog.message button"); if (msg) return msg;
+  const dlg = r.querySelector(".w-dialog.fx-copy");
+  if (dlg) { const s2 = dlg.querySelector("select"); return s2 && s2.value !== dest ? s2 : fxQ(r, "Copy " + name + " to the chosen folder"); }
+  return fxGo(r, dir) || fxQ(r, "Copy " + name + " to another folder or drive") || fxQ(r, "File " + name);
+}
+const DESK = "C:\\Users\\bsmith\\Desktop";
+WALKS.FS1 = { machine: "WS2", steps: [
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Extra training: file systems. Read Brenda's request and Mason's note, then press Assign to me and start.",
+    why: "Count what she needs: the video on the stick, the stick working on a Mac and on Windows, and two files on it she can't lose.",
+    target: function () { return document.querySelector('[data-coach="assign"]'); },
+    done: function () { const t = E.ticket(); return !!(t && t.id === "FS1" && E.T()); } },
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Connect to her PC: press Connect to WS2-SALES on the ticket.",
+    why: "The stick is plugged into her PC.",
+    target: function () { return W["rdp:WS2"] ? null : document.querySelector('[data-coach="connect"]'); },
+    waiting: function () { return W["rdp:WS2"] && W["rdp:WS2"].phase === "wait" ? "Connecting… waiting for Brenda to accept." : null; },
+    done: function () { return !!(W["rdp:WS2"] && W["rdp:WS2"].phase === "on"); } },
+  { tag: "See it for yourself", win: "rdp:WS2",
+    say: "Try what Brenda tried. Open File Explorer (press Start, type files), open her Desktop, select Showroom tour.mp4, press Copy to…, choose SALES (E:) and press Copy.",
+    why: "See the error with your own eyes before you change anything.",
+    target: function () { return fxCopyTarget(rd("WS2"), DESK, "Showroom tour.mp4", "E:\\"); },
+    done: function () { const m = fs1m(); return !!m && m.events.some(function (e) { return e.kind === "fx-copy-failed"; }); } },
+  { tag: "Find the cause", win: "rdp:WS2",
+    say: "\"The file is too large for the destination file system.\" Press OK. Now go to the stick, SALES (E:), and press Properties.",
+    why: "The message blames the file system, not the space. The stick's properties say which one it is.",
+    target: function () { const r = rd("WS2"); return r && (r.querySelector(".w-dialog.message button") || fxGo(r, "E:\\") || fxQ(r, "Properties of SALES (E:)")); },
+    done: function () { const m = fs1m(); return !!m && m.events.some(function (e) { return e.kind === "fx-props" && e.letter === "E"; }); } },
+  { tag: "Find the cause", win: "rdp:WS2",
+    say: "File system: FAT32. FAT32 can't hold any single file of 4 GB or more, however much space is free. Press OK.",
+    why: "The video is 6.2 GB. Changing the file system means formatting, and a format empties the stick.",
+    target: function () { const r = rd("WS2"); return r && r.querySelector(".w-dialog.fx-props button"); },
+    done: function () { const r = rd("WS2"), m = fs1m(); return !!r && !!m && m.events.some(function (e) { return e.kind === "fx-props" && e.letter === "E"; }) && !r.querySelector(".w-dialog.fx-props"); } },
+  { tag: "Keep her files safe", win: "rdp:WS2",
+    say: "Before anything changes the stick, save her files. On SALES (E:), select Client pitch.pptx, press Copy to…, choose C:\\Users\\bsmith\\Desktop and press Copy.",
+    why: "She said they're on the stick and nowhere else. A format would erase them.",
+    target: function () { return fxCopyTarget(rd("WS2"), "E:\\", "Client pitch.pptx", DESK); },
+    done: function () { return fs1Desk("Client pitch.pptx"); } },
+  { tag: "Keep her files safe", win: "rdp:WS2",
+    say: "Press OK, then the same for Price list 2026.xlsx: Copy to…, choose C:\\Users\\bsmith\\Desktop, Copy.",
+    why: "Both her files, before the format.",
+    target: function () { return fxCopyTarget(rd("WS2"), "E:\\", "Price list 2026.xlsx", DESK); },
+    done: function () { return fs1Desk("Price list 2026.xlsx"); } },
+  { tag: "Choose the file system", win: "rdp:WS2",
+    say: "Press OK. Her files are safe. On SALES (E:), press Format…, choose exFAT as the File system, press Start, then OK.",
+    why: "exFAT has no 4 GB limit, and a Mac can read and write it. NTFS would take the video too, but a Mac can only read NTFS: the client's team couldn't save their edit back to it.",
+    target: function () { const r = rd("WS2"); if (!r) return null; const msg = r.querySelector(".w-dialog.message button"); if (msg) return msg; const w = r.querySelector(".w-dialog.fx-format"); if (w) { const s2 = w.querySelector("select"); if (s2 && s2.value !== "exFAT") return s2; return fxQ(r, "Start formatting SALES (E:)") || fxQ(r, "OK: format SALES (E:) as exFAT"); } return fxGo(r, "E:\\") || fxQ(r, "Format SALES (E:)"); },
+    done: function () { const m = fs1m(); return !!m && FX.drive(m, "E").fs === "exFAT"; } },
+  { tag: "Put it all back", win: "rdp:WS2",
+    say: "Format Complete: the stick is exFAT and empty. Press OK. Copy her files back: on her Desktop, select Client pitch.pptx, Copy to…, choose SALES (E:), Copy.",
+    why: "A format leaves the drive empty. What you saved goes back.",
+    target: function () { return fxCopyTarget(rd("WS2"), DESK, "Client pitch.pptx", "E:\\"); },
+    done: function () { return fs1Ex() && fs1On("E", "Client pitch.pptx"); } },
+  { tag: "Put it all back", win: "rdp:WS2",
+    say: "Press OK, then Price list 2026.xlsx the same way, to SALES (E:).",
+    why: "Both her files go back.",
+    target: function () { return fxCopyTarget(rd("WS2"), DESK, "Price list 2026.xlsx", "E:\\"); },
+    done: function () { return fs1Ex() && fs1On("E", "Price list 2026.xlsx"); } },
+  { tag: "Test it", win: "rdp:WS2",
+    say: "Press OK. Now the job she asked for: Showroom tour.mp4, Copy to…, SALES (E:), Copy.",
+    why: "The copy that failed at the start is the test: same file, same stick, new file system.",
+    target: function () { return fxCopyTarget(rd("WS2"), DESK, "Showroom tour.mp4", "E:\\"); },
+    done: function () { const t = E.ticket(); return !!(t && t.id === "FS1" && t.goal(E.fleet())); } },
+  { tag: "Close it out", win: "helpdesk",
+    say: "The video copied. Go back to Help Desk and press Resolve.",
+    why: "Brenda checks the stick: her pitch, her price list and the video.",
+    target: function () { return document.querySelector('[data-coach="resolve"]'); },
+    done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Brenda asks why exFAT, when her PC uses NTFS. Pick the answer that's true.",
+    why: "Think about the Mac.",
+    target: function () { return document.querySelector("[data-win=helpdesk] .opts"); },
+    done: function () { const st = E.T(); return !!(st && (st.closeOK || st.stage === "done")); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Write the resolution notes: why the copy failed, how you kept her files safe, the file system you chose and why, and what's on the stick now. Then press Close the ticket.",
+    why: "For example: \"Stick was FAT32 (no file of 4 GB or more). Copied her two files to the Desktop, formatted it exFAT so the client's Mac can write to it (a Mac only reads NTFS), copied them back with the video.\" Your own words.",
+    target: function () { return document.querySelector("#res-note"); },
+    done: function () { const st = E.state().tickets.FS1; return !!(st && st.stage === "done"); } }
+], end: "That's file systems for real: the error read for what it says (the file system's limit, not space), the user's files saved before the format, and the file system chosen for every computer it has to work on. The rest of the file-system tickets are yours to run." };
 /* ------------------------------------------------ X2: the walk */
 function x2m() { return E.machine("WS3"); }
 function x2ev(kind, test) { const m = x2m(); return !!m && (m.events || []).some(function (e) { return e.kind === kind && (!test || test(e)); }); }

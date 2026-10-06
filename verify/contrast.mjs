@@ -630,6 +630,27 @@ export async function run(extraCss) {
     await npb("Plug the USB-C charger into the phone").click(); await npb("Download and install the system update").click(); await page.waitForTimeout(150);
     await sweep(tag + ": OI6, updated, locked and compliant");
     await npw.getByRole("button", { name: /^Close Your bench/ }).click();
+    /* FS1: Brenda's stick (Copy to, File Too Large, the drive bar, Properties, Format and its warning); FS4: convert at the prompt */
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20494" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
+    const fw2 = page.locator('[data-win="rdp:WS2"]'), wb = (n) => fw2.getByRole("button", { name: n, exact: true });
+    await open("WS2", "files", "Open File Explorer"); await wb("Folder Desktop").click(); await wb("File Showroom tour.mp4").click(); await wb("Copy Showroom tour.mp4 to another folder or drive").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS1, Copy to, choosing a folder or drive");
+    await fw2.locator('[id^="fxcopy-to-"]').selectOption("E:\\"); await wb("Copy Showroom tour.mp4 to the chosen folder").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS1, File Too Large");
+    await fw2.locator(".w-dialog").getByRole("button", { name: "OK" }).click(); await wb("Go to the USB drive SALES (E:)").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS1, the stick in File Explorer, with its drive bar");
+    await wb("Properties of SALES (E:)").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS1, the stick's Properties");
+    await fw2.locator(".w-dialog").getByRole("button", { name: "OK" }).click(); await wb("Format SALES (E:)").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS1, Format, the form");
+    await wb("Start formatting SALES (E:)").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS1, Format, the warning");
+    await fw2.locator(".w-dialog").getByRole("button", { name: "Cancel" }).click();
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20495" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
+    const fw4 = page.locator('[data-win="rdp:WS4"]');
+    await open("WS4", "cmd", "Run Command Prompt as administrator"); { const c = fw4.locator(".w-dialog.uac-creds"); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); }
+    for (const l of ["convert D: /FS:NTFS", "FINANCE", "convert D: /FS:NTFS", "DATA"]) { await fw4.locator(".con-in").fill(l); await fw4.locator(".con-in").press("Enter"); await page.waitForTimeout(120); }
+    await sweep(tag + ": FS4, convert at an administrator's prompt");
   }
 
   try {
@@ -683,7 +704,8 @@ const PLANTS = {
   "GRUB's menu in a dim grey": ".grub-btn:not(.first), .grub-foot { color: #6b7280 !important; }",
   "the terminal's prompt in a dark green": ".ub-prompt { color: #166534 !important; }",
   "the Mac's Recovery list in a faint grey": ".mac-item, .mac-sub { color: #9ca3af !important; }",
-  "the new phone's compliance line in a faint grey": ".np-comp, .np-comp strong { color: #9ca3af !important; }"
+  "the new phone's compliance line in a faint grey": ".np-comp, .np-comp strong { color: #9ca3af !important; }",
+  "File Explorer's drive bar in a faint grey": ".fx-drive, .fx-drive span { color: #b4bcc8 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

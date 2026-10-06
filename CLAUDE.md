@@ -2267,3 +2267,89 @@ not reached by Remote help.
     code, the QR set-up, the guest Wi-Fi refused, the organisation's
     screen, the policy's screen lock, the home screen not compliant, the
     update refused, and compliant. One new plant.
+
+### Extra training, FS1 and FS4: file systems (6 October 2026)
+
+The owner: "File systems, updates and upgrades next, build it out". The
+objectives were re-read on 5 October 2026; the Core 2 wording is unchanged.
+This covers **Operating systems, File systems: "handling file systems,
+updates, and OS upgrades"**. Three builds, each pushed when verified:
+1. FS1 (crawl) and FS4 (run): file systems (this one).
+2. FS2 (walk) and FS3 (run): Windows Update, and rolling an update back.
+3. FS5 and FS6 (run): an edition upgrade, and updating Linux.
+
+- **New files:** `fsys.js` (the model: each drive's file system, on the
+  machine as `m.fx`, its files in `m.fs` like every other folder) and
+  `tickets-files.js`.
+- **The model, as Windows and macOS behave:**
+  - FAT32 holds no file of 4 GB or more (4,294,967,295 bytes at most),
+    and has no permissions. Windows' own Format offers FAT32 only on a
+    volume of 32 GB or less. A Mac reads and writes it.
+  - exFAT has no 4 GB limit and no permissions. A Mac reads and writes it.
+  - NTFS has no 4 GB limit and has permissions (a Security tab). A Mac can
+    only read it.
+  - Format makes a new, empty file system: everything on the drive goes.
+  - `convert D: /FS:NTFS` turns FAT32 into NTFS in place, keeping every
+    file. It asks for the volume's current label, needs an administrator's
+    prompt, goes only to NTFS, and refuses exFAT ("CONVERT is not
+    available for EXFAT drives").
+- **Windows gained:**
+  - File Explorer: a button for each drive, and at the top of a drive its
+    Properties (type, file system, used, free, capacity, and whether it
+    has a Security tab) and Format… (capacity, file system, allocation
+    unit size, volume label, Quick Format, Start, then Windows' warning).
+    A fixed drive asks UAC first; a USB stick doesn't.
+  - Copy to… on any selected file, with Windows' own "File Too Large"
+    refusal.
+  - The prompt: `format E: /FS:exFAT /Q /V:label` (a USB stick asks for
+    ENTER; a fixed drive asks for its label, then Y/N), `convert`, `copy`
+    refusing a file too large for FAT32 in Windows' words, `dir` showing a
+    drive's label and real free space, and changing to `D:`.
+- **FS1 (crawl, 14 steps), Brenda's WS2:** a 6.2 GB showroom video won't
+  go on her 32 GB FAT32 stick. The client's team must write their edit
+  back to it from a Mac, and her pitch and price list are on it with no
+  other copy. The steps: try the copy, read "too large for the destination
+  file system", the stick's Properties (FAT32), copy her two files to her
+  Desktop, Format as exFAT, copy them back, copy the video.
+  - **Counted:** formatting before her files are safe; formatting as FAT32
+    again; formatting as NTFS (a Mac only reads it); deleting her only
+    copy.
+  - **Never counted:** the failed copy, Properties, the prompt's refusal.
+  - Close question: why exFAT, when her PC uses NTFS.
+- **FS4 (run), Farah's WS4:** D: is the old drive from her last PC, FAT32,
+  with every audit since 2023 and no other copy, and nowhere to park
+  160 GB (Mason's note). The 5.4 GB archive won't copy, and Mason found no
+  Security tab. The job: `convert D: /FS:NTFS` at an administrator's
+  prompt, with the label DATA, then copy the archive.
+  - **Counted:** formatting D: (in Explorer or at the prompt), deleting an
+    audit.
+  - **Never counted:** convert without elevation, a wrong label,
+    `/FS:exFAT`, the failed copy, Properties, opening Format and closing
+    it.
+  - Close question: why convert, and not format.
+- **Found while building:**
+  - FS1's crawl jumped from connecting straight to step 11: "put her files
+    back on the stick" counted as done at the start, because her files are
+    on the stick before anything happens, and the crawl's catch-up skipped
+    ahead (MB1's bug again). Those steps now also need the stick to be
+    exFAT.
+  - A logic plant (convert losing the files) was missed: the convert check
+    only went through the prompt, which uses the real model, not the
+    checker's. The model's convert is now checked directly too.
+  - A page plant (Properties not saying the file system) was missed: the
+    check looked for "FAT32" anywhere in the dialog, and the Security tab
+    line says it too. It now reads the File system row itself.
+- **Checks:**
+  - logic: 86 tickets, 135 plants. FS1 and FS4 are table-driven, plus the
+    model's rules (Format's size rule for FAT32, what a Mac does with each,
+    the prompt's copy and format, format needing an administrator,
+    convert keeping every file, exFAT refused). Seven new plants.
+  - page: LOAD (86; 15 crawl, 14 walk, 57 run); EXTRA (FS1 and FS4 badged
+    "Extra training · File systems"); FILES: FS1 by Mason's rings with no
+    wrong moves, then FS4 through the screens (the copy refused in words,
+    Properties showing FAT32 and no Security tab, Format not offering FAT32
+    on 465 GB, a wrong label refused, convert, the copy, Resolve). Two new
+    plants.
+  - contrast: Copy to, File Too Large, the drive bar, the stick's
+    Properties, Format and its warning, convert at the prompt. One new
+    plant.

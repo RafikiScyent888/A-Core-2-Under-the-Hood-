@@ -16,6 +16,7 @@ import { APPS, CATALOGUE } from "./fleet.js";
 import * as MW from "./malware.js";
 import { drawMail } from "./mailui.js";
 import * as BK from "./backup.js";
+import * as FX from "./fsys.js";
 import * as INS from "./install.js";
 import { drawInstall } from "./installui.js";
 
@@ -416,8 +417,18 @@ export function createDesktop(host, ctx) {
     /* This PC: the drives, as Windows lists them, a USB stick included */
     bar.appendChild(btn("Local Disk (C:)", "w-btn", function () { w.path = "C:\\"; w.sel = null; draw(); }, "Go to Local Disk (C:)"));
     if (MW.ready(mm).usb) bar.appendChild(btn(mm.usb.label, "w-btn", function () { w.path = "E:\\"; w.sel = null; draw(); }, "Go to the USB drive " + mm.usb.label));
+    FX.drives(mm).forEach(function (dv) { const nm = dv.label + " (" + dv.letter + ":)"; bar.appendChild(btn(nm, "w-btn", function () { w.path = FX.rootOf(dv.letter); w.sel = null; draw(); }, "Go to " + (dv.removable ? "the USB drive " : "the drive ") + nm)); });
     bar.appendChild(btn("Up", "w-btn", function () { const i = w.path.lastIndexOf("\\"); if (i > 2) { w.path = w.path.slice(0, i); } else w.path = "C:\\"; w.sel = null; draw(); }));
     wrap.appendChild(bar);
+    /* at the top of a drive: its Properties, and Format, as This PC offers them */
+    const atDrive = w.path.length === 3 && FX.drive(mm, w.path[0]);
+    if (atDrive) {
+      const dv = atDrive, nm = dv.label + " (" + dv.letter + ":)", db = el("div", "fx-drive");
+      db.appendChild(el("span", null, nm + " · " + (dv.removable ? "USB Drive" : "Local Disk")));
+      db.appendChild(btn("Properties", "w-btn", function () { M.note(mm, "fx-props", { letter: dv.letter }); act({ type: "fx-view", what: "props", letter: dv.letter }); dialog = { kind: "fx-props", L: dv.letter }; draw(); }, "Properties of " + nm));
+      db.appendChild(btn("Format…", "w-btn", function () { const go = function () { dialog = { kind: "fx-format", L: dv.letter, step: "form" }; draw(); }; if (dv.removable) go(); else askUAC("Format " + nm, go); }, "Format " + nm));
+      wrap.appendChild(db);
+    }
     const d = M.dirOf(mm, w.path);
     const ul = el("ul", "fx-list");
     if (d) {
@@ -435,6 +446,7 @@ export function createDesktop(host, ctx) {
       const selF = d && d.files.filter(function (f) { return f.name === w.sel; })[0];
       if (selF && selF.doc) acts.appendChild(btn("Open", "w-btn", function () { const full = w.path + "\\" + w.sel; M.note(mm, "doc-open", { path: full, doc: selF.doc.id }); act({ type: "doc-open", path: full, doc: selF.doc.id }); dialog = { kind: "doc", name: w.sel, doc: selF.doc, note: "Opened in Excel. Last saved " + selF.doc.saved + "." }; draw(); }, "Open " + w.sel));
       if (/^c:\\users\\/i.test(w.path)) acts.appendChild(btn("Properties", "w-btn", function () { openProps(w.path + "\\" + w.sel); }, "Properties of " + w.sel));
+      if (FX.drives(mm).length) acts.appendChild(btn("Copy to…", "w-btn", function () { dialog = { kind: "fx-copy", from: (w.path.length === 3 ? w.path : w.path + "\\") + w.sel, name: w.sel }; draw(); }, "Copy " + w.sel + " to another folder or drive"));
       if (/^mpam-fe\.exe$/i.test(w.sel)) acts.appendChild(btn("Open", "w-btn primary", function () {
         askUAC("Microsoft Defender Antivirus definitions update", function () { const before = ctx.before(); const r = MW.updateDefs(m(), "usb"); dialog = { kind: "message", title: "mpam-fe.exe", text: r.text }; act({ type: "av", op: "defs", how: "usb", res: r, before: before }); draw(); });
       }, "Open " + w.sel));
@@ -788,6 +800,49 @@ export function createDesktop(host, ctx) {
         dialog = { kind: "restart-now", text: r.text }; draw();
       }, "Join the domain with this account"));
       row.appendChild(btn("Cancel", "w-btn", function () { d.step = "form"; d.err = ""; draw(); }));
+    }
+    if (d.kind === "fx-props") {
+      const dv = FX.drive(mm, d.L), u = FX.used(mm, d.L);
+      box.appendChild(el("h3", "dlg-h", dv.label + " (" + dv.letter + ":) Properties"));
+      const dl = el("dl", "doc-dl"); [["Type", dv.removable ? "USB Drive" : "Local Disk"], ["File system", dv.fs], ["Used space", FX.size(u)], ["Free space", FX.size(FX.free(mm, d.L))], ["Capacity", dv.gb + " GB"], ["Security tab", FX.permissions(dv.fs) ? "Yes: folders on this drive can have permissions" : "None: " + dv.fs + " can't hold permissions"]].forEach(function (kv) { dl.appendChild(el("dt", null, kv[0])); dl.appendChild(el("dd", null, kv[1])); }); box.appendChild(dl);
+      row.appendChild(btn("OK", "w-btn primary", close));
+    }
+    if (d.kind === "fx-format" && d.step === "form") {
+      const dv = FX.drive(mm, d.L), nm = dv.label + " (" + dv.letter + ":)";
+      box.appendChild(el("h3", "dlg-h", "Format " + nm));
+      const dl = el("dl", "doc-dl"); dl.appendChild(el("dt", null, "Capacity")); dl.appendChild(el("dd", null, dv.gb + " GB")); box.appendChild(dl);
+      const lf = el("label", null, "File system"); const f = el("select", "fw-sel"); f.id = "fxfmt-fs-" + mm.id; lf.setAttribute("for", f.id);
+      FX.formatChoices(dv).forEach(function (x) { const o = el("option", null, x); o.value = x; if (x === (d.fs || dv.fs)) o.selected = true; f.appendChild(o); });
+      f.addEventListener("change", function () { d.fs = f.value; });
+      const la = el("label", null, "Allocation unit size"); const a = el("select", "fw-sel"); a.id = "fxfmt-au-" + mm.id; la.setAttribute("for", a.id); a.appendChild(el("option", null, "Default allocation size"));
+      const ll = el("label", null, "Volume label"); const lb = el("input", "w-input"); lb.id = "fxfmt-label-" + mm.id; ll.setAttribute("for", lb.id); lb.value = d.label != null ? d.label : dv.label; lb.setAttribute("autocomplete", "off"); lb.addEventListener("input", function () { d.label = lb.value; });
+      const qw = el("div", "cn-opt"); const q = el("input"); q.type = "checkbox"; q.id = "fxfmt-quick-" + mm.id; q.checked = true; const ql = el("label", null, " Quick Format"); ql.setAttribute("for", q.id); qw.appendChild(q); qw.appendChild(ql);
+      [lf, f, la, a, ll, lb, qw].forEach(function (x) { box.appendChild(x); });
+      row.appendChild(btn("Start", "w-btn primary", function () { d.fs = f.value; d.label = lb.value; d.step = "warn"; draw(); }, "Start formatting " + nm));
+      row.appendChild(btn("Close", "w-btn", close));
+    }
+    if (d.kind === "fx-format" && d.step === "warn") {
+      const dv = FX.drive(mm, d.L), nm = dv.label + " (" + dv.letter + ":)";
+      box.appendChild(el("h3", "dlg-h", "Format " + nm));
+      const p = el("p", "dlg-error", "WARNING: Formatting will erase ALL data on this disk. To format the disk, click OK. To quit, click CANCEL."); p.setAttribute("role", "alert"); box.appendChild(p);
+      row.appendChild(btn("OK", "w-btn primary", function () { const before = ctx.before(); const r = FX.format(mm, d.L, d.fs, d.label); act({ type: "fx-format", letter: d.L, fs: d.fs, res: r, before: before }); dialog = { kind: "message", title: "Format " + nm, text: r.ok ? "Format Complete." : r.text }; draw(); }, "OK: format " + nm + " as " + d.fs));
+      row.appendChild(btn("Cancel", "w-btn", close));
+    }
+    if (d.kind === "fx-copy") {
+      box.appendChild(el("h3", "dlg-h", "Copy " + d.name));
+      const u = "C:\\Users\\" + mm.user, dests = [u + "\\Desktop", u + "\\Documents", u + "\\Downloads"];
+      FX.drives(mm).forEach(function (dv) { const root = FX.rootOf(dv.letter); dests.push(root); const n = mm.fs[root.toLowerCase()]; (n ? n.dirs : []).forEach(function (x) { dests.push(root + x); }); });
+      const l = el("label", null, "Copy it to"); const s2 = el("select", "fw-sel"); s2.id = "fxcopy-to-" + mm.id; l.setAttribute("for", s2.id);
+      const pick = el("option", null, "Choose a folder…"); pick.value = ""; s2.appendChild(pick);
+      dests.forEach(function (x) { const dv = x.length === 3 ? FX.drive(mm, x[0]) : null; const o = el("option", null, dv ? dv.label + " (" + dv.letter + ":)" : x); o.value = x; s2.appendChild(o); });
+      box.appendChild(l); box.appendChild(s2);
+      if (d.err) { const e = el("p", "dlg-err", d.err); e.setAttribute("role", "alert"); box.appendChild(e); }
+      row.appendChild(btn("Copy", "w-btn primary", function () {
+        if (!s2.value) return; const before = ctx.before(); const r = FX.copy(mm, d.from, s2.value);
+        act({ type: "fx-copy", name: d.name, to: s2.value, res: r, before: before });
+        dialog = r.ok ? { kind: "message", title: "Copy", text: r.text } : { kind: "message", title: r.tooLarge ? "File Too Large" : "Copy", text: r.text, error: true }; draw();
+      }, "Copy " + d.name + " to the chosen folder"));
+      row.appendChild(btn("Cancel", "w-btn", close));
     }
     if (d.kind === "shrink") {
       const max = INS.shrinkMax(mm, d.i), p = mm.disks[0].parts[d.i], tot = Math.floor(p.bytes / 1048576);

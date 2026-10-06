@@ -93,6 +93,7 @@ import * as INM from "../assets/install.js";
 import * as OIM from "../assets/tickets-install.js";
 import * as MACM from "../assets/mac.js";
 import * as NPM from "../assets/newphone.js";
+import * as FXM from "../assets/fsys.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -189,6 +190,8 @@ const NOTES = {
   OI3: "PC Health Check on WS5: the processor isn't currently supported (Core i5-7500, 7th gen, not on the supported list). TPM 2.0, Secure Boot, memory and disk all pass. Changed nothing and forced nothing: escalated for a replacement or ESU decision.",
   OI4: "Shrank C: by 100 GB in Disk Management, left unallocated. Booted the Ubuntu 24.04 USB with F12, chose Install Ubuntu alongside Windows Boot Manager (not Erase disk), ext4, named ws3-dev-ubuntu, user dev. GRUB lists both: Ubuntu signed in, Windows starts.",
   OI5: "Held the power button for startup options, Options, Recovery as rafikiadmin. Disk Utility: erased Macintosh HD as APFS. Activate Mac stopped on Activation Lock (Sam's Apple Account); Mason released it in device management. Reinstalled macOS Sequoia; it shows Setup Assistant's Hello for Priya.",
+  FS1: "Copying the 6 GB video failed: the stick was FAT32, which can't hold a file of 4 GB or more. Copied her pitch and price list to her Desktop first, then formatted the stick as exFAT, because the client's Mac must write to it and a Mac only reads NTFS. Copied her files back and the video on.",
+  FS4: "The archive wouldn't copy because D: was FAT32: no file of 4 GB or more, and no Security tab for permissions. Formatting would have erased the audits, so I ran convert D: /FS:NTFS as administrator; every file was kept. Copied the 5.4 GB archive to D:, which now has a Security tab.",
   OI6: "Held the power button, then tapped the welcome screen six times for the QR set-up and scanned the enrolment code from device management. Joined Rafiki-Staff, accepted that the organisation owns it (fully managed). Set a 6-digit PIN as the policy requires. The update refused at 18% battery, so I plugged in the charger and installed the 1 September 2026 security update. Device management shows it compliant.",
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB6: "Outlook's background battery use was Restricted and its background data was off, so mail waited until it opened. Set battery to Optimized and turned background data on. A test email arrived by itself.",
@@ -399,7 +402,7 @@ function chatDrive(D, t, f) {
    recovery: the fault is on the machine, the right path closes it with
    no wrong moves, the near misses count, rung 3 leaves the right move
    alive at every stage, no hint names the move, the note check holds. */
-const OBJECTIVES = { "OS installation": ["Operating systems", "working with Windows, macOS, Linux, and mobile operating systems"], "Backup and recovery": ["Operational procedures", "setting up workstation backups and recovery processes"], "Mobile troubleshooting": ["Software troubleshooting", "addressing connectivity, app, and performance issues"] };
+const OBJECTIVES = { "OS installation": ["Operating systems", "working with Windows, macOS, Linux, and mobile operating systems"], "Backup and recovery": ["Operational procedures", "setting up workstation backups and recovery processes"], "Mobile troubleshooting": ["Software troubleshooting", "addressing connectivity, app, and performance issues"], "File systems": ["Operating systems", "handling file systems, updates, and OS upgrades"] };
 function extraChecks(D, F) {
   const X = D.TICKETS.filter((t) => t.extra);
   if (!X.length) { F("EXTRA: no extra-training ticket"); return; }
@@ -848,6 +851,49 @@ XI.OI5 = (D) => { const A = D.MAC, g = (f) => f.TECH.macs.OI5;
       /* reinstalling without erasing keeps the leaver's data, and doesn't close */
       const E3 = fresh(); S.slice(0, 3).forEach((go) => go(E3)); [o("utility", (m) => A.utility(m, "reinstall"), { which: "reinstall" }), o("ri-continue", (m) => A.reinstall(m, "continue")), o("ri-agree", (m) => A.reinstall(m, "agree")), o("ri-disk", (m) => A.reinstall(m, "disk")), o("ri-install", (m) => A.reinstall(m, "install"))].forEach((go) => go(E3));
       if (!g(E3.fleet()).disk.hasData || t.goal(E3.fleet())) F(P + "MODEL: reinstalling without erasing wiped the Mac, or closed the ticket");
+    } };
+};
+/* FS1 and FS4: file systems, through the PC's own Explorer and Command Prompt */
+function fxAct(mid, type, fn, a) { return (E) => xr2(E, mid, Object.assign({ type }, a || {}), fn); }
+function shellAct(mid, lines) { return (E) => { const m = E.fleet()[mid], sh = createShell(m, { elevated: true }); const b = E.before(); let res; lines.forEach((l) => { res = sh.run(l); }); E.onAct({ machine: mid, type: "cmd", line: lines[0], res, before: b }); return res; }; }
+XI.FS1 = (D) => { const X = D.FX, B = "C:\\Users\\bsmith", g = (f) => f.WS2;
+  const cp = (from, to) => fxAct("WS2", "fx-copy", (m) => X.copy(m, from, to), { to });
+  const fmt = (fs) => fxAct("WS2", "fx-format", (m) => X.format(m, "E", fs, "SALES"), { letter: "E", fs });
+  const S = [cp("E:\\Client pitch.pptx", B + "\\Desktop"), cp("E:\\Price list 2026.xlsx", B + "\\Desktop"), fmt("exFAT"), cp(B + "\\Desktop\\Client pitch.pptx", "E:\\"), cp(B + "\\Desktop\\Price list 2026.xlsx", "E:\\"), cp(B + "\\Desktop\\Showroom tour.mp4", "E:\\")];
+  return { get: g, S, leak: [/exfat/i, /\brevert\b/i, /to her desktop/i],
+    exh: (m) => { const d = X.drive(m, "E"); if (!d || d.fs !== "FAT32") return "the stick isn't FAT32"; const v = X.findAt(m, B + "\\Desktop\\Showroom tour.mp4"); if (!v || X.canCopy(m, v, "E:\\").ok) return "the video would copy to the stick as it is"; if (!X.findAt(m, "E:\\Client pitch.pptx")) return "her pitch isn't on the stick"; return null; },
+    after: (m) => (X.drive(m, "E").fs !== "exFAT" ? "the stick isn't exFAT" : ["Client pitch.pptx", "Price list 2026.xlsx", "Showroom tour.mp4"].some((n) => !X.findAt(m, "E:\\" + n)) ? "the stick is missing a file" : null),
+    near: [["formatting as FAT32 again", 2, [fmt("FAT32")]], ["formatting as NTFS (read-only on a Mac)", 2, [fmt("NTFS")]], ["formatting before saving her files", 0, [fmt("exFAT")]],
+      ["deleting her pitch from the stick at the prompt", 0, [shellAct("WS2", ['del "E:\\Client pitch.pptx"'])]]],
+    look: [["the failed copy, and the stick's properties", 0, [cp(B + "\\Desktop\\Showroom tour.mp4", "E:\\"), fxAct("WS2", "fx-view", (m) => ({ ok: true }), { what: "props", letter: "E" })]],
+      ["the copy at the prompt that's too large", 0, [shellAct("WS2", ['copy "' + B + '\\Desktop\\Showroom tour.mp4" E:\\'])]]],
+    extra: (fresh, F, P, t) => {
+      const f = D.makeFleet(); t.setup(f); const m = f.WS2, d = X.drive(m, "E");
+      if (X.formatChoices(d).indexOf("FAT32") < 0 || X.formatChoices({ gb: 465 }).indexOf("FAT32") >= 0) F(P + "MODEL: Format offers FAT32 by the wrong size rule (32 GB or less)");
+      if (X.onMac("NTFS") !== "read only" || X.onMac("exFAT") !== "read and write") F(P + "MODEL: what a Mac does with NTFS or exFAT is wrong");
+      const sh = createShell(m, { elevated: true }); const r1 = sh.run('copy "' + B + '\\Desktop\\Showroom tour.mp4" E:\\'); if (!/too large for the destination file system/.test(r1.out)) F(P + "MODEL: the prompt's copy to FAT32 isn't refused in Windows' words");
+      sh.run("format E: /FS:exFAT /Q /V:SALES"); const r2 = sh.run(""); if (d.fs !== "exFAT" || X.findAt(m, "E:\\Client pitch.pptx") || !/Format complete/.test(r2.out)) F(P + "MODEL: format E: /FS:exFAT at the prompt didn't make an empty exFAT stick");
+      if (!/copied/.test(sh.run('copy "' + B + '\\Desktop\\Showroom tour.mp4" E:\\').out) || !X.findAt(m, "E:\\Showroom tour.mp4")) F(P + "MODEL: the video won't copy to the exFAT stick");
+      const s2 = createShell(m, { elevated: false }); if (!/elevated/.test(s2.run("format E: /FS:exFAT").out)) F(P + "MODEL: format ran without an administrator's prompt");
+    } };
+};
+XI.FS4 = (D) => { const X = D.FX, Fd = "C:\\Users\\finance", g = (f) => f.WS4;
+  const cp = fxAct("WS4", "fx-copy", (m) => X.copy(m, Fd + "\\Downloads\\Audit-2026-archive.zip", "D:\\Finance"), { to: "D:\\Finance" });
+  const S = [shellAct("WS4", ["convert D: /FS:NTFS", "DATA"]), cp];
+  return { get: g, S, leak: [/\bconvert\b/i, /\/fs/i, /revert/i],
+    exh: (m) => { const d = X.drive(m, "D"); if (!d || d.fs !== "FAT32") return "D: isn't FAT32"; const a = X.findAt(m, Fd + "\\Downloads\\Audit-2026-archive.zip"); if (!a || X.canCopy(m, a, "D:\\Finance").ok) return "the archive would copy to D: as it is"; if (X.filesOn(m, "D").length < 6) return "the audits aren't on D:"; return null; },
+    after: (m) => (X.drive(m, "D").fs !== "NTFS" ? "D: isn't NTFS" : X.filesOn(m, "D").length < 7 ? "D: lost files or hasn't the archive" : null),
+    near: [["formatting D: as NTFS in Explorer", 0, [fxAct("WS4", "fx-format", (m) => X.format(m, "D", "NTFS", "DATA"), { letter: "D", fs: "NTFS" })]],
+      ["format D: /FS:NTFS at the prompt", 0, [shellAct("WS4", ["format D: /FS:NTFS /Q", "DATA", "Y"])]]],
+    look: [["convert without an administrator's prompt, a wrong label, and /FS:exFAT", 0, [(E) => { const m = E.fleet().WS4, b = E.before(); const s1 = createShell(m, { elevated: false }); E.onAct({ machine: "WS4", type: "cmd", line: "convert D: /FS:NTFS", res: s1.run("convert D: /FS:NTFS"), before: b }); }, shellAct("WS4", ["convert D: /FS:NTFS", "FINANCE"]), shellAct("WS4", ["convert D: /FS:exFAT"])]],
+      ["the copy that's too large, and D:'s properties", 0, [cp, fxAct("WS4", "fx-view", (m) => ({ ok: true }), { what: "props", letter: "D" })]]],
+    extra: (fresh, F, P, t) => {
+      const f = D.makeFleet(); t.setup(f); const m = f.WS4, n = X.filesOn(m, "D").length;
+      if (X.permissions("FAT32") || !X.permissions("NTFS")) F(P + "MODEL: FAT32 has a Security tab, or NTFS hasn't");
+      const sh = createShell(m, { elevated: true }); sh.run("convert D: /FS:NTFS"); const r = sh.run("DATA");
+      if (X.drive(m, "D").fs !== "NTFS" || X.filesOn(m, "D").length !== n || !/Conversion complete/.test(r.out)) F(P + "MODEL: convert didn't make D: NTFS with every file kept");
+      const f2 = D.makeFleet(); t.setup(f2); X.drive(f2.WS4, "D").fs = "exFAT"; if (X.convert(f2.WS4, "D", "NTFS", "DATA").ok) F(P + "MODEL: convert took an exFAT drive");
+      { const f3 = D.makeFleet(); t.setup(f3); const k = X.filesOn(f3.WS4, "D").length; X.convert(f3.WS4, "D", "NTFS", "DATA"); if (X.filesOn(f3.WS4, "D").length !== k || X.drive(f3.WS4, "D").fs !== "NTFS") F(P + "MODEL: the model's convert didn't keep every file"); }
     } };
 };
 /* OI6: a new company phone, set up as fully managed */
@@ -1491,7 +1537,7 @@ function routerChecks(D, F) {
   ({ f, r } = mk()); if (JSON.stringify(JSON.parse(JSON.stringify(f.TECH.routers))) !== JSON.stringify(f.TECH.routers)) F("ROUTER SNAP: a router doesn't survive the engine's copy");
 }
 
-const BASE = { NP: Object.assign({}, NPM), MAC: Object.assign({}, MACM), IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+const BASE = { FX: Object.assign({}, FXM), NP: Object.assign({}, NPM), MAC: Object.assign({}, MACM), IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
 /* Each plant is one defect a check exists to catch, and the check it must
@@ -1618,6 +1664,13 @@ const PLANTS = [
   ["EXTRA OI5: JUDGE", "erasing as Mac OS Extended isn't counted", () => ({ TICKETS: withTicket("OI5", (t) => ({ judge: (a, f) => (a.op === "erase" ? { guess: false } : t.judge(a, f)) })) })],
   ["EXTRA OI5: SOLVABLE", "the reinstall keeps the old data even after an erase", () => ({ MAC: Object.assign({}, MACM, { reinstall: (m, op, d) => { const r = MACM.reinstall(m, op, d); if (op === "install" && r.ok) m.disk.hasData = true; return r; } }) })],
   ["EXTRA OI5: NO LEAK", "a hint names Disk Utility", () => ({ TICKETS: withTicket("OI5", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0] + " Disk Utility does it.", h[1]]; } })) })],
+  ["EXTRA FS1: EXHIBITED", "FAT32 takes any size of file", () => ({ FX: Object.assign({}, FXM, { canCopy: () => ({ ok: true }) }) })],
+  ["EXTRA FS1: JUDGE", "formatting as NTFS isn't counted", () => ({ TICKETS: withTicket("FS1", (t) => ({ judge: (a, f) => (a.type === "fx-format" && a.fs === "NTFS" ? { guess: false } : t.judge(a, f)) })) })],
+  ["EXTRA FS1: SOLVABLE", "format keeps the old file system", () => ({ FX: Object.assign({}, FXM, { format: (m, L, fs, l) => FXM.format(m, L, FXM.drive(m, L).fs, l) }) })],
+  ["EXTRA FS1: NO LEAK", "a hint names exFAT", () => ({ TICKETS: withTicket("FS1", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0], h[1] + " exFAT is the one."]; } })) })],
+  ["EXTRA FS4: MODEL", "convert loses the files", () => ({ FX: Object.assign({}, FXM, { convert: (m, L, fs, lab) => { const r = FXM.convert(m, L, fs, lab); if (r.ok) FXM.format(m, L, "NTFS"); return r; } }) })],
+  ["EXTRA FS4: JUDGE", "formatting D: isn't counted", () => ({ TICKETS: withTicket("FS4", (t) => ({ judge: () => ({ guess: false }) })) })],
+  ["EXTRA FS4: EXHIBITED", "D: arrives already NTFS", () => ({ TICKETS: withTicket("FS4", (t) => ({ setup: (f) => { t.setup(f); f.WS4.fx.drives.D.fs = "NTFS"; } })) })],
   ["EXTRA OI6: MODEL", "the update installs on a low battery without the charger", () => ({ NP: Object.assign({}, NPM, { installUpdate: (m) => { const c = m.battery.charging; m.battery.charging = true; const r = NPM.installUpdate(m); m.battery.charging = c; return r; } }) })],
   ["EXTRA OI6: JUDGE", "finishing set-up unmanaged isn't counted", () => ({ TICKETS: withTicket("OI6", (t) => ({ judge: (a, f) => (a.op === "lock" ? { guess: false } : t.judge(a, f)) })) })],
   ["EXTRA OI6: SOLVABLE", "accepting doesn't enrol the phone", () => ({ NP: Object.assign({}, NPM, { accept: (m) => { const r = NPM.accept(m); if (r.ok) m.enrol = "none"; return r; } }) })],

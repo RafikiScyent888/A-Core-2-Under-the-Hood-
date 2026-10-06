@@ -169,6 +169,11 @@ does. Each ticket names the objective it covers.
     that's finished set-up can't be), staff Wi-Fi, the screen lock the
     policy asks for, and the security update (on the charger), until
     device management shows it compliant.
+- **FS, File systems** (Operating systems), at the PC's own screen:
+  - FS1: a 6 GB video won't go on a FAT32 stick that a Mac must also write
+    to. Save what's on it, format it exFAT, put everything back.
+  - FS4: a FAT32 data drive with years of files and nowhere to park them:
+    convert it to NTFS in place, never format it.
 
 The program's rules apply throughout:
 - unlimited tries
