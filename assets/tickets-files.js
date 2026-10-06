@@ -12,12 +12,19 @@
                  so Tier 2 blocks it everywhere
      FS4  run    a FAT32 data drive with years of files and nowhere to
                  park them: CONVERT it to NTFS in place, never format
-   (FS5 and FS6 follow: an edition upgrade, and updating Linux.)
+     FS5  run    a warranty replacement came with Windows 11 Home, which
+                 can't join the domain: an edition upgrade with the
+                 company's key (not the Store, not the generic key), then
+                 the join, each finishing at a restart
+     FS6  run    Dev's Ubuntu: apt update, then apt upgrade, reboot for the
+                 new kernel and check it; never do-release-upgrade mid-project
    ===================================================================== */
 import * as FX from "./fsys.js";
 import * as WU from "./winupdate.js";
 import * as M from "./machine.js";
 import { APPS } from "./fleet.js";
+import * as ED from "./edition.js";
+import * as INS from "./install.js";
 
 function opt(label, correct, why) { return { label: label, correct: !!correct, why: why || "" }; }
 const FILES = { topic: "File systems", domain: "Operating systems", objective: "handling file systems, updates, and OS upgrades", kind: "files", extra: true, tier: 1, outcome: "resolve", category: "Operating systems › File systems" };
@@ -504,4 +511,244 @@ export const FS3 = Object.assign({}, FILES, {
   adviceWork: "Two things happened overnight: updates went on, and LabelPro broke. Line up the times, and the file the crash names, with what Update history says went on."
 });
 
-export const FILES_TICKETS = [FS1, FS2, FS3, FS4];
+/* --------------------------------- FS5 (run): Home can't join the domain */
+export function fs5Stage(m) {
+  const e = ED.ready(m).ed;
+  if (e.key === "store" || (e.pending && e.pending.key === "store")) return "store";
+  if (ED.home(m) && !e.pending) return "upgrade";
+  if (e.pending) return "restart";
+  if (!e.activated) return "activate";
+  if (!e.joined && !e.joinPending) return "join";
+  if (e.joinPending) return "rejoin";
+  const boot = lastEv(m, function (x) { return x.kind === "ed-boot" && x.done.indexOf("join") >= 0; });
+  if (lastEv(m, function (x) { return x.kind === "opened" && x.app === "sysprot"; }) < boot) return "verify";
+  return "done";
+}
+const ORDER5 = ["upgrade", "restart", "activate", "join", "rejoin", "verify", "done"];
+
+export const FS5 = Object.assign({}, FILES, {
+  id: "FS5", machine: "WS5",
+  title: "My replacement PC won't let me sign in normally",
+  from: "Rosa Ortiz, Reception",
+  brief: ["Hi, Rosa again. The vendor swapped my reception PC under warranty yesterday. It works, but I can't sign in with my normal Rafiki password: I'm on a local account the vendor made, and I can't see the shared drives or the badge printer.",
+    "Please don't wipe it: I've spent all morning getting it the way I like it.",
+    "Mason's note: the licence sheet for that model lists a Windows 11 Pro upgrade key, RFK7P-2QX9M-8TYH4-W6BCD-3JKPV. The PC's local administrator is rafikiadmin (Bench-Tech-2026). PCs join RAFIKI with the itadmin account."],
+  setup: function (fleet) {
+    const m = fleet.WS5;
+    m.edition = "Windows 11 Home"; m.domain = "WORKGROUP"; m.techAccount = { name: "rafikiadmin", password: "Bench-Tech-2026" };
+    ED.ready(m); m.ed.edition = "Windows 11 Home"; m.ed.activated = true; m.ed.joined = false;
+    m.clock = "Oct 06 10:05";
+  },
+  stage: function (fleet) { return fs5Stage(fleet.WS5); },
+  goal: function (fleet) { return fs5Stage(fleet.WS5) === "done"; },
+  scoreFn: function (fleet) { return Math.max(0, ORDER5.indexOf(fs5Stage(fleet.WS5))); },
+  notReady: function (fleet) {
+    const s = fs5Stage(fleet.WS5);
+    if (s === "store") return "Mason: \"Who paid $99.99 in the Store? We already own that licence.\"";
+    if (s === "activate") return "Rosa: \"There's a message in Settings saying Windows isn't activated.\"";
+    if (s === "verify") return "Mason: \"How do you know it's on the domain?\"";
+    return "Rosa tries her Rafiki password: it still isn't accepted on this PC.";
+  },
+  judge: function (act, fleet) {
+    if (act.machine && act.machine !== "WS5") return { guess: false };
+    if (act.type === "ed" && act.op === "store") return { guess: true, say: "That spent $99.99 in the Microsoft Store, when Rafiki already owns a Pro upgrade key for this PC (Mason's licence sheet). Revert to your last snapshot." };
+    if (act.type === "ed" && act.op === "key" && act.res && act.res.ok && act.res.key === "generic") return { guess: true, say: "That's Microsoft's generic key for Pro: it installs the edition but can't activate it. The licensed key does both." };
+    return { guess: false };
+  },
+  hints: function (fleet) {
+    const H = {
+      upgrade: ["Look at which edition of Windows this PC runs, and what System Properties says when you try to join.", "Some editions of Windows can't join a domain at all, and changing edition doesn't need a reinstall."],
+      restart: ["Read the Activation page now.", "An edition change finishes as the PC starts again."],
+      activate: ["Read the activation state.", "A key that installs an edition isn't always one that activates it: a licensed key does both."],
+      join: ["This edition can join a domain now. Where does a Windows PC join one?", "Joining a domain takes an account allowed to add computers to it, not the PC's own administrator."],
+      rejoin: ["Read what Windows said after the join.", "A domain join takes effect as the PC starts again, like the edition change did."],
+      verify: ["How do you know it's on the domain now?", "The PC's own system settings show what it's a member of."],
+      store: ["Read what was just charged, and to whom.", "Rafiki already owns a licence for this: go back to the last point before the purchase."],
+      done: ["It's on the domain. Close the ticket.", "The close question is about why it couldn't join as it came."]
+    };
+    return H[fs5Stage(fleet.WS5)];
+  },
+  moves: function (fleet) {
+    const X = {
+      upgrade: [opt("Change product key in Activation to the Pro key", true),
+        opt("Join the domain from System Properties first", false, "Home can't join a domain: it refuses."),
+        opt("Reinstall Windows 11 Pro from the USB", false, "Rosa asked you not to wipe it, and an edition upgrade keeps everything."),
+        opt("Upgrade in the Microsoft Store app", false, "Rafiki already owns a key for it."),
+        opt("Enter the key on the PC's own sticker", false, "That's the Home key it already has."),
+        opt("Create Rosa a new local account", false, "She needs her domain account.")],
+      restart: [opt("Restart the PC to finish the upgrade", true),
+        opt("Join the domain now", false, "It's still Home until the restart."),
+        opt("Enter the key again", false, "It's waiting for the restart."),
+        opt("Buy Pro in the Store as well", false, "Already paid for."),
+        opt("Reinstall Windows", false, "A restart finishes it."),
+        opt("Escalate to Tier 2", false, "Just restart.")],
+      activate: [opt("Change product key to the company's Pro key", true),
+        opt("Leave it unactivated", false, "Settings nags, and it's not licensed."),
+        opt("Buy Pro in the Store", false, "Rafiki owns a key."),
+        opt("Reinstall Windows 11 Pro", false, "It's Pro already: it needs the right key."),
+        opt("Enter the generic key again", false, "It never activates."),
+        opt("Join the domain and ignore it", false, "Get it licensed first.")],
+      join: [opt("Join RAFIKI in System Properties as itadmin", true),
+        opt("Join it as rafikiadmin", false, "A local administrator can't add PCs to the domain."),
+        opt("Type RAFIKI as a workgroup name", false, "A workgroup isn't the domain."),
+        opt("Map the shared drives by hand", false, "Rosa still can't sign in as herself."),
+        opt("Reinstall Windows 11 Pro first", false, "It's Pro and activated."),
+        opt("Escalate to Tier 2", false, "Joining a PC is Tier 1 work.")],
+      rejoin: [opt("Restart the PC to finish the join", true),
+        opt("Join it again", false, "It's waiting for the restart."),
+        opt("Resolve now", false, "Not a member until it restarts."),
+        opt("Change product key again", false, "The edition's done."),
+        opt("Map the drives by hand", false, "Restart instead."),
+        opt("Escalate", false, "Just restart.")],
+      verify: [opt("Check System Properties shows the RAFIKI domain", true),
+        opt("Resolve without checking", false, "Check it's a member first."),
+        opt("Join it again to be sure", false, "It's joined: look."),
+        opt("Restart again", false, "Look instead."),
+        opt("Reinstall to be safe", false, "It's done."),
+        opt("Escalate", false, "You can check it.")],
+      store: [opt("Revert to your last snapshot", true),
+        opt("Keep it: Pro is Pro", false, "Charged to the wrong account, for a licence Rafiki owns."),
+        opt("Enter the company key on top", false, "The purchase is already made."),
+        opt("Ask Rosa to claim it on expenses", false, "Not how licensing works here."),
+        opt("Reinstall Windows", false, "Revert puts it back."),
+        opt("Escalate the refund to Tier 2", false, "Revert first.")],
+      done: [opt("Resolve the ticket", true),
+        opt("Reinstall Windows to tidy up", false, "Rosa asked you not to."),
+        opt("Buy a Store licence too", false, "It's activated."),
+        opt("Remove rafikiadmin", false, "Not part of this job."),
+        opt("Escalate", false, "It's done."),
+        opt("Join it to a workgroup", false, "It's on the domain.")]
+    };
+    return X[fs5Stage(fleet.WS5)];
+  },
+  closeWhere: "Think about what System Properties said before you changed anything.",
+  close: { prompt: "Rosa asks: \"Why couldn't my new PC join the network like my old one did?\"", options: [
+    opt("It came with Windows 11 Home, which can't join a domain", true),
+    opt("It needed a clean install of Windows before it could ever join", false, "The edition upgrade kept everything. Home was the problem."),
+    opt("The vendor's local account had locked it out of the domain", false, "A local account doesn't block a join. The edition did."),
+    opt("Only Microsoft's generic Pro key lets a PC join a domain", false, "The generic key doesn't activate. Any Pro edition can join."),
+    opt("A new PC must wait a full day before it can join a domain", false, "There's no wait: it joined once it was Pro."),
+    opt("Its network cable was in the wrong port on the wall", false, "It was online: Home refused the join.")] },
+  note: { must: [["home"], ["pro"], ["product key", "key"], ["activat"], ["rafiki", "domain"], ["restart", "rebooted"]],
+    tip: "The edition it came with and why it couldn't join, the key you used (and why not the Store), the restarts, the join and how you checked it." },
+  adviceStart: "Connect to Rosa's PC from the ticket. Before changing anything, find out what this PC is: its edition, and what it's a member of.",
+  adviceWork: "Mason's note has three things in it, and each is for a different step. Rosa's message rules one tool out."
+});
+
+/* ------------------------------------ FS6 (run): Dev's Ubuntu, patched */
+const NEWK = "6.8.0-51-generic";
+export function fs6Stage(m) {
+  const L = m.inst && m.inst.lx; if (!L || !L.apt) return "update";
+  if (L.release !== INS.LX.release) return "release";
+  if (L.apt.pkgs.length) return L.apt.fresh ? "upgrade" : "update";
+  if (L.apt.reboot) return "reboot";
+  const k = lastEv(m, function (e) { return e.kind === "inst-ub-kernel"; });
+  if (L.kernel !== NEWK || lastEv(m, function (e) { return e.kind === "inst-ub-cmd" && /^uname -r$/.test(e.line); }) < k) return "verify";
+  return "done";
+}
+const ORDER6 = ["update", "upgrade", "reboot", "verify", "done"];
+
+export const FS6 = Object.assign({}, FILES, {
+  id: "FS6", machine: "WS3",
+  title: "Can you patch my Ubuntu? But not the big upgrade",
+  from: "Dev Patel, Dev",
+  brief: ["Dev here. The Ubuntu side of my PC hasn't had any updates since you put it on, and it keeps popping up that Ubuntu 26.04 LTS is available.",
+    "Please get the security updates on. But don't move me to 26.04: my build tools only support 24.04 until the project ships in December.",
+    "I'm at my desk all morning, so come over. Ubuntu doesn't take remote support from your laptop."],
+  setup: function (fleet) {
+    const m = fleet.WS3; INS.prepare(m, {});
+    const d = m.disks[0], os = d.parts.filter(function (p) { return p.kind === "os"; })[0], L100 = 100 * 1073741824;
+    os.bytes -= L100; d.parts.splice(d.parts.indexOf(os) + 1, 0, { kind: "linux", bytes: L100, fs: "ext4", label: "", letter: "", health: "Healthy" });
+    m.inst.lx = { installed: true, host: "ws3-dev-ubuntu", user: "dev", signedIn: false };
+    m.inst.fw.order = ["ubuntu", "disk", "usb", "pxe"];
+    INS.aptSetup(m, { kernel: "6.8.0-45-generic", newKernel: NEWK, pkgs: [
+      { name: "linux-image-generic", from: "6.8.0-45.45", to: "6.8.0-51.52" }, { name: "openssl", from: "3.0.13-0ubuntu3.4", to: "3.0.13-0ubuntu3.5" },
+      { name: "libssl3t64", from: "3.0.13-0ubuntu3.4", to: "3.0.13-0ubuntu3.5" }, { name: "sudo", from: "1.9.15p5-3ubuntu5", to: "1.9.15p5-3ubuntu5.24.04.1" },
+      { name: "curl", from: "8.5.0-2ubuntu10.4", to: "8.5.0-2ubuntu10.6" }, { name: "libcurl4t64", from: "8.5.0-2ubuntu10.4", to: "8.5.0-2ubuntu10.6" },
+      { name: "python3.12", from: "3.12.3-1ubuntu0.1", to: "3.12.3-1ubuntu0.8" }, { name: "tzdata", from: "2024a-3ubuntu1.1", to: "2025b-0ubuntu0.24.04" },
+      { name: "openssh-client", from: "1:9.6p1-3ubuntu13.4", to: "1:9.6p1-3ubuntu13.11" }] });
+    m.power = "on"; m.inst.screen = "ub-login";
+  },
+  stage: function (fleet) { return fs6Stage(fleet.WS3); },
+  goal: function (fleet) { return fs6Stage(fleet.WS3) === "done"; },
+  scoreFn: function (fleet) { return Math.max(0, ORDER6.indexOf(fs6Stage(fleet.WS3))); },
+  notReady: function (fleet) {
+    const s = fs6Stage(fleet.WS3);
+    if (s === "release") return "Dev: \"It says 26.04! My build tools won't run on this.\"";
+    if (s === "reboot") return "Dev: \"There's a message about a pending kernel upgrade.\"";
+    if (s === "verify") return "Mason: \"How do you know the new kernel is the one running?\"";
+    return "Dev: \"Software Updater still says there are updates waiting.\"";
+  },
+  judge: function (act, fleet) {
+    if (act.machine && act.machine !== "WS3") return { guess: false };
+    const m = fleet.WS3, ev = m.events[m.events.length - 1];
+    if (act.type === "osinst" && act.op === "ub-cmd" && ev && ev.kind === "inst-ub-release") return { guess: true, say: "That upgraded Ubuntu to a new release, 26.04: every package new. Dev asked for security updates only, and his build tools need 24.04. Revert to your last snapshot." };
+    return { guess: false };
+  },
+  hints: function (fleet) {
+    const H = {
+      update: ["Before installing anything, what does apt know about what's new?", "apt works from its own lists of packages; until they're refreshed, it can't see anything newer."],
+      upgrade: ["apt knows what's new now. What actually installs it?", "Refreshing the lists only tells apt what's new; installing it is a separate step."],
+      reboot: ["Read the last lines apt printed.", "A new kernel only runs once the PC starts again."],
+      verify: ["How do you know the new kernel is the one running?", "The running kernel's version is one command away."],
+      release: ["Read what that upgrade did, against what Dev asked for.", "A new release isn't patching: go back to the last point before it."],
+      done: ["Patched and checked. Close the ticket.", "The close question is about the two apt steps."]
+    };
+    return H[fs6Stage(fleet.WS3)];
+  },
+  moves: function (fleet) {
+    const X = {
+      update: [opt("Run sudo apt update", true),
+        opt("Run sudo apt upgrade straight away", false, "apt's lists are stale: it finds nothing to upgrade."),
+        opt("Run sudo do-release-upgrade", false, "That's a new release, 26.04: Dev said not."),
+        opt("Run apt update without sudo", false, "Refused: it needs root."),
+        opt("Boot Windows and run Windows Update", false, "Windows Update doesn't patch Ubuntu."),
+        opt("Reinstall Ubuntu from the USB", false, "It only needs patching.")],
+      upgrade: [opt("Run sudo apt upgrade and answer Y", true),
+        opt("Run sudo apt update again", false, "The lists are fresh: nothing's installed yet."),
+        opt("Run sudo do-release-upgrade", false, "A new release: not what Dev asked for."),
+        opt("Answer n when apt asks", false, "Nothing installs."),
+        opt("Reboot first", false, "Nothing's installed to finish."),
+        opt("Remove the old kernel", false, "Not needed, and it's the one running.")],
+      reboot: [opt("Reboot the PC with sudo reboot", true),
+        opt("Run sudo apt upgrade again", false, "It's done: the kernel needs a restart."),
+        opt("Log out and back in", false, "A kernel only loads as the PC starts."),
+        opt("Leave it: the update is installed", false, "The old kernel is still the one running."),
+        opt("Run sudo do-release-upgrade", false, "Dev said not."),
+        opt("Shut it down for the night", false, "Dev needs it now: a reboot.")],
+      verify: [opt("Run uname -r and check it's 6.8.0-51", true),
+        opt("Resolve without checking", false, "Check the new kernel is running."),
+        opt("Run sudo apt upgrade again", false, "Nothing left to install."),
+        opt("Reboot again", false, "Look instead."),
+        opt("Run lsb_release -a", false, "That shows the release, not the kernel."),
+        opt("Run sudo do-release-upgrade", false, "Never mid-project.")],
+      release: [opt("Revert to your last snapshot", true),
+        opt("Leave it on 26.04", false, "Dev's build tools need 24.04."),
+        opt("Run apt upgrade to undo it", false, "That doesn't go back a release."),
+        opt("Reinstall 24.04 from the USB", false, "Revert puts it back, with Dev's work."),
+        opt("Reboot it", false, "Still 26.04."),
+        opt("Escalate to Tier 2", false, "Revert first.")],
+      done: [opt("Resolve the ticket", true),
+        opt("Run do-release-upgrade while you're there", false, "Dev said not."),
+        opt("Remove the old kernel", false, "Not needed."),
+        opt("Reboot again", false, "It's done."),
+        opt("Escalate", false, "It's done."),
+        opt("Turn off automatic updates", false, "Not asked for.")]
+    };
+    return X[fs6Stage(fleet.WS3)];
+  },
+  closeWhere: "Think about what each apt command did to the PC, and what it didn't.",
+  close: { prompt: "Dev asks: \"Why did you need both apt update and apt upgrade?\"", options: [
+    opt("update refreshes the package lists; upgrade installs the new versions", true),
+    opt("update installs the security fixes; upgrade moves to the next Ubuntu release", false, "Moving to a new release is do-release-upgrade. upgrade stays on 24.04."),
+    opt("They do the same job; running both of them is just a habit to be safe", false, "upgrade before update found nothing: the lists were stale."),
+    opt("update downloads the drivers for Windows; upgrade installs them for Ubuntu", false, "apt only handles Ubuntu's own packages."),
+    opt("upgrade needs a restart first, and update does that restart for you", false, "Neither restarts. The kernel needed sudo reboot."),
+    opt("update checks the ext4 file system before upgrade is allowed to run", false, "That's fsck's job, not apt's.")] },
+  note: { must: [["apt update"], ["apt upgrade", "full-upgrade"], ["kernel"], ["reboot", "restart"], ["uname", "6.8.0-51"], ["26.04", "release"]],
+    tip: "The two apt steps and what each did, the kernel and the reboot, how you checked the new kernel, and why you didn't move Dev to 26.04." },
+  adviceStart: "Dev's Ubuntu can't be reached by remote support: walk over to his desk. Look at what Ubuntu says before you change anything.",
+  adviceWork: "Dev asked for two things: one to do, and one never to do. Read the Terminal's output after every command: it tells you what's still waiting."
+});
+
+export const FILES_TICKETS = [FS1, FS2, FS3, FS4, FS5, FS6];

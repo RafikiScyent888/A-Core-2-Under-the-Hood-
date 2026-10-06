@@ -205,7 +205,21 @@ function applyUpgrade(m) {
   I.signedIn = false; return null;
 }
 /* Setup's own restart: the PC goes back through its firmware */
-export function restartPC(m) { m.inst.screen = "post"; if (m.inst.lx) m.inst.lx.signedIn = false; hist(m, "restart"); return { ok: true }; }
+export function restartPC(m) {
+  m.inst.screen = "post"; const L = m.inst.lx;
+  if (L) { L.signedIn = false; L.ask = null;
+    /* a new kernel waiting for a reboot is the one that starts now */
+    if (L.apt && L.apt.reboot) { L.kernel = L.apt.newKernel; L.apt.reboot = false; hist(m, "ub-kernel", { kernel: L.kernel }); } }
+  hist(m, "restart"); return { ok: true };
+}
+/* Ubuntu's packages, for a ticket that needs them (FS6): the lists apt
+   has (stale until apt update), what can be upgraded, the kernel waiting
+   for a reboot, and the next release on offer */
+export function aptSetup(m, o) {
+  const L = m.inst.lx; L.kernel = o.kernel || LX.kernel; L.release = o.release || LX.release;
+  L.apt = { fresh: false, pkgs: JSON.parse(JSON.stringify(o.pkgs || [])), newKernel: o.newKernel, reboot: false, next: o.next || "26.04 LTS", upgraded: 0 };
+  return L.apt;
+}
 
 /* ----------------------------------------- Disk Management (Windows) */
 /* the partitions as Disk Management lists them */
@@ -302,10 +316,15 @@ export function lxCmd(m, line) {
   const I = m.inst, L = I.lx, raw = String(line || "").trim(), c = raw.replace(/\s+/g, " ");
   hist(m, "ub-cmd", { line: c.toLowerCase() });
   const dk = m.disks[0], gb = function (b) { return Math.round(b / GB) + "G"; };
-  if (!c) return "";
-  if (c === "lsb_release -a") return "No LSB modules are available.\nDistributor ID:\tUbuntu\nDescription:\t" + LX.release + "\nRelease:\t24.04\nCodename:\tnoble";
-  if (c === "uname -r") return LX.kernel;
-  if (c === "hostname" || c === "hostnamectl") return c === "hostname" ? L.host : " Static hostname: " + L.host + "\nOperating System: " + LX.release + "\n          Kernel: Linux " + LX.kernel;
+  if (!c && !L.ask) return "";
+  const REL = L.release || LX.release, KER = L.kernel || LX.kernel;
+  /* a question the last command asked: apt's Y/n, the release upgrade's y/N */
+  if (L.ask) { const a = c.toLowerCase(), q = L.ask; L.ask = null;
+    if (q === "upgrade") { if (a === "" || a === "y" || a === "yes") return aptApply(m); return "Abort."; }
+    if (q === "release") { if (a === "y" || a === "yes") return releaseUp(m); return "Upgrade cancelled. Your system is unchanged."; } }
+  if (c === "lsb_release -a") return "No LSB modules are available.\nDistributor ID:\tUbuntu\nDescription:\t" + REL + "\nRelease:\t" + REL.match(/\d+\.\d+/)[0] + "\nCodename:\t" + (/26\.04/.test(REL) ? "resolute" : "noble");
+  if (c === "uname -r") return KER;
+  if (c === "hostname" || c === "hostnamectl") return c === "hostname" ? L.host : " Static hostname: " + L.host + "\nOperating System: " + REL + "\n          Kernel: Linux " + KER;
   const hn = c.match(/^(sudo )?hostnamectl (set-hostname|hostname) (\S+)$/);
   if (hn) { if (!hn[1]) return "Could not set static hostname: Access denied"; if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(hn[3])) return "Invalid hostname '" + hn[3] + "'"; L.host = hn[3]; hist(m, "ub-hostname", { host: hn[3] }); return ""; }
   if (c === "whoami") return L.user;
@@ -313,6 +332,7 @@ export function lxCmd(m, line) {
   if (c === "ls") return "Desktop  Documents  Downloads  Music  Pictures  Public  Templates  Videos";
   if (c === "lsblk" || c === "lsblk -f") { let n = 0; return "NAME          SIZE TYPE MOUNTPOINTS\nnvme0n1     " + gb(dk.bytes) + " disk\n" + dk.parts.filter(function (p) { return p.kind !== "unalloc"; }).map(function (p) { n++; return "├─nvme0n1p" + n + "  " + gb(p.bytes).padStart(5) + " part " + (p.kind === "efi" ? "/boot/efi  (vfat)" : p.kind === "linux" ? "/  (ext4)" : p.kind === "os" ? "   (ntfs: Windows)" : p.kind === "recovery" ? "   (ntfs: Recovery)" : "   (" + (p.fs || "").toLowerCase() + ")"); }).join("\n"); }
   if (c === "df -h" || c === "df -h /") { const p = dk.parts.filter(function (x) { return x.kind === "linux"; })[0]; return "Filesystem      Size  Used Avail Use% Mounted on\n/dev/nvme0n1p" + (dk.parts.indexOf(p) + 1) + "   " + gb(p.bytes) + "  9.8G  " + gb(p.bytes - 10.5 * GB) + "  11% /"; }
+  if (L.apt) { const r = aptCmd(m, c); if (r != null) return r; }
   if (/^sudo apt(-get)? update$/.test(c)) return "Hit:1 http://archive.ubuntu.com/ubuntu noble InRelease\nReading package lists... Done\nAll packages are up to date.";
   if (/^sudo apt(-get)? (full-)?upgrade( -y)?$/.test(c)) return "Reading package lists... Done\nCalculating upgrade... Done\n0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.";
   if (/^apt(-get)? (update|upgrade)/.test(c)) return "E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)\nE: Unable to acquire the dpkg frontend lock, are you root?";
@@ -320,6 +340,40 @@ export function lxCmd(m, line) {
   if (c === "help") return "Try: lsb_release -a · uname -r · hostnamectl · lsblk · df -h · whoami · sudo apt update";
   if (c === "reboot" || c === "sudo reboot") { restartPC(m); return ""; }
   return c.split(" ")[0] + ": command not found";
+}
+
+/* apt, and the release upgrade, on a ticket's Ubuntu */
+function aptCmd(m, c) {
+  const L = m.inst.lx, A = L.apt;
+  if (/^(apt|apt-get) (update|upgrade|full-upgrade|dist-upgrade)/.test(c)) return "E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)\nE: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), are you root?";
+  if (/^sudo apt(-get)? update$/.test(c)) {
+    A.fresh = true; hist(m, "ub-apt-update");
+    return "Hit:1 http://archive.ubuntu.com/ubuntu noble InRelease\nGet:2 http://archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]\nGet:3 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]\nFetched 1,203 kB in 2s (601 kB/s)\nReading package lists... Done\nBuilding dependency tree... Done\nReading state information... Done\n" + (A.pkgs.length ? A.pkgs.length + " packages can be upgraded. Run 'apt list --upgradable' to see them." : "All packages are up to date.");
+  }
+  if (/^(sudo )?apt list --upgradable$/.test(c)) { hist(m, "ub-apt-list"); return "Listing... Done" + (A.fresh ? A.pkgs.map(function (p) { return "\n" + p.name + "/noble-updates,noble-security " + p.to + " amd64 [upgradable from: " + p.from + "]"; }).join("") : ""); }
+  const up = c.match(/^sudo apt(-get)? (upgrade|full-upgrade|dist-upgrade)( -y)?$/);
+  if (up) {
+    hist(m, "ub-apt-upgrade", { fresh: A.fresh });
+    const head = "Reading package lists... Done\nBuilding dependency tree... Done\nReading state information... Done\nCalculating upgrade... Done\n";
+    if (!A.fresh || !A.pkgs.length) return head + "0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.";
+    if (up[3]) return head + aptApply(m);
+    L.ask = "upgrade";
+    return head + "The following packages will be upgraded:\n  " + A.pkgs.map(function (p) { return p.name; }).join(" ") + "\n" + A.pkgs.length + " upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\nNeed to get 184 MB of archives.\nDo you want to continue? [Y/n]";
+  }
+  if (/^(sudo )?cat \/var\/run\/reboot-required$/.test(c)) return A.reboot ? "*** System restart required ***" : "cat: /var/run/reboot-required: No such file or directory";
+  if (c === "do-release-upgrade") return "You need to be root to run this application";
+  if (c === "sudo do-release-upgrade") { L.ask = "release"; hist(m, "ub-release-ask"); return "Checking for a new Ubuntu release\nNew release '" + A.next + "' available.\n\nDo you want to start the upgrade?\n\nThis upgrades the whole system to Ubuntu " + A.next + ": a new release, with new versions of every package.\n\nContinue [yN]"; }
+  if (/^df -ht( \/)?$/i.test(c)) { const dk = m.disks[0], p = dk.parts.filter(function (x) { return x.kind === "linux"; })[0]; return "Filesystem     Type  Size  Used Avail Use% Mounted on\n/dev/nvme0n1p" + (dk.parts.indexOf(p) + 1) + " ext4  " + Math.round(p.bytes / GB) + "G  9.8G  " + Math.round(p.bytes / GB - 10.5) + "G  11% /\n/dev/nvme0n1p1 vfat  100M   34M   67M  34% /boot/efi"; }
+  return null;
+}
+function aptApply(m) {
+  const L = m.inst.lx, A = L.apt, n = A.pkgs.length, kern = A.pkgs.some(function (p) { return /^linux-image/.test(p.name); });
+  A.pkgs = []; A.upgraded += n; if (kern) A.reboot = true; hist(m, "ub-apt-applied", { n: n, kernel: kern });
+  return A.pkgs.length === 0 && n ? "Setting up openssl (3.0.13-0ubuntu3.5) ...\nSetting up " + (kern ? "linux-image-" + A.newKernel + " (" + A.newKernel.replace("-generic", "") + ") ...\n" : "") + "Processing triggers for man-db (2.12.0-4build2) ...\n" + n + " upgraded, 0 newly installed, 0 to remove and 0 not upgraded." + (kern ? "\n\nPending kernel upgrade!\n\nRunning kernel version:\n  " + L.kernel + "\n\nDiagnostics:\n  The currently running kernel version is not the expected kernel version " + A.newKernel + ".\n\nRestarting the system to load the new kernel will not be handled automatically, so you should consider rebooting." : "") : "0 upgraded.";
+}
+function releaseUp(m) {
+  const L = m.inst.lx, A = L.apt; L.release = "Ubuntu " + A.next.replace(" LTS", "") + " LTS"; A.pkgs = []; A.reboot = true; A.newKernel = "6.17.0-5-generic"; hist(m, "ub-release", { to: A.next });
+  return "Reading cache\nChecking package manager\nUpdating repository information\nCalculating the changes\nFetching and installing the upgrade (1,904 packages)\n\nSystem upgrade is complete.\n\nRestart required\nTo finish the upgrade, a restart is required.";
 }
 
 /* ---------------------------------------------- the first-run setup */

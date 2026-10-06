@@ -179,6 +179,11 @@ does. Each ticket names the objective it covers.
     restart, pause updates, test, and escalate so it's blocked everywhere.
   - FS4: a FAT32 data drive with years of files and nowhere to park them:
     convert it to NTFS in place, never format it.
+  - FS5: a replacement PC came with Windows 11 Home, which can't join the
+    domain: upgrade the edition with the company's Pro key (not the Store),
+    then join RAFIKI.
+  - FS6: patch Dev's Ubuntu at his desk: apt update, apt upgrade, reboot
+    for the new kernel and check it, and never the release upgrade.
 
 The program's rules apply throughout:
 - unlimited tries

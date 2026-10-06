@@ -18,15 +18,16 @@ import { drawMail } from "./mailui.js";
 import * as BK from "./backup.js";
 import * as FX from "./fsys.js";
 import * as WU from "./winupdate.js";
+import * as ED from "./edition.js";
 import * as INS from "./install.js";
 import { drawInstall } from "./installui.js";
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function btn(label, cls, fn, aria) { const b = el("button", cls || "w-btn", label); b.type = "button"; if (aria) b.setAttribute("aria-label", aria); b.addEventListener("click", fn); return b; }
 
-const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update", mail: "Mail", filehist: "File History", props: "Properties", health: "PC Health Check", diskmgmt: "Disk Management", w11setup: "Windows 11 Setup (setup.exe)" };
+const NAME = { cmd: "Command Prompt", ps: "Windows PowerShell", taskmgr: "Task Manager", eventvwr: "Event Viewer", settings: "Settings", softcenter: "Software Center", explorer: "File Explorer", helpdesk: "Help Desk", winver: "About Windows", edge: "Microsoft Edge", security: "Windows Security", sysprot: "System Properties", netconn: "Network Connections", winupdate: "Windows Update", mail: "Mail", filehist: "File History", props: "Properties", health: "PC Health Check", diskmgmt: "Disk Management", w11setup: "Windows 11 Setup (setup.exe)", activation: "Activation" };
 const TOOLS = ["mail", "cmd", "ps", "taskmgr", "eventvwr", "settings", "softcenter", "explorer", "edge", "security", "sysprot", "netconn", "winupdate", "filehist"];
-const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point system restore rstrui computer name rename domain join workgroup", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check", mail: "email outlook inbox messages", filehist: "file history backup back up control panel restore personal files", health: "pc health check windows 11 requirements upgrade tpm secure boot processor", diskmgmt: "disk management diskmgmt.msc partitions volumes shrink extend format drive", w11setup: "setup.exe usb upgrade install windows 11 win11_24h2" };
+const FIND = { cmd: "cmd terminal prompt", ps: "powershell terminal", taskmgr: "taskmgr processes", eventvwr: "eventvwr logs events", settings: "apps installed programs control panel appwiz", softcenter: "install reinstall apps company portal", explorer: "files folders this pc usb drive", edge: "browser internet history web", security: "defender antivirus virus threat protection scan malware", sysprot: "restore point system protection sysdm.cpl create a restore point system restore rstrui computer name rename domain join workgroup", netconn: "network adapter ethernet ncpa.cpl connections", winupdate: "updates update check", mail: "email outlook inbox messages", filehist: "file history backup back up control panel restore personal files", health: "pc health check windows 11 requirements upgrade tpm secure boot processor", diskmgmt: "disk management diskmgmt.msc partitions volumes shrink extend format drive", w11setup: "setup.exe usb upgrade install windows 11 win11_24h2", activation: "activation product key edition upgrade windows pro home settings system about" };
 
 export function createDesktop(host, ctx) {
   let wins = [], active = null, wid = 1, start = false, run = null, dialog = null, bootNote = null;
@@ -109,7 +110,7 @@ export function createDesktop(host, ctx) {
     /* a PC being installed: its firmware, Windows Setup, or first run */
     if (INS.screen(mm)) { screen.classList.add("inst"); drawInstall(screen, mm, { act: function (x) { act(x); }, before: ctx.before, draw: draw }); return; }
     const top = el("div", "sign-bar");
-    const as = INS.signedInAs(mm);
+    const as = INS.signedInAs(mm) || (mm.ed && !mm.ed.joined ? mm.host + "\\" + mm.user + " (local account" + (mm.userIsAdmin ? ", administrator)" : ", standard user)") : null);
     top.appendChild(el("span", null, mm.host + " · signed in as " + (as || "RAFIKI\\" + mm.user + (mm.userIsAdmin ? " (administrator)" : " (standard user)"))));
     screen.appendChild(top);
     const area = el("div", "desk-area" + (mm.shellGone ? " no-shell" : ""));
@@ -165,6 +166,7 @@ export function createDesktop(host, ctx) {
     setTimeout(function () { q.focus(); }, 0);
     const items = TOOLS.slice(); if (ctx.isTech) items.unshift("helpdesk");
     /* a PC under the install model: PC Health Check, and setup.exe while the installer USB is in it */
+    if (m().ed) items.push("activation");
     if (INS.managed(m()) && m().inst.os) { items.push("diskmgmt"); items.push("health"); if (m().inst.media && /Windows 10/.test(m().inst.os.name)) items.push("w11setup"); }
     items.forEach(function (a) {
       const li = el("li", "sm-app"); li.dataset.find = (NAME[a] + " " + a + " " + (FIND[a] || "")).toLowerCase(); li.appendChild(el("span", "sm-name", NAME[a]));
@@ -236,6 +238,7 @@ export function createDesktop(host, ctx) {
     if (w.app === "sysprot") body.appendChild(drawSysProt(w));
     if (w.app === "netconn") body.appendChild(drawNetConn(w));
     if (w.app === "winupdate") body.appendChild(drawWinUpdate(w));
+    if (w.app === "activation") body.appendChild(drawActivation(w));
     if (w.app === "props") body.appendChild(drawProps(w));
     if (w.app === "filehist") body.appendChild(drawFileHistory(w));
     if (w.app === "health") body.appendChild(drawHealth(w));
@@ -588,6 +591,11 @@ export function createDesktop(host, ctx) {
     const dom = mm.domain || "RAFIKI", wg = dom === "WORKGROUP";
     const cdl = el("dl", "doc-dl"); [["Full computer name", mm.host + (wg ? "" : "." + dom.toLowerCase() + ".local")], [wg ? "Workgroup" : "Domain", wg ? "WORKGROUP" : dom.toLowerCase() + ".local"]].forEach(function (kv) { cdl.appendChild(el("dt", null, kv[0])); cdl.appendChild(el("dd", null, kv[1])); }); wrap.appendChild(cdl);
     if (INS.managed(mm) && (mm.inst.pendingName || mm.inst.joinPending)) wrap.appendChild(el("p", "dlg-error", "Changes will take effect after you restart this computer."));
+    if (mm.ed) {
+      wrap.appendChild(el("p", null, "Edition: " + mm.ed.edition));
+      if (mm.ed.joinPending) wrap.appendChild(el("p", "dlg-error", "Changes will take effect after you restart this computer."));
+      const cr = el("div", "dlg-row"); cr.appendChild(btn("Change…", "w-btn", function () { askUAC("System Properties", function () { dialog = { kind: "ed-join", step: "form", member: mm.ed.joined || mm.ed.joinPending ? "domain" : "workgroup", domain: "" }; draw(); }); }, "Change this computer's domain or workgroup")); wrap.appendChild(cr);
+    }
     if (INS.managed(mm)) { const cr = el("div", "dlg-row"); cr.appendChild(btn("Change…", "w-btn", function () { askUAC("System Properties", function () { dialog = { kind: "sysname", step: "form", name: mm.inst.pendingName || mm.host, member: wg && !mm.inst.joinPending ? "workgroup" : "domain", domain: wg ? "" : "RAFIKI" }; draw(); }); }, "Change this computer's name or domain")); wrap.appendChild(cr); }
     wrap.appendChild(el("h4", "set-h", "System Properties › System Protection"));
     if (!mm.restore.available) { wrap.appendChild(el("p", null, "System Restore is not available on Windows Server. Servers are protected with Windows Server Backup instead.")); return wrap; }
@@ -791,6 +799,22 @@ export function createDesktop(host, ctx) {
     return wrap;
   }
 
+  /* Settings › System › Activation: the edition, its activation, Change
+     product key, and the Store's upgrade */
+  function drawActivation(w) {
+    const mm = ED.ready(m()), e = mm.ed; const wrap = el("div", "set activation");
+    wrap.appendChild(el("h4", "set-h", "Settings › System › Activation"));
+    const dl = el("dl", "doc-dl"); [["Edition", e.edition], ["Activation state", ED.status(mm)]].forEach(function (kv) { dl.appendChild(el("dt", null, kv[0])); dl.appendChild(el("dd", null, kv[1])); }); wrap.appendChild(dl);
+    if (!e.activated && !e.pending) { const b = el("p", "fh-warn", "⚠ Windows isn't activated."); b.setAttribute("role", "alert"); wrap.appendChild(b); }
+    const r = el("div", "dlg-row");
+    if (e.pending) r.appendChild(btn("Restart now", "w-btn primary", function () { restart("edition"); }, "Restart now to finish the upgrade"));
+    r.appendChild(btn("Change product key", "w-btn" + (e.pending ? "" : " primary"), function () { askUAC("Windows Activation", function () { dialog = { kind: "ed-key" }; draw(); }); }, "Change product key"));
+    if (ED.home(mm) && !e.pending) r.appendChild(btn("Upgrade in the Microsoft Store app", "w-btn", function () { dialog = { kind: "ed-store" }; draw(); }, "Upgrade to Windows 11 Pro in the Microsoft Store app"));
+    wrap.appendChild(r);
+    if (w.msg) { const p = el("p", w.msg.bad ? "dlg-error" : "fh-msg", w.msg.text); p.setAttribute("role", "status"); wrap.appendChild(p); }
+    return wrap;
+  }
+
   /* --------------------------------------------------------- dialogs */
   function drawDialog() {
     const d = dialog; const mm = m();
@@ -861,6 +885,44 @@ export function createDesktop(host, ctx) {
         if (!r.ok) { d.err = r.text; if (!r.needCreds) d.step = "form"; draw(); return; }
         dialog = { kind: "restart-now", text: r.text }; draw();
       }, "Join the domain with this account"));
+      row.appendChild(btn("Cancel", "w-btn", function () { d.step = "form"; d.err = ""; draw(); }));
+    }
+    if (d.kind === "ed-key") {
+      box.appendChild(el("h3", "dlg-h", "Enter a product key"));
+      box.appendChild(el("p", null, "Your product key should be in an email from whoever sold or distributed Windows to you, or on the box the Windows DVD or USB came in."));
+      const l = el("label", null, "Product key"); const inp = el("input", "w-input"); inp.id = "ed-key-" + mm.id; l.setAttribute("for", inp.id); inp.setAttribute("autocomplete", "off"); inp.setAttribute("spellcheck", "false"); inp.placeholder = "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"; box.appendChild(l); box.appendChild(inp);
+      if (d.err) { const e = el("p", "dlg-err", d.err); e.setAttribute("role", "alert"); box.appendChild(e); }
+      row.appendChild(btn("Next", "w-btn primary", function () { const before = ctx.before(); const r = ED.changeKey(mm, inp.value); act({ type: "ed", op: "key", res: r, before: before }); if (!r.ok) { d.err = r.text; draw(); return; } dialog = { kind: "message", title: r.upgrade ? "Upgrade your edition of Windows" : "Activation", text: r.text }; draw(); }, "Next: use this product key"));
+      row.appendChild(btn("Cancel", "w-btn", close));
+    }
+    if (d.kind === "ed-store") {
+      box.appendChild(el("h3", "dlg-h", "Microsoft Store: Windows 11 Pro"));
+      box.appendChild(el("p", null, "Upgrade this PC to Windows 11 Pro. $99.99, charged to the account signed in to the Store."));
+      row.appendChild(btn("Buy", "w-btn primary", function () { const before = ctx.before(); const r = ED.store(mm); act({ type: "ed", op: "store", res: r, before: before }); dialog = { kind: "message", title: "Microsoft Store", text: r.text }; draw(); }, "Buy Windows 11 Pro in the Microsoft Store"));
+      row.appendChild(btn("Cancel", "w-btn", close));
+    }
+    if (d.kind === "ed-join" && d.step === "form") {
+      box.appendChild(el("h3", "dlg-h", "Computer Name/Domain Changes")); box.appendChild(el("p", null, "Computer name: " + mm.host));
+      const g = el("fieldset", "cn-member"); g.appendChild(el("legend", null, "Member of"));
+      [["domain", "Domain"], ["workgroup", "Workgroup"]].forEach(function (o) { const id = "ej-" + o[0] + "-" + mm.id; const r = el("input"); r.type = "radio"; r.name = "ej-member-" + mm.id; r.id = id; r.checked = d.member === o[0]; r.addEventListener("change", function () { d.member = o[0]; d.err = ""; draw(); }); const l = el("label", null, " " + o[1]); l.setAttribute("for", id); const w2 = el("div", "cn-opt"); w2.appendChild(r); w2.appendChild(l); g.appendChild(w2); });
+      const di = el("input", "w-input"); di.id = "ej-dom-" + mm.id; di.value = d.member === "domain" ? d.domain : "WORKGROUP"; di.disabled = d.member !== "domain"; di.setAttribute("aria-label", d.member === "domain" ? "Domain" : "Workgroup"); di.setAttribute("autocomplete", "off"); g.appendChild(di);
+      box.appendChild(g);
+      if (d.err) { const e = el("p", "dlg-err", d.err); e.setAttribute("role", "alert"); box.appendChild(e); }
+      row.appendChild(btn("OK", "w-btn primary", function () {
+        if (d.member !== "domain") { close(); return; }
+        d.domain = di.value;
+        if (ED.home(mm)) { const before = ctx.before(); const r = ED.join(mm, { domain: d.domain }); act({ type: "ed", op: "join", res: r, before: before }); d.err = r.text; draw(); return; }
+        d.step = "creds"; d.err = ""; draw();
+      }, "OK: apply the membership"));
+      row.appendChild(btn("Cancel", "w-btn", close));
+    }
+    if (d.kind === "ed-join" && d.step === "creds") {
+      box.appendChild(el("h3", "dlg-h", "Windows Security")); box.appendChild(el("p", null, "Computer Name/Domain Changes: enter the name and password of an account with permission to join the domain."));
+      const u = el("input", "w-input"); u.id = "ej-u-" + mm.id; u.value = d.user || ""; const lu = el("label", null, "User name"); lu.setAttribute("for", u.id); u.setAttribute("autocomplete", "off");
+      const p = el("input", "w-input"); p.id = "ej-p-" + mm.id; p.type = "password"; const lp = el("label", null, "Password"); lp.setAttribute("for", p.id);
+      [lu, u, lp, p].forEach(function (x) { box.appendChild(x); });
+      if (d.err) { const e = el("p", "dlg-err", d.err); e.setAttribute("role", "alert"); box.appendChild(e); }
+      row.appendChild(btn("OK", "w-btn primary", function () { d.user = u.value; const before = ctx.before(); const r = ED.join(mm, { domain: d.domain, user: u.value, pass: p.value }); act({ type: "ed", op: "join", res: r, before: before }); if (!r.ok) { d.err = r.text; if (!r.needCreds) d.step = "form"; draw(); return; } dialog = { kind: "restart-now", text: r.text }; draw(); }, "Join the domain with this account"));
       row.appendChild(btn("Cancel", "w-btn", function () { d.step = "form"; d.err = ""; draw(); }));
     }
     if (d.kind === "wu-remove") {

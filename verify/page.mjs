@@ -51,7 +51,7 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491", OI5: "INC20492", OI6: "INC20493", FS1: "INC20494", FS2: "INC20495", FS3: "INC20496", FS4: "INC20497" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491", OI5: "INC20492", OI6: "INC20493", FS1: "INC20494", FS2: "INC20495", FS3: "INC20496", FS4: "INC20497", FS5: "INC20498", FS6: "INC20499" };
 const NOTES = {
   FS2: "Updates were paused, so I resumed them and checked. Installed the cumulative update KB5069213, .NET and Defender's update; left the optional Intel driver and the 24H2 feature update, as policy says Tier 2 tests those. Set active hours 8:00 to 18:00 for reception, restarted, and Update history shows the build.",
   FS1: "Copying the 6 GB video failed: the stick was FAT32, which can't hold a file of 4 GB or more. Copied her pitch and price list to her Desktop first, formatted the stick as exFAT because the client's Mac must write to it (a Mac only reads NTFS), then copied her files back and the video on.",
@@ -152,9 +152,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 88) F("LOAD: the queue shows " + items.length + " tickets, not 88");
+      if (items.length !== 90) F("LOAD: the queue shows " + items.length + " tickets, not 90");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 15 || count(/Walk: checklist/) !== 15 || count(/Run: on your own/) !== 58) F("LOAD: the queue's labels are not 15 crawl, 15 walk, 58 run");
+      if (count(/Crawl: guided/) !== 15 || count(/Walk: checklist/) !== 15 || count(/Run: on your own/) !== 60) F("LOAD: the queue's labels are not 15 crawl, 15 walk, 60 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
       /* Windows 11: the taskbar's icons sit in a cluster in the middle of the screen, Start first */
       const tbc = await p.evaluate(() => { const b = Array.from(document.querySelectorAll(".task-mid .tb")); const l = b[0].getBoundingClientRect(), r = b[b.length - 1].getBoundingClientRect(); return { off: (l.left + r.right) / 2 - innerWidth / 2, first: b[0].getAttribute("aria-label") }; });
@@ -170,7 +170,7 @@ async function run(rewrites, groups) {
       const order = await p.evaluate(() => Array.from(document.querySelectorAll(".hd2-q h3.qsec, .hd2-q .qi")).map((e) => e.tagName === "H3" ? "H" : (e.querySelector(".badge") ? e.querySelector(".badge").textContent : "NONE")));
       const hx = order.indexOf("H", 1); const sims = order.slice(1, hx), extra = order.slice(hx + 1);
       if (sims.length !== 66 || sims.some((x) => !/^Exam sim · /.test(x))) F("EXTRA: the sims section does not hold 66 tickets each badged Exam sim");
-      if (extra.length !== 22 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12, 18).some((x) => x !== "Extra training · OS installation") || extra.slice(18).some((x) => x !== "Extra training · File systems")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6, OI1–OI6 and FS1–FS4 badged with their objectives: " + JSON.stringify(extra));
+      if (extra.length !== 24 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12, 18).some((x) => x !== "Extra training · OS installation") || extra.slice(18).some((x) => x !== "Extra training · File systems")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6, OI1–OI6 and FS1–FS6 badged with their objectives: " + JSON.stringify(extra));
       if (await p.locator(".qi .badge").evaluateAll((bs) => bs.some((b) => !b.querySelector("svg.ico")))) F("EXTRA: a badge has no icon");
       await p.locator(".hd2-jb", { hasText: "Extra training" }).click();
       if (!(await p.locator(".qi", { hasText: INC.X1 }).isVisible())) F("EXTRA: Jump to Extra training does not bring X1 into view");
@@ -499,6 +499,65 @@ async function run(rewrites, groups) {
       if ((await guesses(p)) !== 1 || !/every other PC/.test(await hd(p).innerText())) F("FILES: FS3's Resolve after the fix wasn't refused with Tier 2's reason");
       await hd(p).getByRole("button", { name: "Escalate to Tier 2", exact: true }).click(); await p.waitForTimeout(200);
       if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("FILES: FS3's Escalate was refused");
+      /* FS5: Home refuses the join (not counted); the Store purchase
+         counted and reverted; the company key, the restart, Pro activated;
+         the join as itadmin, the restart, the domain checked */
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await take(p, "FS5"); let r6 = await connect(p, "WS5");
+      const wb6 = (n) => r6.getByRole("button", { name: n, exact: true });
+      const creds6 = async (u) => { const c = r6.locator(".w-dialog.uac-creds"); await c.locator("input").nth(0).fill(u); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); };
+      if (!/WS5-RECEPT\\recept \(local account/.test(await r6.locator(".sign-bar").innerText())) F("FILES: FS5's PC doesn't show a local account");
+      await tool(r6, "domain", "Open System Properties"); await wb6("Change this computer's domain or workgroup").click(); await creds6(".\\rafikiadmin");
+      await r6.locator('[id^="ej-domain-"]').check(); await r6.locator('[id^="ej-dom-"]').fill("RAFIKI"); await wb6("OK: apply the membership").click();
+      if (!/Windows 11 Home can't join a domain/.test(await r6.locator(".w-dialog").innerText()) || (await guesses(p))) F("FILES: FS5's Home doesn't refuse the join in words, or it was counted");
+      await r6.locator(".w-dialog").getByRole("button", { name: "Cancel" }).click();
+      await tool(r6, "activation", "Open Activation"); await wb6("Upgrade to Windows 11 Pro in the Microsoft Store app").click(); await wb6("Buy Windows 11 Pro in the Microsoft Store").click(); await p.waitForTimeout(150);
+      if ((await guesses(p)) !== 1) F("FILES: FS5's Store purchase wasn't counted");
+      await r6.locator(".w-dialog").getByRole("button", { name: "OK" }).click();
+      await r6.getByRole("button", { name: "Revert to snapshot" }).click(); await p.waitForTimeout(300);
+      if ((await p.evaluate(() => window.__LAP.engine.machine("WS5").ed.pending)) !== null) F("FILES: FS5's revert didn't undo the Store purchase");
+      await tool(r6, "activation", "Open Activation"); await wb6("Change product key").click(); await creds6("rafikiadmin");
+      await r6.locator('[id^="ed-key-"]').fill("RFK7P-2QX9M-8TYH4-W6BCD-3JKPV"); await wb6("Next: use this product key").click();
+      if (!/Upgrade your edition of Windows/.test(await r6.locator(".w-dialog").innerText())) F("FILES: FS5's key doesn't offer the edition upgrade");
+      await r6.locator(".w-dialog").getByRole("button", { name: "OK" }).click(); await wb6("Restart now to finish the upgrade").click(); await p.waitForTimeout(400);
+      await r6.getByRole("button", { name: /Reconnect to/ }).click(); await p.waitForTimeout(1900);
+      await tool(r6, "activation", "Open Activation");
+      { const t = await r6.locator(".activation").innerText(); if (!/Windows 11 Pro/.test(t) || !/activated with a digital licence/.test(t)) F("FILES: FS5's Activation doesn't show Pro, activated"); }
+      await tool(r6, "domain", "Open System Properties"); await wb6("Change this computer's domain or workgroup").click(); await creds6("rafikiadmin");
+      await r6.locator('[id^="ej-domain-"]').check(); await r6.locator('[id^="ej-dom-"]').fill("RAFIKI"); await wb6("OK: apply the membership").click();
+      await r6.locator('[id^="ej-u-"]').fill("RAFIKI\\itadmin"); await r6.locator('[id^="ej-p-"]').fill("Bench-Tech-2026"); await wb6("Join the domain with this account").click();
+      if (!/Welcome to the RAFIKI domain/.test(await r6.locator(".w-dialog").innerText())) F("FILES: FS5's join isn't welcomed");
+      await r6.locator(".w-dialog").getByRole("button", { name: "Restart now" }).click(); await p.waitForTimeout(400);
+      await r6.getByRole("button", { name: /Reconnect to/ }).click(); await p.waitForTimeout(1900);
+      await tool(r6, "domain", "Open System Properties");
+      if (!/rafiki\.local/.test(await r6.locator(".sysprot").innerText())) F("FILES: FS5's System Properties don't show the domain");
+      const f5 = await p.evaluate(() => { const E = window.__LAP.engine; return { st: E.ticket().stage(E.fleet()), g: E.T().guesses }; });
+      if (f5.st !== "done" || f5.g !== 1) F("FILES: FS5 through the screens ends " + JSON.stringify(f5) + ", not done with one wrong move");
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click(); await p.waitForTimeout(200);
+      if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("FILES: FS5's Resolve was refused");
+      /* FS6: at Dev's desk. Remote support can't reach Ubuntu; upgrade
+         before update finds nothing; update, upgrade (Y); the release
+         upgrade declined; reboot, GRUB, Ubuntu; uname -r */
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await take(p, "FS6"); await p.waitForTimeout(200);
+      await p.getByRole("button", { name: /^Walk to Dev's desk/ }).first().click(); await p.waitForSelector(".wo-desk", { timeout: 90000 });
+      const mon6 = p.locator(".wo-monitor"), b6 = (n) => mon6.getByRole("button", { name: n, exact: true });
+      const term = async (l) => { await mon6.locator('[id^="ub-in-"]').fill(l); await mon6.locator('[id^="ub-in-"]').press("Enter"); await p.waitForTimeout(100); };
+      await b6("Let Dev sign in to Ubuntu").click();
+      await term("sudo apt upgrade");
+      if (!/0 upgraded/.test(await mon6.locator(".ub-term-out").innerText())) F("FILES: FS6's apt upgrade before update found something");
+      await term("sudo apt update");
+      if (!/9 packages can be upgraded/.test(await mon6.locator(".ub-term-out").innerText())) F("FILES: FS6's apt update doesn't report what can be upgraded");
+      await term("sudo do-release-upgrade"); await term("N");
+      await term("sudo apt upgrade"); await term("");
+      if (!/Pending kernel upgrade/.test(await mon6.locator(".ub-term-out").innerText())) F("FILES: FS6's upgrade doesn't say the kernel is waiting");
+      if ((await guesses(p))) F("FILES: FS6 counted looking, or the declined release upgrade");
+      await term("sudo reboot"); await b6("Let the PC start from its boot order").click(); await b6("Ubuntu").click(); await b6("Let Dev sign in to Ubuntu").click();
+      await term("uname -r");
+      if (!/6\.8\.0-51-generic/.test(await mon6.locator(".ub-term-out").innerText())) F("FILES: FS6's new kernel isn't running after the reboot");
+      const f6 = await p.evaluate(() => { const E = window.__LAP.engine; return { st: E.ticket().stage(E.fleet()), g: E.T().guesses }; });
+      if (f6.st !== "done" || f6.g) F("FILES: FS6 at the desk ends " + JSON.stringify(f6) + ", not done with no wrong moves");
+      await p.locator(".wo-back").click({ timeout: 60000 }); await p.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click(); await p.waitForTimeout(200);
+      if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("FILES: FS6's Resolve was refused");
     });
 
     await step("INSTRUCTOR", async (p) => {
@@ -1037,6 +1096,8 @@ const PLANTS = [
   ["INSTALL", "the upgrade never finishes at the restart", { "assets/install.js": [["if (I.up && I.up.copied && !I.up.applied) { const r = applyUpgrade(m); if (r) return r; }", ""]] }],
   ["LOAD", "the laptop's taskbar back at the left", { "assets/laptop.css": [[".task { display: grid; grid-template-columns: 1fr auto 1fr; }", ".task { display: flex; }"], [".task-mid { flex: 1; display: flex; justify-content: center;", ".task-mid { flex: 1; display: flex; justify-content: flex-start;"]] }],
   ["INSTALL", "a Windows 11 PC's taskbar at the left", { "assets/style.css": [[".taskbar:not(.w10) { display: grid; grid-template-columns: 1fr minmax(0, max-content) 1fr; }", ".taskbar:not(.w10) { display: flex; }"], [".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: center;", ".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: flex-start;"]] }],
+  ["FILES", "the edition upgrade never finishes at the restart", { "assets/machine.js": [["if (ED.pendingRestart(m)) {", "if (false) {"]] }],
+  ["FILES", "Ubuntu's reboot never loads the new kernel", { "assets/install.js": [["if (L.apt && L.apt.reboot) { L.kernel = L.apt.newKernel;", "if (false) { L.kernel = L.apt.newKernel;"]] }],
   ["FILES", "Restart now never finishes the updates", { "assets/machine.js": [["if (WU.pendingRestart(m)) {", "if (false) {"]] }],
   ["FILES", "Uninstall updates lists nothing", { "assets/desktop.js": [["const R = WU.removable(mm);", "const R = [];"]] }],
   ["FILES", "Format keeps the drive's old file system", { "assets/desktop.js": [["const r = FX.format(mm, d.L, d.fs, d.label);", "const r = FX.format(mm, d.L, FX.drive(mm, d.L).fs, d.label);"]] }],

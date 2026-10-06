@@ -2430,3 +2430,77 @@ objectives were re-read on 6 October 2026; the wording is unchanged.
   - contrast: Windows Update paused with its warning, the lists, active
     hours, pending restart, Update history, Uninstall updates and its
     confirmation. One new plant.
+
+### Extra training, FS5 and FS6: an edition upgrade, and updating Linux (6 October 2026)
+
+Build 3 of file systems, the last. The owner: "Build FS5 and FS6 next".
+The objectives were re-read on 6 October 2026; the wording is unchanged.
+
+- **New file:** `edition.js`, the model, on the machine as `m.ed`.
+  `machine.js` finishes an edition upgrade and a domain join at boot.
+  `install.js` gained apt for a ticket's Ubuntu (`aptSetup`): lists that
+  are stale until `apt update`, what can be upgraded, a kernel waiting for
+  a reboot, and the next release on offer.
+- **The edition model, as Windows 11 behaves:**
+  - Home can't join a domain: System Properties says so in words.
+  - Settings › System › Activation › Change product key (as an
+    administrator). A Pro key on Home is an edition upgrade ("Upgrade your
+    edition of Windows"); it finishes at the restart, and files and apps
+    stay. Microsoft's generic Pro key installs Pro but can't activate it.
+    The key on the PC's own sticker is for Home, the edition it has.
+  - Upgrade in the Microsoft Store app buys Pro for $99.99.
+  - Pro joins a domain from System Properties › Change… with an account
+    allowed to join computers; the join finishes at the restart.
+- **FS5 (run), Rosa's WS5:** the vendor's warranty replacement came with
+  Windows 11 Home, on a local account. Mason's note: the licence sheet's
+  Pro upgrade key (RFK7P-2QX9M-8TYH4-W6BCD-3JKPV), the PC's local
+  administrator (rafikiadmin), and that PCs join with itadmin. Rosa asks
+  for it not to be wiped. The job: change the product key, restart, join
+  RAFIKI as itadmin, restart, check System Properties.
+  - **Counted:** buying Pro in the Store (needs a revert); the generic key
+    (Pro, not activated).
+  - **Never counted:** Home refusing the join, the sticker's key, a
+    mistyped key, joining as the local administrator (refused).
+  - Close question: why the new PC couldn't join the network as it came.
+- **The apt model, as Ubuntu 24.04 behaves:** `apt` without sudo is
+  refused; `apt upgrade` before `apt update` finds nothing; `apt update`
+  says 9 packages can be upgraded; `apt list --upgradable` lists them;
+  `apt upgrade` asks Y/n and installs them, a new kernel among them, then
+  says "Pending kernel upgrade!" (and `/var/run/reboot-required` exists);
+  the new kernel runs only after `sudo reboot`; `do-release-upgrade`
+  offers Ubuntu 26.04 LTS and asks y/N; `df -hT` shows ext4.
+- **FS6 (run), Dev's WS3, at the desk:** Ubuntu takes no remote support,
+  so it's a walk-over. Dev wants the security updates but not 26.04 (his
+  build tools need 24.04). The job: `sudo apt update`, `sudo apt upgrade`
+  (Y), `sudo reboot`, GRUB, Ubuntu, then `uname -r` shows 6.8.0-51-generic.
+  - **Counted:** the release upgrade answered y (needs a revert).
+  - **Never counted:** upgrade before update, apt without sudo, the
+    release upgrade answered N, `apt list`, `cat` of reboot-required.
+  - Close question: why both apt update and apt upgrade.
+- **Found while building:**
+  - A logic plant (Home allowed to join) was caught by the EXHIBITED
+    check, which tests exactly that, not by the MODEL check it was
+    labelled for. The plant now names the check that guards it.
+  - Ubuntu's Terminal ignored an empty Enter, so apt's "[Y/n]" couldn't
+    be answered with its default. It now passes an empty answer to a
+    waiting question.
+- **Checks:**
+  - logic: 90 tickets, 150 plants. FS5 and FS6 table-driven, plus the
+    model (the generic key gives an unactivated Pro, the licensed key then
+    activates without a restart, the join waits for the restart, the Store
+    purchase holds the ticket until a revert; upgrade before update
+    installs nothing, the kernel waits for the reboot, reboot-required
+    exists, the release upgrade changes the release and holds the ticket
+    until a revert). Eight new plants.
+  - page: LOAD (90; 15 crawl, 15 walk, 60 run); EXTRA (FS1 to FS6); FILES
+    now also drives FS5 (a local account shown, Home refusing the join,
+    the Store counted and reverted, the key, the restart, Pro activated,
+    the join, the restart, the domain shown) and FS6 at the desk (upgrade
+    before update finding nothing, update, the release upgrade declined,
+    upgrade, the pending kernel, reboot through GRUB, uname -r). Two new
+    plants.
+  - contrast: Activation on Home, the Store's upgrade, a refused product
+    key, Home refusing the join, Ubuntu's apt output and the release
+    upgrade's question. One new plant.
+- **File systems is complete:** FS1 to FS6, a crawl, a walk and four run
+  tickets, covering file systems, updates and OS upgrades.

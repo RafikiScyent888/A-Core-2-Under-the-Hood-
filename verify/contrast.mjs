@@ -672,6 +672,26 @@ export async function run(extraCss) {
     await sweep(tag + ": FS3, Uninstall an update, the confirmation");
     await ub1("Yes: uninstall KB5069213").click(); await page.waitForTimeout(150);
     await sweep(tag + ": FS3, the uninstall waiting for a restart");
+    /* FS5: Activation on Home, the Store, Enter a product key refusing a key, Home refusing the join; FS6: Ubuntu's apt at Dev's desk */
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20498" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
+    const ew = page.locator('[data-win="rdp:WS5"]'), eb = (n) => ew.getByRole("button", { name: n, exact: true });
+    const ecreds = async () => { const c = ew.locator(".w-dialog.uac-creds"); await c.locator("input").nth(0).fill("rafikiadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); };
+    await open("WS5", "activation", "Open Activation");
+    await sweep(tag + ": FS5, Activation on Windows 11 Home");
+    await eb("Upgrade to Windows 11 Pro in the Microsoft Store app").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS5, the Microsoft Store's upgrade");
+    await ew.locator(".w-dialog").getByRole("button", { name: "Cancel" }).click(); await eb("Change product key").click(); await ecreds(); await ew.locator('[id^="ed-key-"]').fill("AAAAA-BBBBB-CCCCC-DDDDD-EEEEE"); await eb("Next: use this product key").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS5, Enter a product key, refused");
+    await ew.locator(".w-dialog").getByRole("button", { name: "Cancel" }).click();
+    await open("WS5", "domain", "Open System Properties"); await eb("Change this computer's domain or workgroup").click(); await ecreds(); await ew.locator('[id^="ej-domain-"]').check(); await ew.locator('[id^="ej-dom-"]').fill("RAFIKI"); await eb("OK: apply the membership").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS5, Home refusing the domain join");
+    await ew.locator(".w-dialog").getByRole("button", { name: "Cancel" }).click();
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20499" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await page.waitForTimeout(200);
+    await page.getByRole("button", { name: /^Walk to Dev's desk/ }).first().click(); await page.waitForSelector(".wo-desk", { timeout: 90000 });
+    { const mo = page.locator(".wo-monitor"); await mo.getByRole("button", { name: "Let Dev sign in to Ubuntu", exact: true }).click();
+      for (const l of ["sudo apt update", "apt list --upgradable", "sudo do-release-upgrade"]) { await mo.locator('[id^="ub-in-"]').fill(l); await mo.locator('[id^="ub-in-"]').press("Enter"); await page.waitForTimeout(100); } }
+    await sweep(tag + ": FS6, apt update, the upgradable list, and the release upgrade's question");
+    await page.locator(".wo-back").click({ timeout: 60000 }); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
   }
 
   try {
@@ -727,7 +747,8 @@ const PLANTS = {
   "the Mac's Recovery list in a faint grey": ".mac-item, .mac-sub { color: #9ca3af !important; }",
   "the new phone's compliance line in a faint grey": ".np-comp, .np-comp strong { color: #9ca3af !important; }",
   "File Explorer's drive bar in a faint grey": ".fx-drive, .fx-drive span { color: #b4bcc8 !important; }",
-  "the feature update's card in a faint grey": ".wu .wu-card, .wu .wu-card p, .wu .wu-card h5 { color: #a3abb8 !important; }"
+  "the feature update's card in a faint grey": ".wu .wu-card, .wu .wu-card p, .wu .wu-card h5 { color: #a3abb8 !important; }",
+  "Activation's edition and state in a faint grey": ".activation dd, .activation dt { color: #a3abb8 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

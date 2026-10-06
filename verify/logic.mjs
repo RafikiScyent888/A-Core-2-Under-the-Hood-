@@ -95,6 +95,7 @@ import * as MACM from "../assets/mac.js";
 import * as NPM from "../assets/newphone.js";
 import * as FXM from "../assets/fsys.js";
 import * as WUM from "../assets/winupdate.js";
+import * as EDM from "../assets/edition.js";
 import * as FSM from "../assets/tickets-files.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -195,6 +196,8 @@ const NOTES = {
   FS1: "Copying the 6 GB video failed: the stick was FAT32, which can't hold a file of 4 GB or more. Copied her pitch and price list to her Desktop first, then formatted the stick as exFAT, because the client's Mac must write to it and a Mac only reads NTFS. Copied her files back and the video on.",
   FS2: "Updates were paused, so I resumed them and checked. Installed the cumulative update KB5069213, .NET and Defender's update; left the optional Intel driver and the 24H2 feature update, as policy says Tier 2 tests those. Set active hours 8:00 to 18:00 for reception, restarted, and winver shows build 22631.4460.",
   FS3: "LabelPro crashed in gdiplus.dll at the new build's version, right after last night's cumulative update KB5069213. Uninstalled KB5069213 from Update history, restarted, and paused updates for a week so it doesn't come straight back. LabelPro opens again. Escalated to Tier 2 to block it for every PC.",
+  FS5: "The replacement came with Windows 11 Home, which can't join a domain. Changed the product key to the company's Pro key (not the Store, not the generic key), restarted: Pro, activated. Joined RAFIKI as itadmin and restarted; System Properties shows the domain.",
+  FS6: "Ran sudo apt update to refresh the lists, then sudo apt upgrade: 9 packages including a new kernel. Rebooted, and uname -r shows 6.8.0-51-generic. Didn't run do-release-upgrade: Dev stays on 24.04, not 26.04, until the project ships.",
   FS4: "The archive wouldn't copy because D: was FAT32: no file of 4 GB or more, and no Security tab for permissions. Formatting would have erased the audits, so I ran convert D: /FS:NTFS as administrator; every file was kept. Copied the 5.4 GB archive to D:, which now has a Security tab.",
   OI6: "Held the power button, then tapped the welcome screen six times for the QR set-up and scanned the enrolment code from device management. Joined Rafiki-Staff, accepted that the organisation owns it (fully managed). Set a 6-digit PIN as the policy requires. The update refused at 18% battery, so I plugged in the charger and installed the 1 September 2026 security update. Device management shows it compliant.",
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
@@ -952,6 +955,49 @@ XI.FS3 = (D) => { const U = D.WU, g = (f) => f.WS1, T = FSM;
       const E2 = fresh(); S.forEach((go) => go(E2)); const n = E2.T().guesses; const r = E2.submit("resolve"); if (r.ok || E2.T().guesses !== n + 1 || !/every other PC/.test(r.say || "")) F(P + "JUDGE: Resolve after the fix isn't refused with Tier 2's reason");
     } };
 };
+/* FS5 and FS6: an edition upgrade, and Ubuntu's updates */
+XI.FS5 = (D) => { const X = D.ED, g = (f) => f.WS5;
+  const ed = (op, fn, a) => (E) => xr2(E, "WS5", Object.assign({ type: "ed", op }, a || {}), fn);
+  const S = [look("WS5", "sysprot"), ed("key", (m) => X.changeKey(m, X.KEYS.company)), restartPC("WS5"), ed("join", (m) => X.join(m, { domain: "RAFIKI", user: "itadmin", pass: "Bench-Tech-2026" })), restartPC("WS5"), look("WS5", "sysprot")];
+  return { get: g, S, leak: [/change product key/i, /rfk7p/i, /\brestart\b/i, /itadmin/i, /\brevert\b/i, /microsoft store/i],
+    exh: (m) => (!X.home(m) ? "the PC isn't on Home" : m.ed.joined || m.domain === "RAFIKI" ? "it's already on the domain" : X.join(JSON.parse(JSON.stringify(m)), { domain: "RAFIKI", user: "itadmin", pass: "Bench-Tech-2026" }).ok ? "Home joins the domain" : null),
+    after: (m) => (m.edition !== "Windows 11 Pro" || !m.ed.activated ? "it isn't Pro and activated" : m.domain !== "RAFIKI" ? "it isn't on RAFIKI" : null),
+    near: [["buying Pro in the Microsoft Store", 1, [ed("store", (m) => X.store(m))]], ["the generic Pro key", 1, [ed("key", (m) => X.changeKey(m, X.KEYS.generic))]]],
+    look: [["joining while it's Home, the sticker's key, and a mistyped key", 0, [ed("join", (m) => X.join(m, { domain: "RAFIKI" })), ed("key", (m) => X.changeKey(m, X.KEYS.oem)), ed("key", (m) => X.changeKey(m, "RFK7P-2QX9M-8TYH4-W6BCD-3JKPX"))]],
+      ["joining as the local administrator", 3, [ed("join", (m) => X.join(m, { domain: "RAFIKI", user: "rafikiadmin", pass: "Bench-Tech-2026" }))]]],
+    extra: (fresh, F, P, t) => {
+      /* the generic key upgrades but doesn't activate; the licensed key then activates without another restart */
+      const E = fresh(); S[0](E); ed("key", (m) => X.changeKey(m, X.KEYS.generic))(E); restartPC("WS5")(E); const m = g(E.fleet());
+      if (m.edition !== "Windows 11 Pro" || m.ed.activated) F(P + "MODEL: the generic key didn't give an unactivated Pro");
+      ed("key", (mm) => X.changeKey(mm, X.KEYS.company))(E); if (!m.ed.activated) F(P + "MODEL: the licensed key didn't activate Pro");
+      /* the join waits for a restart */
+      const E2 = fresh(); S.slice(0, 4).forEach((go) => go(E2)); if (g(E2.fleet()).domain === "RAFIKI") F(P + "MODEL: the join took effect before the restart");
+      /* the Store purchase holds the ticket until a revert */
+      const E3 = fresh(); S[0](E3); ed("store", (mm) => X.store(mm))(E3); S.slice(2).forEach((go) => go(E3)); if (t.goal(E3.fleet())) F(P + "JUDGE: the ticket closes after a Store purchase");
+      E3.revert(); if (t.stage(E3.fleet()) === "store") F(P + "SNAPSHOT: revert after the Store purchase keeps it");
+    } };
+};
+XI.FS6 = (D) => { const I = D.IN, g = (f) => f.WS3;
+  const ux = (op, fn, a) => (E) => xr2(E, "WS3", Object.assign({ type: "osinst", op }, a || {}), fn);
+  const cmd = (line) => ux("ub-cmd", (m) => I.lxCmd(m, line), { line });
+  const S = [ux("ub-signin", (m) => I.lxSignIn(m)), cmd("sudo apt update"), cmd("sudo apt upgrade"), cmd("y"), cmd("sudo reboot"), ux("key", (m) => I.key(m, "continue"), { key: "continue" }), ux("grub", (m) => I.grub(m, "ubuntu"), { pick: "ubuntu" }), ux("ub-signin", (m) => I.lxSignIn(m)), cmd("uname -r")];
+  return { get: g, S, leak: [/apt update/i, /apt upgrade/i, /\breboot\b/i, /uname/i, /\brevert\b/i, /do-release-upgrade/i],
+    exh: (m) => (!m.inst.lx.apt || m.inst.lx.apt.pkgs.length < 1 ? "nothing to upgrade" : m.inst.lx.kernel !== "6.8.0-45-generic" ? "the new kernel already runs" : m.inst.lx.apt.fresh ? "apt's lists are already fresh" : null),
+    after: (m) => (m.inst.lx.kernel !== "6.8.0-51-generic" ? "the new kernel isn't running" : m.inst.lx.release !== I.LX.release ? "it isn't 24.04 any more" : m.inst.lx.apt.pkgs.length ? "packages still wait" : null),
+    near: [["the release upgrade, answered y", 1, [cmd("sudo do-release-upgrade"), cmd("y")]]],
+    look: [["apt upgrade before update, apt without sudo, and cat reboot-required", 1, [cmd("sudo apt upgrade"), cmd("apt update"), cmd("cat /var/run/reboot-required")]],
+      ["the release upgrade, answered N, and apt list", 2, [cmd("sudo do-release-upgrade"), cmd("n"), cmd("apt list --upgradable")]]],
+    extra: (fresh, F, P, t) => {
+      /* upgrade before update finds nothing; the kernel waits for the reboot */
+      const E = fresh(); S[0](E); cmd("sudo apt upgrade")(E); if (g(E.fleet()).inst.lx.apt.pkgs.length !== 9) F(P + "MODEL: apt upgrade installed from stale lists");
+      S.slice(1, 4).forEach((go) => go(E)); const L = g(E.fleet()).inst.lx;
+      if (L.kernel !== "6.8.0-45-generic" || !L.apt.reboot) F(P + "MODEL: the new kernel ran without a reboot");
+      if (I.lxCmd(JSON.parse(JSON.stringify(g(E.fleet()))), "cat /var/run/reboot-required").indexOf("restart required") < 0) F(P + "MODEL: reboot-required isn't there after a kernel update");
+      /* the release upgrade holds the ticket until a revert */
+      const E2 = fresh(); S[0](E2); cmd("sudo do-release-upgrade")(E2); cmd("y")(E2); if (t.stage(E2.fleet()) !== "release") F(P + "MODEL: the release upgrade didn't change the release");
+      E2.revert(); if (t.stage(E2.fleet()) === "release") F(P + "SNAPSHOT: revert after the release upgrade keeps it");
+    } };
+};
 /* OI6: a new company phone, set up as fully managed */
 XI.OI6 = (D) => { const N = D.NP, g = (f) => f.TECH.newPhones.OI6;
   const o = (op, fn, a) => (E) => { const b = E.before(); const res = fn(g(E.fleet())); E.onAct(Object.assign({ machine: "TECH", type: "newphone", op, before: b, res }, a || {})); return res; };
@@ -1593,7 +1639,7 @@ function routerChecks(D, F) {
   ({ f, r } = mk()); if (JSON.stringify(JSON.parse(JSON.stringify(f.TECH.routers))) !== JSON.stringify(f.TECH.routers)) F("ROUTER SNAP: a router doesn't survive the engine's copy");
 }
 
-const BASE = { WU: Object.assign({}, WUM), FX: Object.assign({}, FXM), NP: Object.assign({}, NPM), MAC: Object.assign({}, MACM), IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+const BASE = { ED: Object.assign({}, EDM), WU: Object.assign({}, WUM), FX: Object.assign({}, FXM), NP: Object.assign({}, NPM), MAC: Object.assign({}, MACM), IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
 /* Each plant is one defect a check exists to catch, and the check it must
@@ -1720,6 +1766,14 @@ const PLANTS = [
   ["EXTRA OI5: JUDGE", "erasing as Mac OS Extended isn't counted", () => ({ TICKETS: withTicket("OI5", (t) => ({ judge: (a, f) => (a.op === "erase" ? { guess: false } : t.judge(a, f)) })) })],
   ["EXTRA OI5: SOLVABLE", "the reinstall keeps the old data even after an erase", () => ({ MAC: Object.assign({}, MACM, { reinstall: (m, op, d) => { const r = MACM.reinstall(m, op, d); if (op === "install" && r.ok) m.disk.hasData = true; return r; } }) })],
   ["EXTRA OI5: NO LEAK", "a hint names Disk Utility", () => ({ TICKETS: withTicket("OI5", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0] + " Disk Utility does it.", h[1]]; } })) })],
+  ["EXTRA FS5: EXHIBITED", "Home joins a domain", () => ({ ED: Object.assign({}, EDM, { join: (m, d) => { const e = m.ed.edition; m.ed.edition = "Windows 11 Pro"; const r = EDM.join(m, d); m.ed.edition = e; return r; } }) })],
+  ["EXTRA FS5: JUDGE", "a Store purchase isn't counted", () => ({ TICKETS: withTicket("FS5", (t) => ({ judge: (a, f) => (a.op === "store" ? { guess: false } : t.judge(a, f)) })) })],
+  ["EXTRA FS5: SOLVABLE", "the company key doesn't activate", () => ({ ED: Object.assign({}, EDM, { changeKey: (m, k) => EDM.changeKey(m, k === EDM.KEYS.company ? EDM.KEYS.generic : k) }) })],
+  ["EXTRA FS5: NO LEAK", "a hint gives the key", () => ({ TICKETS: withTicket("FS5", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0], h[1] + " Use RFK7P-2QX9M-8TYH4-W6BCD-3JKPV."]; } })) })],
+  ["EXTRA FS6: MODEL", "the new kernel runs without a reboot", () => ({ IN: Object.assign({}, INM, { lxCmd: (m, l) => { const r = INM.lxCmd(m, l); const L = m.inst.lx; if (L.apt && L.apt.reboot) L.kernel = L.apt.newKernel; return r; } }) })],
+  ["EXTRA FS6: JUDGE", "the release upgrade isn't counted", () => ({ TICKETS: withTicket("FS6", (t) => ({ judge: () => ({ guess: false }) })) })],
+  ["EXTRA FS6: EXHIBITED", "Ubuntu arrives up to date", () => ({ TICKETS: withTicket("FS6", (t) => ({ setup: (f) => { t.setup(f); f.WS3.inst.lx.apt.pkgs = []; } })) })],
+  ["EXTRA FS6: SOLVABLE", "apt update never refreshes the lists", () => ({ IN: Object.assign({}, INM, { lxCmd: (m, l) => { const r = INM.lxCmd(m, l); if (/apt update$/.test(l) && m.inst.lx.apt) m.inst.lx.apt.fresh = false; return r; } }) })],
   ["EXTRA FS2: MODEL", "a cumulative update finishes without a restart", () => ({ WU: Object.assign({}, WUM, { install: (m, kb) => { const u = (m.wu.offer.find((x) => x.kb === kb) || {}); const r = WUM.install(m, kb); if (u.build && r.ok) WUM.onBoot(m); return r; } }) })],
   ["EXTRA FS2: JUDGE", "installing 24H2 isn't counted", () => ({ TICKETS: withTicket("FS2", (t) => ({ judge: (a, f) => (a.kind === "feature" ? { guess: false } : t.judge(a, f)) })) })],
   ["EXTRA FS2: SOLVABLE", "Resume doesn't unpause", () => ({ WU: Object.assign({}, WUM, { resume: (m) => ({ ok: true, text: "Updates resumed." }) }) })],

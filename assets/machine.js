@@ -17,6 +17,7 @@
 export const GiB = 1073741824;
 export const FAT32_FORMAT_LIMIT = 32 * GiB;
 import * as WU from "./winupdate.js";
+import * as ED from "./edition.js";
 
 export function clone(x) { return JSON.parse(JSON.stringify(x)); }
 
@@ -318,6 +319,8 @@ export function boot(m) {
   if (m.sys.chkdskScheduled) { m.sys.chkdskScheduled = false; if (m.sys.fsErrors) { m.sys.fsErrors = false; lines.push("Scanning and repairing drive (C:): 100% complete. Windows made corrections to the file system."); } }
   if (m.sys.pendingRepair) { m.sys.pendingRepair = false; lines.push("Windows finished the servicing operation that was waiting for a restart."); }
   m.procs = baseProcesses(m.user).concat(m.procs.filter(function (p) { return p.startsWithWindows; }));
+  /* an edition upgrade and a domain join finish as the PC starts */
+  if (ED.pendingRestart(m)) { const e = m.ed, up = !!e.pending, jn = e.joinPending; ED.onBoot(m); if (up) lines.push("Windows finished upgrading the edition: " + m.edition + "."); if (jn) lines.push("This PC is now a member of the RAFIKI domain."); }
   /* updates waiting for a restart finish now, installs and removals alike */
   if (WU.pendingRestart(m)) { const n = m.wu.pending.length, r = m.wu.removing.length; WU.onBoot(m); lines.push(n && r ? "Windows finished installing and removing updates." : n ? "Windows finished installing updates: OS Build " + m.build.split(".").slice(2).join(".") + "." : "Windows finished removing the update: OS Build " + m.build.split(".").slice(2).join(".") + "."); addLog(m, "System", { level: "Information", source: "WindowsUpdateClient", id: 19, text: "Windows Update finished the changes that were waiting for a restart." }); }
   /* Software Installation group policy only ever applies at startup, and
