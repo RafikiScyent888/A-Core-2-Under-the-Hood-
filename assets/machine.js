@@ -16,6 +16,8 @@
 
 export const GiB = 1073741824;
 export const FAT32_FORMAT_LIMIT = 32 * GiB;
+import * as WU from "./winupdate.js";
+
 export function clone(x) { return JSON.parse(JSON.stringify(x)); }
 
 /* ------------------------------------------------------------------ */
@@ -223,6 +225,14 @@ export function launchApp(m, name, via) {
   }
   /* a driver the program uses, broken by an update: the program's own
      files are fine, so repairing or reinstalling it changes nothing */
+  /* an app a Windows update broke: the update changed a Windows file the
+     program uses. The program's own files are fine, so repairing it
+     changes nothing; taking the update off does */
+  if (a.brokenByKb && WU.installed(m, a.brokenByKb)) {
+    addLog(m, "Application", { level: "Error", source: "Application Error", id: 1000, text: "Faulting application name: " + a.exe + ", version: " + a.ver + ", Faulting module name: " + a.brokenModule + ", version: " + m.build + ", Exception code: 0xc0000005" });
+    note(m, "launch", { app: a.name, result: "update" });
+    return { ok: false, title: a.name, text: a.name + " has stopped working. A problem caused the program to stop working correctly. Windows will close the program and notify you if a solution is available.", kind: "crash" };
+  }
   if (a.driverBad) {
     addLog(m, "Application", { level: "Error", source: "Application Error", id: 1000, text: "Faulting application name: " + a.exe + ", version: " + a.ver + ", Faulting module name: " + a.driverBad.module + " (" + a.driverBad.driver + ", installed " + a.driverBad.when + "), Exception code: 0xc0000005" });
     note(m, "launch", { app: a.name, result: "driver" });
@@ -308,6 +318,8 @@ export function boot(m) {
   if (m.sys.chkdskScheduled) { m.sys.chkdskScheduled = false; if (m.sys.fsErrors) { m.sys.fsErrors = false; lines.push("Scanning and repairing drive (C:): 100% complete. Windows made corrections to the file system."); } }
   if (m.sys.pendingRepair) { m.sys.pendingRepair = false; lines.push("Windows finished the servicing operation that was waiting for a restart."); }
   m.procs = baseProcesses(m.user).concat(m.procs.filter(function (p) { return p.startsWithWindows; }));
+  /* updates waiting for a restart finish now, installs and removals alike */
+  if (WU.pendingRestart(m)) { const n = m.wu.pending.length, r = m.wu.removing.length; WU.onBoot(m); lines.push(n && r ? "Windows finished installing and removing updates." : n ? "Windows finished installing updates: OS Build " + m.build.split(".").slice(2).join(".") + "." : "Windows finished removing the update: OS Build " + m.build.split(".").slice(2).join(".") + "."); addLog(m, "System", { level: "Information", source: "WindowsUpdateClient", id: 19, text: "Windows Update finished the changes that were waiting for a restart." }); }
   /* Software Installation group policy only ever applies at startup, and
      any startup applies it once it is waiting (event 108 says so): the
      restart gpupdate offers, or one done with shutdown /r */

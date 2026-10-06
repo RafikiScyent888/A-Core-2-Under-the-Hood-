@@ -646,11 +646,32 @@ export async function run(extraCss) {
     await wb("Start formatting SALES (E:)").click(); await page.waitForTimeout(150);
     await sweep(tag + ": FS1, Format, the warning");
     await fw2.locator(".w-dialog").getByRole("button", { name: "Cancel" }).click();
-    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20495" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20497" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
     const fw4 = page.locator('[data-win="rdp:WS4"]');
     await open("WS4", "cmd", "Run Command Prompt as administrator"); { const c = fw4.locator(".w-dialog.uac-creds"); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); }
     for (const l of ["convert D: /FS:NTFS", "FINANCE", "convert D: /FS:NTFS", "DATA"]) { await fw4.locator(".con-in").fill(l); await fw4.locator(".con-in").press("Enter"); await page.waitForTimeout(120); }
     await sweep(tag + ": FS4, convert at an administrator's prompt");
+    /* FS2 and FS3: Windows Update (paused with the warning, the lists, advanced options, pending restart; history, Uninstall updates, the confirmation) */
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20495" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
+    const uw5 = page.locator('[data-win="rdp:WS5"]'), ub5 = (n) => uw5.getByRole("button", { name: n, exact: true }), un5 = (n) => uw5.locator(".wu .ev-nav").getByRole("button", { name: n, exact: true });
+    await open("WS5", "update", "Open Windows Update");
+    await sweep(tag + ": FS2, Windows Update paused, with the warning");
+    await ub5("Resume updates").click(); await ub5("Check for updates").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS2, the updates, the feature update and the optional driver");
+    await un5("Advanced options").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS2, active hours");
+    await un5("Windows Update").click(); await ub5("Download and install Security Intelligence Update for Microsoft Defender Antivirus - KB2267602 (Version 1.421.1180.0)").click(); await ub5("Download and install 2026-10 Cumulative Update for .NET Framework 3.5 and 4.8.1 for Windows 11, version 23H2 (KB5069874)").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS2, pending restart");
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20496" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=connect]").click(); await page.waitForTimeout(1700);
+    const uw1 = page.locator('[data-win="rdp:WS1"]'), ub1 = (n) => uw1.getByRole("button", { name: n, exact: true });
+    await open("WS1", "update", "Open Windows Update"); await uw1.locator(".wu .ev-nav").getByRole("button", { name: "Update history", exact: true }).click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS3, Update history");
+    await ub1("Uninstall updates").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS3, Uninstall updates");
+    await ub1("Uninstall KB5069213").click(); { const c = uw1.locator(".w-dialog.uac-creds"); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); } await page.waitForTimeout(150);
+    await sweep(tag + ": FS3, Uninstall an update, the confirmation");
+    await ub1("Yes: uninstall KB5069213").click(); await page.waitForTimeout(150);
+    await sweep(tag + ": FS3, the uninstall waiting for a restart");
   }
 
   try {
@@ -705,7 +726,8 @@ const PLANTS = {
   "the terminal's prompt in a dark green": ".ub-prompt { color: #166534 !important; }",
   "the Mac's Recovery list in a faint grey": ".mac-item, .mac-sub { color: #9ca3af !important; }",
   "the new phone's compliance line in a faint grey": ".np-comp, .np-comp strong { color: #9ca3af !important; }",
-  "File Explorer's drive bar in a faint grey": ".fx-drive, .fx-drive span { color: #b4bcc8 !important; }"
+  "File Explorer's drive bar in a faint grey": ".fx-drive, .fx-drive span { color: #b4bcc8 !important; }",
+  "the feature update's card in a faint grey": ".wu .wu-card, .wu .wu-card p, .wu .wu-card h5 { color: #a3abb8 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {

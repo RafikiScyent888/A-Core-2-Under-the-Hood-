@@ -94,6 +94,8 @@ import * as OIM from "../assets/tickets-install.js";
 import * as MACM from "../assets/mac.js";
 import * as NPM from "../assets/newphone.js";
 import * as FXM from "../assets/fsys.js";
+import * as WUM from "../assets/winupdate.js";
+import * as FSM from "../assets/tickets-files.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -191,6 +193,8 @@ const NOTES = {
   OI4: "Shrank C: by 100 GB in Disk Management, left unallocated. Booted the Ubuntu 24.04 USB with F12, chose Install Ubuntu alongside Windows Boot Manager (not Erase disk), ext4, named ws3-dev-ubuntu, user dev. GRUB lists both: Ubuntu signed in, Windows starts.",
   OI5: "Held the power button for startup options, Options, Recovery as rafikiadmin. Disk Utility: erased Macintosh HD as APFS. Activate Mac stopped on Activation Lock (Sam's Apple Account); Mason released it in device management. Reinstalled macOS Sequoia; it shows Setup Assistant's Hello for Priya.",
   FS1: "Copying the 6 GB video failed: the stick was FAT32, which can't hold a file of 4 GB or more. Copied her pitch and price list to her Desktop first, then formatted the stick as exFAT, because the client's Mac must write to it and a Mac only reads NTFS. Copied her files back and the video on.",
+  FS2: "Updates were paused, so I resumed them and checked. Installed the cumulative update KB5069213, .NET and Defender's update; left the optional Intel driver and the 24H2 feature update, as policy says Tier 2 tests those. Set active hours 8:00 to 18:00 for reception, restarted, and winver shows build 22631.4460.",
+  FS3: "LabelPro crashed in gdiplus.dll at the new build's version, right after last night's cumulative update KB5069213. Uninstalled KB5069213 from Update history, restarted, and paused updates for a week so it doesn't come straight back. LabelPro opens again. Escalated to Tier 2 to block it for every PC.",
   FS4: "The archive wouldn't copy because D: was FAT32: no file of 4 GB or more, and no Security tab for permissions. Formatting would have erased the audits, so I ran convert D: /FS:NTFS as administrator; every file was kept. Copied the 5.4 GB archive to D:, which now has a Security tab.",
   OI6: "Held the power button, then tapped the welcome screen six times for the QR set-up and scanned the enrolment code from device management. Joined Rafiki-Staff, accepted that the organisation owns it (fully managed). Set a 6-digit PIN as the policy requires. The update refused at 18% battery, so I plugged in the charger and installed the 1 September 2026 security update. Device management shows it compliant.",
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
@@ -896,6 +900,58 @@ XI.FS4 = (D) => { const X = D.FX, Fd = "C:\\Users\\finance", g = (f) => f.WS4;
       { const f3 = D.makeFleet(); t.setup(f3); const k = X.filesOn(f3.WS4, "D").length; X.convert(f3.WS4, "D", "NTFS", "DATA"); if (X.filesOn(f3.WS4, "D").length !== k || X.drive(f3.WS4, "D").fs !== "NTFS") F(P + "MODEL: the model's convert didn't keep every file"); }
     } };
 };
+/* FS2 and FS3: Windows Update, through the PC's own Settings */
+function wuAct(mid, op, fn, a) { return (E) => xr2(E, mid, Object.assign({ type: "wu", op }, a || {}), fn); }
+function restartPC(mid) { return (E) => { const b = E.before(); const m = E.fleet()[mid]; M.shutdown(m); const r = M.boot(m); E.onAct({ machine: mid, type: "power", op: "restart", res: r, before: b }); }; }
+function look(mid, app) { return (E) => { const m = E.fleet()[mid]; M.note(m, "opened", { app }); E.onAct({ machine: mid, type: "open", app, before: E.before() }); }; }
+XI.FS2 = (D) => { const U = D.WU, g = (f) => f.WS5, T = FSM;
+  const inst = (u) => wuAct("WS5", "install", (m) => U.install(m, u.kb), { kb: u.kb, kind: u.kind });
+  const S = [look("WS5", "winupdate"), wuAct("WS5", "resume", (m) => U.resume(m)), wuAct("WS5", "check", (m) => U.check(m)), inst(T.CU), inst(T.NET), inst(T.DEF),
+    wuAct("WS5", "active", (m) => U.setActive(m, 8, 18), { from: 8, to: 18 }), restartPC("WS5"), look("WS5", "winver")];
+  return { get: g, S, leak: [/\bresume\b/i, /check for updates/i, /\b18:00\b|\b18\b/, /restart now/i, /winver/i, /\brevert\b/i],
+    exh: (m) => (!m.wu || !m.wu.paused ? "updates aren't paused" : m.wu.active.to >= 18 ? "active hours already cover the desk" : U.check(JSON.parse(JSON.stringify(m))).ok ? "a check finds updates while paused" : null),
+    after: (m) => (m.build !== T.CU.build ? "the build didn't change (" + m.build + ")" : U.pendingRestart(m) ? "updates still wait for a restart" : U.installed(m, T.FEAT.kb) || U.installed(m, T.DRV.kb) ? "the feature update or driver went on" : null),
+    near: [["installing the optional driver", 3, [inst(T.DRV)]], ["installing the 24H2 feature update", 3, [inst(T.FEAT)]], ["pausing again", 2, [wuAct("WS5", "pause", (m) => U.pause(m, 1), { weeks: 1 })]],
+      ["active hours that miss the evening", 6, [wuAct("WS5", "active", (m) => U.setActive(m, 9, 17), { from: 9, to: 17 })]]],
+    look: [["checking while paused, and Update history", 1, [wuAct("WS5", "check", (m) => U.check(m)), (E) => { const m = E.fleet().WS5; M.note(m, "wu-view", { view: "history" }); E.onAct({ machine: "WS5", type: "wu", op: "view", view: "history", before: E.before() }); }]],
+      ["active hours longer than 18 hours (refused)", 6, [wuAct("WS5", "active", (m) => U.setActive(m, 0, 23), { from: 0, to: 23 })]]],
+    extra: (fresh, F, P, t) => {
+      /* updates that need a restart don't change the build until it */
+      const E = fresh(); S.slice(0, 7).forEach((go) => go(E)); const m = g(E.fleet());
+      if (m.build === T.CU.build || !U.pendingRestart(m)) F(P + "MODEL: the cumulative update finished without a restart");
+      if (!U.installed(m, T.DEF.kb)) F(P + "MODEL: Defender's update waited for a restart it doesn't need");
+      /* the feature update and the driver are listed apart, never in the main list */
+      const E2 = fresh(); S.slice(0, 3).forEach((go) => go(E2)); const main = U.listed(g(E2.fleet()), "main").map((u) => u.kind);
+      if (main.indexOf("feature") >= 0 || main.indexOf("driver") >= 0 || U.listed(g(E2.fleet()), "optional").length !== 1) F(P + "MODEL: the feature update or driver sits in the main list");
+      /* the feature update, once on, holds the ticket until a revert */
+      const E3 = fresh(); S.slice(0, 3).forEach((go) => go(E3)); inst(T.FEAT)(E3); S.slice(3).forEach((go) => go(E3)); if (t.goal(E3.fleet())) F(P + "JUDGE: the ticket closes with 24H2 installed");
+      E3.revert(); if (t.stage(E3.fleet()) === "feature") F(P + "SNAPSHOT: revert after 24H2 keeps it");
+    } };
+};
+XI.FS3 = (D) => { const U = D.WU, g = (f) => f.WS1, T = FSM;
+  const S = [(E) => xr2(E, "WS1", { type: "launch", app: "LabelPro" }, (m) => M.launchApp(m, "LabelPro", "start")),
+    (E) => { const b = E.before(); const m = E.fleet().WS1; const r = U.uninstall(m, T.CU.kb); E.onAct({ machine: "WS1", type: "wu", op: "uninstall", kb: T.CU.kb, res: r, before: b }); },
+    restartPC("WS1"), wuAct("WS1", "pause", (m) => U.pause(m, 1), { weeks: 1 }), (E) => xr2(E, "WS1", { type: "launch", app: "LabelPro" }, (m) => M.launchApp(m, "LabelPro", "start"))];
+  return { get: g, S, leak: [/kb5069213/i, /\buninstall/i, /\bpause\b/i, /escalat/i],
+    exh: (m) => (M.launchApp(JSON.parse(JSON.stringify(m)), "LabelPro", "start").ok ? "LabelPro starts already" : !U.installed(m, T.CU.kb) ? "the update isn't installed" : null),
+    after: (m) => (U.installed(m, T.CU.kb) ? "the update is still on" : m.build === T.CU.build ? "the build didn't go back" : !m.wu.paused ? "updates aren't paused" : null),
+    near: [["uninstalling the .NET update instead", 1, [(E) => { const b = E.before(); const m = E.fleet().WS1; const r = U.uninstall(m, T.NET.kb); E.onAct({ machine: "WS1", type: "wu", op: "uninstall", kb: T.NET.kb, res: r, before: b }); }]],
+      ["repairing LabelPro", 1, [(E) => xr2(E, "WS1", { type: "repair", app: "LabelPro" }, (m) => M.repairApp(m, "LabelPro", "repair"))]],
+      ["checking and reinstalling the update after removing it", 3, [wuAct("WS1", "check", (m) => U.check(m)), wuAct("WS1", "install", (m) => U.install(m, T.CU.kb), { kb: T.CU.kb, kind: "cumulative" })]]],
+    look: [["the crash, Update history and the Application log", 0, [(E) => xr2(E, "WS1", { type: "launch", app: "LabelPro" }, (m) => M.launchApp(m, "LabelPro", "start")), (E) => { const m = E.fleet().WS1; M.note(m, "wu-view", { view: "history" }); E.onAct({ machine: "WS1", type: "wu", op: "view", view: "history", before: E.before() }); }, look("WS1", "eventvwr")]]],
+    extra: (fresh, F, P, t) => {
+      /* the crash names the module and the new build; repair doesn't help */
+      const f = D.makeFleet(); t.setup(f); const m = f.WS1; M.launchApp(m, "LabelPro", "start");
+      if (!m.logs.Application.some((e) => /gdiplus\.dll/.test(e.text) && e.text.indexOf(T.CU.build) >= 0)) F(P + "MODEL: the crash doesn't name the module at the new build");
+      M.repairApp(m, "LabelPro", "repair"); if (M.launchApp(m, "LabelPro", "start").ok) F(P + "MODEL: repairing LabelPro fixed an update's break");
+      /* the removal waits for a restart; then the update is offered again */
+      const E = fresh(); S.slice(0, 2).forEach((go) => go(E)); if (!U.installed(g(E.fleet()), T.CU.kb)) F(P + "MODEL: the update came off before the restart");
+      { const c = JSON.parse(JSON.stringify(g(E.fleet()))); U.onBoot(c); if (!c.wu.offer.some((u) => u.kb === T.CU.kb) || U.installed(c, T.CU.kb)) F(P + "MODEL: the model's boot doesn't take the update off and offer it again"); }
+      restartPC("WS1")(E); const w = g(E.fleet()).wu; if (!w.offer.some((u) => u.kb === T.CU.kb)) F(P + "MODEL: a removed update isn't offered again after the PC's restart");
+      /* Resolve once it works says why it goes to Tier 2, and counts */
+      const E2 = fresh(); S.forEach((go) => go(E2)); const n = E2.T().guesses; const r = E2.submit("resolve"); if (r.ok || E2.T().guesses !== n + 1 || !/every other PC/.test(r.say || "")) F(P + "JUDGE: Resolve after the fix isn't refused with Tier 2's reason");
+    } };
+};
 /* OI6: a new company phone, set up as fully managed */
 XI.OI6 = (D) => { const N = D.NP, g = (f) => f.TECH.newPhones.OI6;
   const o = (op, fn, a) => (E) => { const b = E.before(); const res = fn(g(E.fleet())); E.onAct(Object.assign({ machine: "TECH", type: "newphone", op, before: b, res }, a || {})); return res; };
@@ -1537,7 +1593,7 @@ function routerChecks(D, F) {
   ({ f, r } = mk()); if (JSON.stringify(JSON.parse(JSON.stringify(f.TECH.routers))) !== JSON.stringify(f.TECH.routers)) F("ROUTER SNAP: a router doesn't survive the engine's copy");
 }
 
-const BASE = { FX: Object.assign({}, FXM), NP: Object.assign({}, NPM), MAC: Object.assign({}, MACM), IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+const BASE = { WU: Object.assign({}, WUM), FX: Object.assign({}, FXM), NP: Object.assign({}, NPM), MAC: Object.assign({}, MACM), IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
 /* Each plant is one defect a check exists to catch, and the check it must
@@ -1664,6 +1720,13 @@ const PLANTS = [
   ["EXTRA OI5: JUDGE", "erasing as Mac OS Extended isn't counted", () => ({ TICKETS: withTicket("OI5", (t) => ({ judge: (a, f) => (a.op === "erase" ? { guess: false } : t.judge(a, f)) })) })],
   ["EXTRA OI5: SOLVABLE", "the reinstall keeps the old data even after an erase", () => ({ MAC: Object.assign({}, MACM, { reinstall: (m, op, d) => { const r = MACM.reinstall(m, op, d); if (op === "install" && r.ok) m.disk.hasData = true; return r; } }) })],
   ["EXTRA OI5: NO LEAK", "a hint names Disk Utility", () => ({ TICKETS: withTicket("OI5", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0] + " Disk Utility does it.", h[1]]; } })) })],
+  ["EXTRA FS2: MODEL", "a cumulative update finishes without a restart", () => ({ WU: Object.assign({}, WUM, { install: (m, kb) => { const u = (m.wu.offer.find((x) => x.kb === kb) || {}); const r = WUM.install(m, kb); if (u.build && r.ok) WUM.onBoot(m); return r; } }) })],
+  ["EXTRA FS2: JUDGE", "installing 24H2 isn't counted", () => ({ TICKETS: withTicket("FS2", (t) => ({ judge: (a, f) => (a.kind === "feature" ? { guess: false } : t.judge(a, f)) })) })],
+  ["EXTRA FS2: SOLVABLE", "Resume doesn't unpause", () => ({ WU: Object.assign({}, WUM, { resume: (m) => ({ ok: true, text: "Updates resumed." }) }) })],
+  ["EXTRA FS2: NO LEAK", "a hint names the hours", () => ({ TICKETS: withTicket("FS2", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0], h[1] + " Make it 8:00 to 18:00."]; } })) })],
+  ["EXTRA FS3: MODEL", "a removed update is never offered again", () => ({ WU: Object.assign({}, WUM, { onBoot: (m) => { WUM.onBoot(m); m.wu.offer = []; } }) })],
+  ["EXTRA FS3: JUDGE", "repairing LabelPro isn't counted", () => ({ TICKETS: withTicket("FS3", (t) => ({ judge: (a, f) => (a.type === "repair" ? { guess: false } : t.judge(a, f)) })) })],
+  ["EXTRA FS3: EXHIBITED", "LabelPro isn't broken by the update", () => ({ TICKETS: withTicket("FS3", (t) => ({ setup: (f) => { t.setup(f); f.WS1.apps.find((a) => a.name === "LabelPro").brokenByKb = null; } })) })],
   ["EXTRA FS1: EXHIBITED", "FAT32 takes any size of file", () => ({ FX: Object.assign({}, FXM, { canCopy: () => ({ ok: true }) }) })],
   ["EXTRA FS1: JUDGE", "formatting as NTFS isn't counted", () => ({ TICKETS: withTicket("FS1", (t) => ({ judge: (a, f) => (a.type === "fx-format" && a.fs === "NTFS" ? { guess: false } : t.judge(a, f)) })) })],
   ["EXTRA FS1: SOLVABLE", "format keeps the old file system", () => ({ FX: Object.assign({}, FXM, { format: (m, L, fs, l) => FXM.format(m, L, FXM.drive(m, L).fs, l) }) })],

@@ -17,6 +17,7 @@ import * as MW from "./malware.js";
 import { drawMail } from "./mailui.js";
 import * as BK from "./backup.js";
 import * as FX from "./fsys.js";
+import * as WU from "./winupdate.js";
 import * as INS from "./install.js";
 import { drawInstall } from "./installui.js";
 
@@ -41,7 +42,7 @@ export function createDesktop(host, ctx) {
   /* ------------------------------------------------ opening things */
   function open(app, elevated) {
     start = false; run = null;
-    if (app === "winver") { dialog = { kind: "winver" }; return draw(); }
+    if (app === "winver") { dialog = { kind: "winver" }; M.note(m(), "opened", { app: "winver" }); act({ type: "open", app: "winver" }); return draw(); }
     if (app === "helpdesk" && !ctx.isTech) { dialog = { kind: "message", title: "Help Desk", text: "The Help Desk queue is on your own workstation, TECH-01." }; return draw(); }
     if ((app === "cmd" || app === "ps") && elevated) return askUAC(NAME[app], function (who) { spawn(app, true, who); });
     spawn(app, false);
@@ -722,10 +723,71 @@ export function createDesktop(host, ctx) {
 
   /* -------------------------------------------------- Windows Update */
   function drawWinUpdate(w) {
+    if (m().wu) return drawWU(w);
     const mm = MW.ready(m()); const wrap = el("div", "set winupdate");
     wrap.appendChild(el("h4", "set-h", "Settings › Windows Update"));
     wrap.appendChild(el("p", null, mm.updates.pending ? mm.updates.pending + " updates are waiting. Last checked: " + mm.updates.last + "." : "You're up to date. Last checked: " + mm.updates.last + "."));
     wrap.appendChild(btn("Check for updates", "w-btn primary", function () { const before = ctx.before(); const r = MW.runUpdates(mm); dialog = { kind: "message", title: "Windows Update", text: r.text }; act({ type: "updates", res: r, before: before }); draw(); }));
+    return wrap;
+  }
+
+  /* Windows Update on a PC the update model covers: status, pause and
+     resume, what's available (optional and feature updates kept apart),
+     restart, update history with Uninstall updates, active hours */
+  function drawWU(w) {
+    const mm = m(), u = mm.wu; w.view = w.view || "main";
+    const wrap = el("div", "set winupdate wu");
+    wrap.appendChild(el("h4", "set-h", "Settings › Windows Update" + (w.view === "history" ? " › Update history" : w.view === "uninstall" ? " › Update history › Uninstall updates" : w.view === "advanced" ? " › Advanced options" : "")));
+    const nav = el("div", "ev-nav");
+    [["main", "Windows Update"], ["history", "Update history"], ["advanced", "Advanced options"]].forEach(function (t) { const on = w.view === t[0] || (t[0] === "history" && w.view === "uninstall"); const b = btn(t[1], "w-btn" + (on ? " primary" : ""), function () { w.view = t[0]; w.msg = null; M.note(mm, "wu-view", { view: t[0] }); act({ type: "wu", op: "view", view: t[0] }); draw(); }); b.setAttribute("aria-pressed", String(on)); nav.appendChild(b); });
+    wrap.appendChild(nav);
+    const wuAct = function (op, fn, extra) { const before = ctx.before(); const r = fn() || {}; w.msg = r.text ? { text: r.text, bad: r.ok === false } : null; act(Object.assign({ type: "wu", op: op, res: r, before: before }, extra || {})); draw(); };
+    const say = function () { if (w.msg) { const p = el("p", w.msg.bad ? "dlg-error" : "fh-msg", w.msg.text); p.setAttribute("role", "status"); wrap.appendChild(p); } };
+    const table = function (cols, rows) { const t = el("table", "ev-table"); const hr = el("tr"); cols.forEach(function (c) { const th = el("th", null, c); th.setAttribute("scope", "col"); hr.appendChild(th); }); t.appendChild(hr); rows.forEach(function (r) { const tr = el("tr"); r.forEach(function (c) { const td = el("td"); if (c && c.nodeType) td.appendChild(c); else td.textContent = c; tr.appendChild(td); }); t.appendChild(tr); }); return t; };
+    if (w.view === "main") {
+      if (WU.missing(mm)) { const b = el("p", "fh-warn", "⚠ Your device is missing important security and quality fixes."); b.setAttribute("role", "alert"); wrap.appendChild(b); }
+      if (u.paused) { wrap.appendChild(el("p", "fh-state", "Updates are paused until " + u.paused.until + ".")); const r = el("div", "dlg-row"); r.appendChild(btn("Resume updates", "w-btn primary", function () { wuAct("resume", function () { return WU.resume(mm); }); })); wrap.appendChild(r); }
+      else {
+        wrap.appendChild(el("p", "fh-state", WU.pendingRestart(mm) ? "Restart required. Your device will restart outside active hours (" + WU.hh(u.active.from) + " to " + WU.hh(u.active.to) + ")." : u.found && !WU.listed(mm, "main").length ? "You're up to date. Last checked: " + u.lastCheck + "." : "Last checked: " + u.lastCheck + "."));
+        const r = el("div", "dlg-row");
+        r.appendChild(btn("Check for updates", "w-btn" + (WU.pendingRestart(mm) ? "" : " primary"), function () { wuAct("check", function () { return WU.check(mm); }); }));
+        if (WU.pendingRestart(mm)) r.appendChild(btn("Restart now", "w-btn primary", function () { restart("updates"); }, "Restart now to finish the updates"));
+        wrap.appendChild(r);
+      }
+      say();
+      const row = function (x, label) { return btn("Download & install", "w-btn", function () { wuAct("install", function () { return WU.install(mm, x.kb); }, { kb: x.kb, kind: x.kind }); }, "Download and install " + label); };
+      const main = WU.listed(mm, "main"), pend = u.pending;
+      if (main.length || pend.length) { wrap.appendChild(el("h5", "wu-h", "Updates")); wrap.appendChild(table(["Update", "Status", ""], main.map(function (x) { return [x.title, "Ready to download · " + x.size, row(x, x.title)]; }).concat(pend.map(function (x) { return [x.title, "Pending restart", ""]; })))); }
+      const feat = WU.listed(mm, "feature");
+      feat.forEach(function (x) { const c = el("section", "wu-card"); c.appendChild(el("h5", "wu-h", x.title + " is now available")); c.appendChild(el("p", null, "Get the latest features and security improvements. A new version of Windows: your files and apps stay. " + x.size + ".")); c.appendChild(btn("Download and install", "w-btn", function () { wuAct("install", function () { return WU.install(mm, x.kb); }, { kb: x.kb, kind: x.kind }); }, "Download and install " + x.title)); wrap.appendChild(c); });
+      const opt = WU.listed(mm, "optional");
+      if (opt.length) { wrap.appendChild(el("h5", "wu-h", "Optional updates (" + opt.length + " available)")); wrap.appendChild(table(["Driver update", "Size", ""], opt.map(function (x) { return [x.title, x.size, row(x, x.title)]; }))); }
+      if (!u.paused) {
+        const pr = el("div", "dlg-row"); const l = el("label", null, "Pause updates"); const sel = el("select", "fw-sel"); sel.id = "wu-pause-" + mm.id; l.setAttribute("for", sel.id);
+        [1, 2, 3, 4, 5].forEach(function (n) { const o = el("option", null, "Pause for " + n + " week" + (n > 1 ? "s" : "")); o.value = String(n); sel.appendChild(o); });
+        pr.appendChild(l); pr.appendChild(sel); pr.appendChild(btn("Pause", "w-btn", function () { const n = Number(sel.value); wuAct("pause", function () { return WU.pause(mm, n); }, { weeks: n }); }, "Pause updates for the chosen number of weeks")); wrap.appendChild(pr);
+      }
+    }
+    if (w.view === "history") {
+      const H = u.history.filter(function (h) { return !h.removed; }).slice().reverse();
+      wrap.appendChild(table(["Update", "Installed"], H.map(function (h) { return [h.title, "Successfully installed on " + h.date]; })));
+      const r = el("div", "dlg-row"); r.appendChild(btn("Uninstall updates", "w-btn", function () { w.view = "uninstall"; w.msg = null; act({ type: "wu", op: "view", view: "uninstall" }); draw(); })); wrap.appendChild(r);
+    }
+    if (w.view === "uninstall") {
+      wrap.appendChild(el("p", null, "Updates that can be uninstalled from this device:"));
+      const R = WU.removable(mm);
+      wrap.appendChild(table(["Update", "Installed", ""], R.map(function (h) { return [h.title, h.date, btn(u.removing.indexOf(h.kb) >= 0 ? "Pending restart" : "Uninstall", "w-btn", function () { if (u.removing.indexOf(h.kb) >= 0) return; askUAC("Windows Update Standalone Installer", function () { dialog = { kind: "wu-remove", kb: h.kb, title: h.title }; draw(); }); }, "Uninstall " + h.kb)]; })));
+      say();
+      if (WU.pendingRestart(mm)) { const r = el("div", "dlg-row"); r.appendChild(btn("Restart now", "w-btn primary", function () { restart("updates"); }, "Restart now to finish the updates")); wrap.appendChild(r); }
+    }
+    if (w.view === "advanced") {
+      wrap.appendChild(el("h5", "wu-h", "Active hours"));
+      wrap.appendChild(el("p", null, "Currently " + WU.hh(u.active.from) + " to " + WU.hh(u.active.to) + ". Windows won't restart this device by itself during active hours."));
+      const pick = function (lab, id, val) { const l = el("label", null, lab); const s2 = el("select", "fw-sel"); s2.id = id + "-" + mm.id; l.setAttribute("for", s2.id); for (let h = 0; h < 24; h++) { const o = el("option", null, WU.hh(h)); o.value = String(h); if (h === val) o.selected = true; s2.appendChild(o); } wrap.appendChild(l); wrap.appendChild(s2); return s2; };
+      const f = pick("Start time", "wu-from", u.active.from), t = pick("End time", "wu-to", u.active.to);
+      const r = el("div", "dlg-row"); r.appendChild(btn("Save active hours", "w-btn primary", function () { const a = f.value, b = t.value; wuAct("active", function () { return WU.setActive(mm, a, b); }, { from: Number(a), to: Number(b) }); })); wrap.appendChild(r);
+      say();
+    }
     return wrap;
   }
 
@@ -800,6 +862,12 @@ export function createDesktop(host, ctx) {
         dialog = { kind: "restart-now", text: r.text }; draw();
       }, "Join the domain with this account"));
       row.appendChild(btn("Cancel", "w-btn", function () { d.step = "form"; d.err = ""; draw(); }));
+    }
+    if (d.kind === "wu-remove") {
+      box.appendChild(el("h3", "dlg-h", "Uninstall an update"));
+      box.appendChild(el("p", null, "Are you sure you want to uninstall this update? " + d.title));
+      row.appendChild(btn("Yes", "w-btn primary", function () { const before = ctx.before(); const r = WU.uninstall(mm, d.kb); act({ type: "wu", op: "uninstall", kb: d.kb, res: r, before: before }); dialog = { kind: "message", title: "Windows Update", text: r.ok ? r.text : "That update can't be uninstalled." }; draw(); }, "Yes: uninstall " + d.kb));
+      row.appendChild(btn("No", "w-btn", close));
     }
     if (d.kind === "fx-props") {
       const dv = FX.drive(mm, d.L), u = FX.used(mm, d.L);

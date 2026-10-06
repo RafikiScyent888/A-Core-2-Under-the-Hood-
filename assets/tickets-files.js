@@ -4,12 +4,20 @@
    different real decision:
      FS1  crawl  a 6 GB video won't go on a FAT32 stick that a Mac must
                  also write to: save what's on it, format it exFAT
+     FS2  walk   updates paused for weeks: resume, install what policy
+                 allows (not the optional driver, not the feature update),
+                 active hours that cover the reception desk, restart, check
+     FS3  run    last night's update broke LabelPro: take that one update
+                 off, pause so it can't come straight back, test, escalate
+                 so Tier 2 blocks it everywhere
      FS4  run    a FAT32 data drive with years of files and nowhere to
                  park them: CONVERT it to NTFS in place, never format
-   (FS2, FS3, FS5 and FS6 follow: updates, rolling one back, an edition
-   upgrade, and updating Linux.)
+   (FS5 and FS6 follow: an edition upgrade, and updating Linux.)
    ===================================================================== */
 import * as FX from "./fsys.js";
+import * as WU from "./winupdate.js";
+import * as M from "./machine.js";
+import { APPS } from "./fleet.js";
 
 function opt(label, correct, why) { return { label: label, correct: !!correct, why: why || "" }; }
 const FILES = { topic: "File systems", domain: "Operating systems", objective: "handling file systems, updates, and OS upgrades", kind: "files", extra: true, tier: 1, outcome: "resolve", category: "Operating systems › File systems" };
@@ -234,4 +242,266 @@ export const FS4 = Object.assign({}, FILES, {
   adviceWork: "Two things are wrong with D:, and they have the same cause. Read Mason's note again before you choose a tool: what can't you do with her audit files?"
 });
 
-export const FILES_TICKETS = [FS1, FS4];
+/* ------------------------------------------- the updates FS2 and FS3 meet */
+export const CU = { kb: "KB5069213", title: "2026-10 Cumulative Update for Windows 11 Version 23H2 for x64-based Systems (KB5069213)", kind: "cumulative", size: "812 MB", build: "10.0.22631.4460", restart: true, uninstall: true };
+export const NET = { kb: "KB5069874", title: "2026-10 Cumulative Update for .NET Framework 3.5 and 4.8.1 for Windows 11, version 23H2 (KB5069874)", kind: "dotnet", size: "68 MB", restart: true, uninstall: true };
+export const DEF = { kb: "KB2267602", title: "Security Intelligence Update for Microsoft Defender Antivirus - KB2267602 (Version 1.421.1180.0)", kind: "defender", size: "98 MB", restart: false };
+export const DRV = { kb: "DRV-5592", title: "Intel Corporation - Display - 31.0.101.5592", kind: "driver", size: "512 MB", restart: true };
+export const FEAT = { kb: "FU-24H2", title: "Windows 11, version 24H2", kind: "feature", size: "3.9 GB", restart: true, version: "24H2", build: "10.0.26100.6899" };
+function pend(m, kb) { return !!m.wu && m.wu.pending.some(function (u) { return u.kb === kb; }); }
+function had(m, kb) { return WU.installed(m, kb) || pend(m, kb); }
+function lastEv(m, test) { const e = (m.events || []).filter(test); return e.length ? e[e.length - 1].at : -1; }
+function wuOp(act, op) { return act.type === "wu" && act.op === op && act.res && act.res.ok !== false; }
+
+/* -------------------------------------------- FS2 (walk): Rosa's updates */
+const NEED = [CU.kb, NET.kb, DEF.kb];
+function covers(a) { return a.from < a.to && a.from <= 8 && a.to >= 18; }
+export function fs2Stage(m) {
+  const w = WU.ready(m).wu;
+  if (had(m, FEAT.kb)) return "feature";
+  if (had(m, DRV.kb)) return "driver";
+  if (w.paused) return "resume";
+  if (NEED.some(function (kb) { return !had(m, kb); })) return w.found ? "install" : "check";
+  if (!covers(w.active)) return "active";
+  if (WU.pendingRestart(m)) return "restart";
+  const boot = lastEv(m, function (e) { return e.kind === "wu-boot"; });
+  if (lastEv(m, function (e) { return (e.kind === "opened" && e.app === "winver") || (e.kind === "wu-view" && e.view === "history"); }) < boot) return "verify";
+  return "done";
+}
+const ORDER2 = ["resume", "check", "install", "active", "restart", "verify", "done"];
+
+export const FS2 = Object.assign({}, FILES, {
+  id: "FS2", machine: "WS5",
+  title: "Windows says my PC is missing important security fixes",
+  from: "Rosa Ortiz, Reception",
+  brief: ["Hi, it's Rosa on reception. Windows Update has a warning that my PC is missing important security and quality fixes. That's probably my fault: I paused updates a couple of weeks ago, because it kept restarting itself in the middle of evening check-ins, always just after five.",
+    "Can you get it up to date, and stop it restarting on me while I'm on the desk? I'm away from the desk until one o'clock, so if it needs a restart, now's the time.",
+    "Mason's note: company policy for updates is to install the security and quality updates, .NET, and Defender's updates. Optional driver updates and feature updates (new versions of Windows) wait: Tier 2 tests those and rolls them out. Reception is staffed 8:00 to 18:00."],
+  setup: function (fleet) {
+    const m = fleet.WS5;
+    WU.setup(m, { paused: { until: "20 October 2026", weeks: 5 }, lastCheck: "1 September 2026", active: { from: 8, to: 17 }, offer: [CU, NET, DEF, DRV, FEAT],
+      history: [{ kb: "KB5063875", title: "2026-08 Cumulative Update for Windows 11 Version 23H2 for x64-based Systems (KB5063875)", kind: "cumulative", date: "12 August 2026" }, { kb: "KB2267602-1415", title: "Security Intelligence Update for Microsoft Defender Antivirus - KB2267602 (Version 1.415.204.0)", kind: "defender", date: "1 September 2026" }] });
+    m.clock = "Oct 06 11:20";
+  },
+  stage: function (fleet) { return fs2Stage(fleet.WS5); },
+  goal: function (fleet) { return fs2Stage(fleet.WS5) === "done"; },
+  scoreFn: function (fleet) { return Math.max(0, ORDER2.indexOf(fs2Stage(fleet.WS5))); },
+  notReady: function (fleet) {
+    const s = fs2Stage(fleet.WS5);
+    if (s === "feature" || s === "driver") return "Mason: \"That's not on the policy list. Tier 2 hadn't tested it.\"";
+    if (s === "restart") return "Windows Update still says a restart is required.";
+    if (s === "verify") return "Mason: \"How do you know the updates actually finished?\"";
+    if (s === "active") return "Rosa: \"Will it still restart on me at five past five?\"";
+    return "Rosa looks at Windows Update: the warning about missing security fixes is still there.";
+  },
+  judge: function (act, fleet) {
+    if (act.machine && act.machine !== "WS5") return { guess: false };
+    if (wuOp(act, "install") && act.kind === "driver") return { guess: true, say: "An optional driver update: not on the policy list. Tier 2 tests drivers before they go out, and a bad one can break the display. Revert to your last snapshot." };
+    if (wuOp(act, "install") && act.kind === "feature") return { guess: true, say: "A feature update is a new version of Windows. Policy leaves those for Tier 2 to test and roll out. Revert to your last snapshot." };
+    if (wuOp(act, "pause")) return { guess: true, say: "Paused again: no security fixes reach the PC while it's paused." };
+    if (wuOp(act, "active") && !covers(fleet.WS5.wu.active)) return { guess: true, say: "Reception is staffed 8:00 to 18:00. Outside active hours Windows may restart by itself, so it could still restart during check-ins." };
+    return { guess: false };
+  },
+  hints: function (fleet) {
+    const H = {
+      resume: ["Read the top of Windows Update: why isn't it finding anything new?", "While updates are paused, Windows doesn't look for new ones."],
+      check: ["When did Windows last look for updates?", "Settings only lists what Windows found the last time it looked."],
+      install: ["Read Mason's note: which kinds of update does policy let you install?", "Routine security and quality fixes go in now; drivers and new versions of Windows wait for testing."],
+      active: ["Read Rosa's message again: when did the restarts happen, and when is the desk staffed?", "Windows only restarts by itself outside the hours you mark as active, so those hours must cover the whole staffed day."],
+      restart: ["Some of what you installed is still waiting.", "Security and .NET updates finish as the PC starts again."],
+      verify: ["How do you know the updates really finished?", "A cumulative update changes the OS build number when it finishes, and the history lists what's really installed."],
+      feature: ["Look at what's waiting or installed besides the routine fixes.", "A new version of Windows isn't routine patching here: go back to the last point before it went on."],
+      driver: ["Look at what's waiting or installed besides the routine fixes.", "Optional driver updates aren't routine patching here: go back to the last point before it went on."],
+      done: ["The updates are in and checked. Close the ticket.", "The close question is about the update you left."]
+    };
+    return H[fs2Stage(fleet.WS5)];
+  },
+  moves: function (fleet) {
+    const X = {
+      resume: [opt("Resume updates in Windows Update", true),
+        opt("Download the updates from Microsoft's website", false, "Windows Update does it, once it isn't paused."),
+        opt("Run sfc /scannow to fix the warning", false, "Nothing's corrupt: the PC is behind on updates."),
+        opt("Wait until the pause ends on 20 October", false, "Two more weeks without security fixes."),
+        opt("Install the feature update to catch up", false, "It's paused, and policy leaves feature updates to Tier 2."),
+        opt("Escalate to Tier 2", false, "Resuming updates is Tier 1 work.")],
+      check: [opt("Press Check for updates", true),
+        opt("Restart the PC", false, "Nothing is installed yet to finish."),
+        opt("Pause updates again", false, "Then nothing comes in at all."),
+        opt("Open Update history", false, "That lists what's installed, not what's waiting."),
+        opt("Run gpupdate /force", false, "Group Policy isn't what's holding the updates."),
+        opt("Escalate to Tier 2", false, "Just check.")],
+      install: [opt("Install the cumulative, .NET and Defender updates", true),
+        opt("Install everything listed, the driver and 24H2 too", false, "Drivers and new versions of Windows wait for Tier 2."),
+        opt("Install only the Defender update", false, "The security fixes are in the cumulative update."),
+        opt("Install the optional Intel display driver", false, "Not on the policy list."),
+        opt("Install Windows 11, version 24H2", false, "A new version of Windows: Tier 2 rolls those out."),
+        opt("Pause updates for another week", false, "The PC stays behind.")],
+      active: [opt("Set active hours from 8:00 to 18:00", true),
+        opt("Leave active hours at 8:00 to 17:00", false, "That's why it restarted after five."),
+        opt("Set active hours from 9:00 to 17:00", false, "The desk opens at eight and closes at six."),
+        opt("Pause updates every afternoon", false, "Then nothing installs."),
+        opt("Turn off automatic restarts by disabling Windows Update", false, "Then nothing installs at all."),
+        opt("Set active hours from 0:00 to 23:00", false, "Active hours can't be more than 18 hours.")],
+      restart: [opt("Restart the PC now, while Rosa's away", true),
+        opt("Leave it to restart by itself tonight", false, "She's away now; tonight it may not, and the fixes wait."),
+        opt("Check for updates again", false, "They're installed: they need the restart."),
+        opt("Shut it down instead", false, "A restart finishes them; she needs the PC back."),
+        opt("Pause updates", false, "The installs are waiting for a restart, not a pause."),
+        opt("Resolve: they're installed", false, "Not until the restart finishes them.")],
+      verify: [opt("Check the OS build in winver, or Update history", true),
+        opt("Resolve without checking", false, "Check the update really finished."),
+        opt("Check for updates and install everything", false, "The driver and 24H2 stay."),
+        opt("Restart again to be sure", false, "Look instead: the build tells you."),
+        opt("Run sfc /scannow", false, "That checks system files, not updates."),
+        opt("Escalate to Tier 2", false, "You can check it yourself.")],
+      feature: [opt("Revert to your last snapshot", true),
+        opt("Leave it: newer is better", false, "Policy says Tier 2 tests it first."),
+        opt("Uninstall it from Update history", false, "A new version isn't removed like a quality update."),
+        opt("Pause updates to stop it", false, "It's already on."),
+        opt("Install the driver too", false, "Also not on the list."),
+        opt("Resolve and tell Mason", false, "Put it back first.")],
+      driver: [opt("Revert to your last snapshot", true),
+        opt("Leave it: drivers help", false, "Not tested: not on the policy list."),
+        opt("Install 24H2 to fix it", false, "Also not on the list."),
+        opt("Pause updates", false, "It's already installed."),
+        opt("Restart the PC", false, "That finishes installing it."),
+        opt("Resolve and mention it", false, "Put it back first.")],
+      done: [opt("Resolve the ticket", true),
+        opt("Install 24H2 while you're there", false, "Tier 2 rolls those out."),
+        opt("Pause updates again for Rosa", false, "Then the PC falls behind again."),
+        opt("Set active hours to 9:00 to 17:00", false, "The desk is staffed 8 to 18."),
+        opt("Escalate", false, "It's done."),
+        opt("Install the optional driver", false, "Not on the policy list.")]
+    };
+    return X[fs2Stage(fleet.WS5)];
+  },
+  closeWhere: "Think about Mason's note, and who decides when a new version of Windows goes out.",
+  close: { prompt: "Rosa asks: \"Why didn't you install the Windows 11 24H2 update too? Newer is better, isn't it?\"", options: [
+    opt("New versions of Windows wait until Tier 2 has tested them", true),
+    opt("24H2 would have wiped her files and her apps as it installed", false, "A feature update keeps files and apps. It waits for testing."),
+    opt("Her PC's hardware isn't able to run Windows 11 version 24H2 at all", false, "It was offered, so the PC meets the requirements."),
+    opt("Feature updates need a new product key before they can install", false, "They're free on a licensed PC."),
+    opt("24H2 would undo the security update installed today", false, "A new version includes the security fixes."),
+    opt("Only Windows 11 Home gets feature updates", false, "Every edition gets them.")] },
+  note: { must: [["paused", "resumed", "resume"], ["cumulative", "security", "kb5069213"], ["24h2", "feature", "driver", "optional"], ["active hours"], ["restart", "rebooted"], ["build", "4460", "history", "winver"]],
+    tip: "That updates were paused and you resumed them, what you installed and what you left (and why), the active hours you set, the restart, and how you checked the build." },
+  adviceStart: "Connect to Rosa's PC from the ticket and open Windows Update. Read every line before you press anything.",
+  adviceWork: "Mason's note decides what goes on and what waits. Rosa's message holds the reason she paused it: fix that too, or she'll pause it again."
+});
+
+/* -------------------------------------- FS3 (run): an update broke LabelPro */
+const BAD = CU.kb;
+export function fs3Stage(m) {
+  const w = WU.ready(m).wu;
+  if (had(m, BAD) && w.removing.indexOf(BAD) < 0) return "remove";
+  if (w.removing.indexOf(BAD) >= 0) return "restart";
+  if (!w.paused) return "pause";
+  const boot = lastEv(m, function (e) { return e.kind === "wu-boot"; });
+  if (lastEv(m, function (e) { return e.kind === "launch" && e.app === "LabelPro" && e.result === "ok"; }) < boot) return "test";
+  return "done";
+}
+const ORDER3 = ["remove", "restart", "pause", "test", "done"];
+
+export const FS3 = Object.assign({}, FILES, {
+  id: "FS3", machine: "WS1", outcome: "escalate",
+  title: "LabelPro crashes since this morning",
+  from: "John Doe, HR",
+  brief: ["John in HR. LabelPro crashes the moment I open it. I print the visitor badges with it, and a group arrives at ten. It was fine yesterday afternoon.",
+    "When I got in this morning there was a message that Windows had installed updates overnight and restarted.",
+    "Mason's note: Tier 2 approves Windows updates for the whole office. If an update turns out to be the problem, it comes to us with its KB number so we can block it everywhere, once John can work."],
+  setup: function (fleet) {
+    const m = fleet.WS1;
+    const a = Object.assign(M.clone(APPS.LabelPro), { brokenByKb: BAD, brokenModule: "gdiplus.dll" });
+    m.apps = m.apps.filter(function (x) { return x.name !== a.name; }).concat([a]); M.placeApp(m.fs, a, m);
+    m.build = CU.build;
+    WU.setup(m, { lastCheck: "Today, 03:00", history: [
+      { kb: "KB5065431", title: "2026-09 Cumulative Update for Windows 11 Version 23H2 for x64-based Systems (KB5065431)", kind: "cumulative", date: "9 September 2026" },
+      { kb: "KB2267602-1421", title: DEF.title, kind: "defender", date: "6 October 2026, 03:05" },
+      Object.assign({}, NET, { date: "6 October 2026, 03:12" }),
+      Object.assign({}, CU, { date: "6 October 2026, 03:12", was: "10.0.22631.4317" })] });
+    M.addLog(m, "System", { time: "Oct 06 03:12", source: "WindowsUpdateClient", id: 19, text: "Installation Successful: Windows successfully installed the following update: " + NET.title });
+    M.addLog(m, "System", { time: "Oct 06 03:12", source: "WindowsUpdateClient", id: 19, text: "Installation Successful: Windows successfully installed the following update: " + CU.title });
+    M.addLog(m, "System", { time: "Oct 06 03:20", source: "Kernel-General", id: 12, text: "The operating system started at system time Oct 06 03:20 (OS Build 22631.4460)." });
+    m.clock = "Oct 06 09:15";
+  },
+  stage: function (fleet) { return fs3Stage(fleet.WS1); },
+  goal: function (fleet) { return fs3Stage(fleet.WS1) === "done"; },
+  scoreFn: function (fleet) { return Math.max(0, ORDER3.indexOf(fs3Stage(fleet.WS1))); },
+  notReady: function (fleet) {
+    const s = fs3Stage(fleet.WS1);
+    if (s === "test") return "Mason: \"Has John seen LabelPro open since your change?\"";
+    if (s === "pause") return "Mason: \"What stops that update going straight back on tonight?\"";
+    if (s === "restart") return "John tries LabelPro: it still crashes. Windows Update says a restart is waiting.";
+    return "John tries LabelPro: it still crashes.";
+  },
+  wrongOutcome: function (kind, fleet) {
+    if (kind === "escalate") return "Tier 2 sends it back: John still can't print badges. Get him working first.";
+    return fs3Stage(fleet.WS1) === "done" ? "Mason: \"John's working, but that update is still approved for every other PC. It comes to us.\"" : "John tries LabelPro: it still crashes.";
+  },
+  judge: function (act, fleet) {
+    if (act.machine && act.machine !== "WS1") return { guess: false };
+    if (wuOp(act, "uninstall") && act.kb !== BAD) return { guess: true, say: "That update came off, and LabelPro would still crash: the file it crashes in belongs to a different update." };
+    if (wuOp(act, "install") && act.kb === BAD) return { guess: true, say: "That put the update that breaks LabelPro straight back on." };
+    if (/^(repair|reinstall)$/.test(act.type) && act.app === "LabelPro") return { guess: true, say: "That rewrote LabelPro's own files, and they were never the problem: it crashes in a Windows file." };
+    return { guess: false };
+  },
+  hints: function (fleet) {
+    const H = {
+      remove: ["Read the crash in the Application log: which file does it name, and which version?", "When a program breaks overnight and an update went on overnight, the update that changed the file it crashes in is the one to take off."],
+      restart: ["Read what Windows Update says now.", "Taking an update off finishes as the PC starts again, the same as putting one on."],
+      pause: ["The update is off. What does Windows do the next time it checks?", "Windows offers a removed update again; something has to hold it back until Tier 2 has blocked it."],
+      test: ["Has LabelPro opened since your change?", "Test the program the user can't work without, before you hand the ticket on."],
+      done: ["John can work. Pass it on, as Mason's note says.", "The close question is about why this one doesn't end at Tier 1."]
+    };
+    return H[fs3Stage(fleet.WS1)];
+  },
+  moves: function (fleet) {
+    const X = {
+      remove: [opt("Uninstall KB5069213 from Update history", true),
+        opt("Uninstall the .NET update, KB5069874", false, "LabelPro crashes in a Windows file from the cumulative update."),
+        opt("Repair LabelPro from Settings", false, "Its own files are fine."),
+        opt("Reinstall LabelPro from Software Center", false, "Same files: it still crashes in the Windows file."),
+        opt("Run sfc /scannow", false, "The file isn't corrupt: it's the new version."),
+        opt("Escalate now, before trying anything", false, "John needs badges at ten: get him working first.")],
+      restart: [opt("Restart the PC to finish removing it", true),
+        opt("Uninstall it again", false, "It's already waiting for the restart."),
+        opt("Repair LabelPro", false, "The update is still in place until the restart."),
+        opt("Pause updates and resolve", false, "It isn't off until the restart."),
+        opt("Check for updates", false, "That would offer it again."),
+        opt("Escalate", false, "Finish it first.")],
+      pause: [opt("Pause updates for a week", true),
+        opt("Check for updates to be sure", false, "It offers KB5069213 again."),
+        opt("Install the updates Windows offers", false, "That puts KB5069213 back."),
+        opt("Turn off Windows Update for good", false, "Then no security fixes at all."),
+        opt("Delete gdiplus.dll", false, "Windows needs it."),
+        opt("Resolve the ticket", false, "Tier 2 still has to block it.")],
+      test: [opt("Open LabelPro and check it starts", true),
+        opt("Escalate without testing", false, "Check John can work first."),
+        opt("Restart again", false, "Test instead."),
+        opt("Uninstall the .NET update too", false, "Not involved."),
+        opt("Repair LabelPro", false, "Test first."),
+        opt("Check for updates", false, "Paused: test LabelPro.")],
+      done: [opt("Escalate to Tier 2 with KB5069213", true),
+        opt("Resolve the ticket", false, "Every other PC still has it approved."),
+        opt("Resume updates", false, "It would come back."),
+        opt("Uninstall more updates", false, "Only one was involved."),
+        opt("Reinstall LabelPro", false, "It works."),
+        opt("Tell John to stop updating", false, "That's Tier 2's call.")]
+    };
+    return X[fs3Stage(fleet.WS1)];
+  },
+  closeWhere: "Think about the other PCs in the office.",
+  close: { prompt: "Mason asks: \"LabelPro works again. Why escalate instead of resolving it?\"", options: [
+    opt("The update is still approved for every PC: Tier 2 blocks it", true),
+    opt("Tier 1 isn't allowed to uninstall Windows updates at all", false, "You did, with the administrator's account. Blocking it everywhere is Tier 2's."),
+    opt("John needs Tier 2 to reinstall LabelPro for him properly", false, "LabelPro works: its files were never the problem."),
+    opt("The .NET update must come off too, and only Tier 2 can do it", false, ".NET wasn't involved, and Tier 1 could remove it."),
+    opt("Uninstalling an update voids the Windows licence until Tier 2 fixes it", false, "It doesn't touch the licence."),
+    opt("Escalating removes the update from Microsoft's servers", false, "Tier 2 blocks it for our PCs, not for Microsoft.")] },
+  note: { must: [["kb5069213"], ["uninstall", "removed"], ["restart", "rebooted"], ["pause"], ["labelpro"], ["works", "opens", "opened", "tested", "starts"], ["tier 2", "escalat", "block"]],
+    tip: "What the crash named, the update you removed (its KB) and how you knew, the restart and the pause, that LabelPro opens, and why it goes to Tier 2." },
+  adviceStart: "Connect to John's PC from the ticket. See the crash for yourself, then find what Windows recorded about it.",
+  adviceWork: "Two things happened overnight: updates went on, and LabelPro broke. Line up the times, and the file the crash names, with what Update history says went on."
+});
+
+export const FILES_TICKETS = [FS1, FS2, FS3, FS4];

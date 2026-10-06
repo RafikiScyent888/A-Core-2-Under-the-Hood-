@@ -100,7 +100,8 @@ export function createEngine(storage) {
     const t = ticket(), st = T(); if (!t || !st || st.stage !== "work") return { ok: false };
     if (kind !== t.outcome) {
       st.guesses++;
-      const say = kind === "escalate"
+      /* a ticket can say for itself why that outcome is wrong */
+      const say = t.wrongOutcome ? t.wrongOutcome(kind, S.fleet) : kind === "escalate"
         ? "Tier 2 sends it back: this one can be fixed at Tier 1. Try the Tier 1 fix first."
         : (t.outcome === "escalate" ? t.from.split(",")[0] + " tries it: still broken. The Tier 1 fix has not worked — this needs the next tier." : "");
       st.lastSay = say; save(); emit({ type: "act" }); return { ok: false, say: say };

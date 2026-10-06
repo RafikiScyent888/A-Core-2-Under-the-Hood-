@@ -2353,3 +2353,80 @@ updates, and OS upgrades"**. Three builds, each pushed when verified:
   - contrast: Copy to, File Too Large, the drive bar, the stick's
     Properties, Format and its warning, convert at the prompt. One new
     plant.
+
+### Extra training, FS2 and FS3: Windows Update, and rolling one back (6 October 2026)
+
+Build 2 of file systems. The owner: "Build FS2 and FS3 next". The
+objectives were re-read on 6 October 2026; the wording is unchanged.
+
+- **New file:** `winupdate.js`, the model, on the machine as `m.wu`.
+  `machine.js` finishes waiting updates as the PC starts, and an app can
+  be broken by one update (`brokenByKb`). `engine.js` lets a ticket say
+  for itself why the other outcome is wrong (`wrongOutcome`).
+- **The model, as Windows 11 behaves:**
+  - Updates can be paused for 1 to 5 weeks. While paused, Check for
+    updates finds nothing, and Windows says so.
+  - The kinds of update: a cumulative update (security and quality,
+    needs a restart, raises the OS build); .NET (needs a restart); Defender's
+    security intelligence (no restart); optional driver updates, listed
+    apart and never installed unless chosen; and a feature update (a new
+    version of Windows), offered apart in its own card.
+  - Updates that need a restart wait as "Pending restart" and finish as
+    the PC starts again (the remote session drops, as for any restart).
+  - Active hours: the hours Windows won't restart by itself. At most 18.
+  - Update history lists what's installed. Uninstall updates lists the
+    quality updates that can come off; taking one off needs an
+    administrator, finishes at the next restart, lowers the build again,
+    and Windows offers that update again at the next check.
+  - The red line "Your device is missing important security and quality
+    fixes" shows while this month's cumulative update isn't on.
+- **Windows gained:** the Windows Update window, in three tabs (Windows
+  Update, Update history with Uninstall updates, Advanced options with
+  active hours). winver is now recorded as a look.
+- **FS2 (walk, 10 items), Rosa's WS5:** she paused updates because the PC
+  restarted itself "always just after five" during evening check-ins.
+  Mason's note: install security, quality, .NET and Defender updates;
+  optional drivers and feature updates wait for Tier 2; reception is
+  staffed 8:00 to 18:00. Active hours were 8:00 to 17:00, which is why
+  it restarted after five. The job: resume, check, install the three,
+  active hours 8:00 to 18:00, restart, then check the build (winver) or
+  Update history.
+  - **Counted:** the optional driver; the 24H2 feature update (both need a
+    revert); pausing again; active hours that don't cover 8:00 to 18:00.
+  - **Never counted:** checking while paused, Update history, an
+    18-hour-plus span (refused).
+  - Close question: why 24H2 wasn't installed too.
+- **FS3 (run, escalate), John's WS1:** LabelPro crashes since the
+  overnight updates. The Application log names gdiplus.dll at the new
+  build's version (22631.4460). Update history shows last night's .NET and
+  cumulative updates. The job: uninstall KB5069213 (as administrator),
+  restart, pause updates so it can't come straight back, open LabelPro,
+  and escalate so Tier 2 blocks it for every PC (Mason's note).
+  - **Counted:** uninstalling the .NET update instead; repairing or
+    reinstalling LabelPro; checking and installing KB5069213 again;
+    Resolve once it works (Mason: it's still approved for every other PC).
+  - **Never counted:** the crash, Update history, Event Viewer.
+  - Close question: why escalate, when LabelPro works.
+- **The queue order is FS1, FS2, FS3, FS4,** so FS4's number moved from
+  INC20495 to INC20497. Progress is kept by ticket, not by number.
+- **Found while building:** a logic plant (a removed update never offered
+  again) was missed: the restart goes through the machine's own boot,
+  which uses the real model, not the checker's. The model's boot is now
+  checked directly too.
+- **Checks:**
+  - logic: 88 tickets, 142 plants. FS2 and FS3 table-driven, plus the
+    model (restart-only updates finish at the restart, Defender's doesn't
+    wait, the feature update and driver listed apart, 24H2 holds the
+    ticket until a revert; the crash names the module at the new build,
+    repair doesn't fix it, a removal waits for the restart and is offered
+    again, Resolve after the fix refused with Tier 2's reason). Seven new
+    plants.
+  - page: LOAD (88; 15 crawl, 15 walk, 58 run); EXTRA (FS1 to FS4);
+    FILES now also drives FS2 out of its checklist's order (wrong active
+    hours counted, the lists apart, pending restart, the session dropping,
+    reconnect, history, eight items ticked) and FS3 (the crash, its log,
+    Uninstall updates through UAC, the restart, the warning back, the
+    pause, LabelPro opening, Resolve refused, Escalate). Two new plants.
+  - contrast: Windows Update paused with its warning, the lists, active
+    hours, pending restart, Update history, Uninstall updates and its
+    confirmation. One new plant.

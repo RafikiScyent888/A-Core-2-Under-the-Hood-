@@ -1093,7 +1093,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { FS1: "crawl", OI1: "crawl", OI2: "walk", L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk", MB1: "crawl", MB2: "walk" };
+const LEVEL = { FS1: "crawl", FS2: "walk", OI1: "crawl", OI2: "walk", L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk", MB1: "crawl", MB2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -2028,6 +2028,22 @@ WALKS.FS1 = { machine: "WS2", steps: [
     target: function () { return document.querySelector("#res-note"); },
     done: function () { const st = E.state().tickets.FS1; return !!(st && st.stage === "done"); } }
 ], end: "That's file systems for real: the error read for what it says (the file system's limit, not space), the user's files saved before the format, and the file system chosen for every computer it has to work on. The rest of the file-system tickets are yours to run." };
+/* ------------------------------------------------ FS2: the walk */
+function fs2m() { return E.machine("WS5"); }
+function fs2ev(test) { const m = fs2m(); return !!m && (m.events || []).some(test); }
+function fs2st() { const t = E.ticket(); return t && t.id === "FS2" ? t.stage(E.fleet()) : null; }
+WALKS.FS2 = { mode: "walk", machine: "WS5", steps: [
+  { goal: "Take the ticket and connect to Rosa's PC", win: "helpdesk", how: "Assign it to yourself, then start a remote session from the ticket.", done: function () { return !!(W["rdp:WS5"] && W["rdp:WS5"].phase === "on" && E.ticket() && E.ticket().id === "FS2"); } },
+  { goal: "Read what Windows Update says", how: "Start search finds Windows Update. Read every line before pressing anything.", done: function () { return fs2ev(function (e) { return e.kind === "opened" && e.app === "winupdate"; }); } },
+  { goal: "Get updates coming in again", how: "Something Rosa did is holding them back.", done: function () { const m = fs2m(); return !!(m && m.wu && !m.wu.paused); } },
+  { goal: "Find out what's waiting", how: "Windows only lists what it found the last time it looked.", done: function () { const m = fs2m(); return !!(m && m.wu && m.wu.found); } },
+  { goal: "Install what policy allows, and nothing it doesn't", how: "Mason's note lists what goes on now and what waits for Tier 2.", done: function () { return ["active", "restart", "verify", "done"].indexOf(fs2st()) >= 0; } },
+  { goal: "Stop restarts while the desk is staffed", how: "Windows Update's Advanced options. Compare the hours set with Rosa's message and Mason's note.", done: function () { const m = fs2m(); return !!(m && m.wu && m.wu.active.from < m.wu.active.to && m.wu.active.from <= 8 && m.wu.active.to >= 18); } },
+  { goal: "Finish the install", how: "Rosa is away from the desk now. The session will drop: reconnect afterwards.", done: function () { return ["verify", "done"].indexOf(fs2st()) >= 0; } },
+  { goal: "Check it really finished", how: "The OS build number, or the list of what's installed.", done: function () { return fs2st() === "done"; } },
+  { goal: "Resolve the ticket", win: "helpdesk", how: "Back in Help Desk.", done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
+  { goal: "Answer Rosa's question, and write the notes", win: "helpdesk", how: "What was paused, what went on and what didn't, the active hours, the restart, the build.", done: function () { const st = E.state().tickets.FS2; return !!(st && st.stage === "done"); } }
+], end: "That's the walk: updates flowing again, only what policy allows, restarts kept out of the staffed day, and the result checked. FS3 and FS4 are yours to run." };
 /* ------------------------------------------------ X2: the walk */
 function x2m() { return E.machine("WS3"); }
 function x2ev(kind, test) { const m = x2m(); return !!m && (m.events || []).some(function (e) { return e.kind === kind && (!test || test(e)); }); }

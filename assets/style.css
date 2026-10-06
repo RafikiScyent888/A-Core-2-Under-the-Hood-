@@ -402,3 +402,8 @@ footer.bot p { max-width: 75ch; margin: 0.3rem 0; }
 .mac-sheet { display: grid; gap: 0.45rem; border-top: 1px solid #6b7280; padding-top: 0.6rem; }
 .mac-hello { font-size: 3rem; font-weight: 300; text-align: center; }
 .mac-icon:focus-visible, .mac-item:focus-visible, .mac-win .w-btn:focus-visible, .mac-win .w-input:focus-visible, .mac-win .fw-sel:focus-visible, .mac-win .ws-radio:focus-visible { outline: 3px solid #4c1d95; outline-offset: 2px; }
+/* Windows Update (FS2, FS3) */
+.wu .wu-h { margin: 0.8rem 0 0.3rem; font-size: 1rem; }
+.wu .wu-card { margin: 0.7rem 0; padding: 0.55rem 0.7rem; border: 1px solid #9ca3af; border-radius: 6px; background: #f8fafc; color: #111827; }
+.wu .wu-card p { margin: 0.3rem 0 0.5rem; }
+.wu .ev-table td { vertical-align: middle; }

@@ -172,6 +172,11 @@ does. Each ticket names the objective it covers.
 - **FS, File systems** (Operating systems), at the PC's own screen:
   - FS1: a 6 GB video won't go on a FAT32 stick that a Mac must also write
     to. Save what's on it, format it exFAT, put everything back.
+  - FS2: Windows Update paused for weeks: resume it, install what policy
+    allows (not the optional driver, not the feature update), set active
+    hours to cover the staffed day, restart, check the build.
+  - FS3: last night's update broke an app: uninstall that one update,
+    restart, pause updates, test, and escalate so it's blocked everywhere.
   - FS4: a FAT32 data drive with years of files and nowhere to park them:
     convert it to NTFS in place, never format it.
 

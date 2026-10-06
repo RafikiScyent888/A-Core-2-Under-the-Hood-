@@ -51,8 +51,9 @@
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491", OI5: "INC20492", OI6: "INC20493", FS1: "INC20494", FS4: "INC20495" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491", OI5: "INC20492", OI6: "INC20493", FS1: "INC20494", FS2: "INC20495", FS3: "INC20496", FS4: "INC20497" };
 const NOTES = {
+  FS2: "Updates were paused, so I resumed them and checked. Installed the cumulative update KB5069213, .NET and Defender's update; left the optional Intel driver and the 24H2 feature update, as policy says Tier 2 tests those. Set active hours 8:00 to 18:00 for reception, restarted, and Update history shows the build.",
   FS1: "Copying the 6 GB video failed: the stick was FAT32, which can't hold a file of 4 GB or more. Copied her pitch and price list to her Desktop first, formatted the stick as exFAT because the client's Mac must write to it (a Mac only reads NTFS), then copied her files back and the video on.",
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB1: "Weather Live topped the Battery page at 52% in the background, with location Allow all the time and Unrestricted battery. Set location to Allow only while using the app and background battery to Restricted. The Battery page now shows about 23 hours.",
@@ -151,9 +152,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 86) F("LOAD: the queue shows " + items.length + " tickets, not 86");
+      if (items.length !== 88) F("LOAD: the queue shows " + items.length + " tickets, not 88");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 15 || count(/Walk: checklist/) !== 14 || count(/Run: on your own/) !== 57) F("LOAD: the queue's labels are not 15 crawl, 14 walk, 57 run");
+      if (count(/Crawl: guided/) !== 15 || count(/Walk: checklist/) !== 15 || count(/Run: on your own/) !== 58) F("LOAD: the queue's labels are not 15 crawl, 15 walk, 58 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
       /* Windows 11: the taskbar's icons sit in a cluster in the middle of the screen, Start first */
       const tbc = await p.evaluate(() => { const b = Array.from(document.querySelectorAll(".task-mid .tb")); const l = b[0].getBoundingClientRect(), r = b[b.length - 1].getBoundingClientRect(); return { off: (l.left + r.right) / 2 - innerWidth / 2, first: b[0].getAttribute("aria-label") }; });
@@ -169,7 +170,7 @@ async function run(rewrites, groups) {
       const order = await p.evaluate(() => Array.from(document.querySelectorAll(".hd2-q h3.qsec, .hd2-q .qi")).map((e) => e.tagName === "H3" ? "H" : (e.querySelector(".badge") ? e.querySelector(".badge").textContent : "NONE")));
       const hx = order.indexOf("H", 1); const sims = order.slice(1, hx), extra = order.slice(hx + 1);
       if (sims.length !== 66 || sims.some((x) => !/^Exam sim · /.test(x))) F("EXTRA: the sims section does not hold 66 tickets each badged Exam sim");
-      if (extra.length !== 20 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12, 18).some((x) => x !== "Extra training · OS installation") || extra.slice(18).some((x) => x !== "Extra training · File systems")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6, OI1–OI6 and FS1, FS4 badged with their objectives: " + JSON.stringify(extra));
+      if (extra.length !== 22 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12, 18).some((x) => x !== "Extra training · OS installation") || extra.slice(18).some((x) => x !== "Extra training · File systems")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6, OI1–OI6 and FS1–FS4 badged with their objectives: " + JSON.stringify(extra));
       if (await p.locator(".qi .badge").evaluateAll((bs) => bs.some((b) => !b.querySelector("svg.ico")))) F("EXTRA: a badge has no icon");
       await p.locator(".hd2-jb", { hasText: "Extra training" }).click();
       if (!(await p.locator(".qi", { hasText: INC.X1 }).isVisible())) F("EXTRA: Jump to Extra training does not bring X1 into view");
@@ -449,6 +450,55 @@ async function run(rewrites, groups) {
       if (f4.st !== "done" || f4.g) F("FILES: FS4 through the screens ends at " + f4.st + " with " + f4.g + " wrong moves, not done with none");
       await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click(); await p.waitForTimeout(200);
       if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("FILES: FS4's Resolve was refused");
+      /* FS2, the walk, driven out of its checklist's order: active hours
+         set wrong (counted) and right before anything installs; only what
+         policy allows; the restart drops the session; history checked */
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await take(p, "FS2"); let r5 = await connect(p, "WS5");
+      const wb5 = (n) => r5.getByRole("button", { name: n, exact: true });
+      await tool(r5, "update", "Open Windows Update");
+      { const t = await r5.locator(".wu").innerText(); if (!/missing important security and quality fixes/.test(t) || !/paused until 20 October 2026/.test(t)) F("FILES: FS2's Windows Update doesn't show the warning and the pause"); }
+      await r5.locator(".wu .ev-nav").getByRole("button", { name: "Advanced options", exact: true }).click(); await r5.locator('[id^="wu-from-"]').selectOption("9"); await r5.locator('[id^="wu-to-"]').selectOption("17"); await wb5("Save active hours").click(); await p.waitForTimeout(150);
+      if ((await guesses(p)) !== 1) F("FILES: FS2's active hours that miss the evening weren't counted");
+      await r5.locator('[id^="wu-from-"]').selectOption("8"); await r5.locator('[id^="wu-to-"]').selectOption("18"); await wb5("Save active hours").click();
+      await r5.locator(".wu .ev-nav").getByRole("button", { name: "Windows Update", exact: true }).click(); await wb5("Resume updates").click(); await wb5("Check for updates").click();
+      { const t = await r5.locator(".wu").innerText(); if (!/version 24H2 is now available/.test(t) || !/Optional updates \(1 available\)/.test(t)) F("FILES: FS2's feature update and optional driver aren't listed apart"); }
+      for (const ti of ["2026-10 Cumulative Update for Windows 11 Version 23H2 for x64-based Systems (KB5069213)", "2026-10 Cumulative Update for .NET Framework 3.5 and 4.8.1 for Windows 11, version 23H2 (KB5069874)", "Security Intelligence Update for Microsoft Defender Antivirus - KB2267602 (Version 1.421.1180.0)"]) await wb5("Download and install " + ti).click();
+      if (!/Pending restart/.test(await r5.locator(".wu").innerText())) F("FILES: FS2's updates don't wait for a restart");
+      await wb5("Restart now to finish the updates").click(); await p.waitForTimeout(400);
+      if (!/restarted/.test(await r5.locator(".rdp-wait").innerText().catch(() => ""))) F("FILES: FS2's restart didn't end the remote session");
+      await r5.getByRole("button", { name: /Reconnect to/ }).click(); await p.waitForTimeout(1900);
+      await tool(r5, "update", "Open Windows Update"); await r5.locator(".wu .ev-nav").getByRole("button", { name: "Update history", exact: true }).click();
+      if (!/KB5069213\)Successfully installed/.test((await r5.locator(".wu").innerText()).replace(/\s+/g, ""))) { const t = await r5.locator(".wu").innerText(); if (!/KB5069213[\s\S]*Successfully installed/.test(t)) F("FILES: FS2's Update history doesn't show the cumulative update installed"); }
+      const f2 = await p.evaluate(() => { const E = window.__LAP.engine; return { st: E.ticket().stage(E.fleet()), g: E.T().guesses, b: E.machine("WS5").build }; });
+      if (f2.st !== "done" || f2.g !== 1 || f2.b !== "10.0.22631.4460") F("FILES: FS2 through the screens ends " + JSON.stringify(f2) + ", not done with one wrong move on build 22631.4460");
+      { const did = await p.locator(".coach-list li.did").count(); if (did < 8) F("FILES: FS2's checklist ticked only " + did + " of its first eight items"); }
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click(); await p.waitForTimeout(200);
+      if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("FILES: FS2's Resolve was refused");
+      /* FS3: the crash and its log; the one update uninstalled (UAC); the
+         restart; paused; LabelPro opens; Resolve refused with Tier 2's
+         reason (counted); Escalate accepted */
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await take(p, "FS3"); let r1 = await connect(p, "WS1");
+      const wb1 = (n) => r1.getByRole("button", { name: n, exact: true });
+      await wb1("Open the LabelPro shortcut on the desktop").click(); await p.waitForTimeout(150);
+      if (!/LabelPro has stopped working/.test(await r1.locator(".w-dialog").innerText())) F("FILES: FS3's LabelPro doesn't crash in words");
+      await r1.locator(".w-dialog").getByRole("button", { name: "OK" }).click();
+      if (!(await p.evaluate(() => window.__LAP.engine.machine("WS1").logs.Application.some((e) => /gdiplus\.dll, version: 10\.0\.22631\.4460/.test(e.text))))) F("FILES: FS3's crash isn't logged with the module and the new build");
+      await tool(r1, "update", "Open Windows Update"); await r1.locator(".wu .ev-nav").getByRole("button", { name: "Update history", exact: true }).click(); await wb1("Uninstall updates").click(); await wb1("Uninstall KB5069213").click();
+      { const c = r1.locator(".w-dialog.uac-creds"); await c.locator("input").nth(0).fill("RAFIKI\\itadmin"); await c.locator("input").nth(1).fill("Bench-Tech-2026"); await c.getByRole("button", { name: "Yes" }).click(); }
+      await wb1("Yes: uninstall KB5069213").click(); await r1.locator(".w-dialog").getByRole("button", { name: "OK" }).click();
+      await wb1("Restart now to finish the updates").click(); await p.waitForTimeout(400);
+      await r1.getByRole("button", { name: /Reconnect to/ }).click(); await p.waitForTimeout(1900);
+      await tool(r1, "update", "Open Windows Update");
+      if (!/missing important security and quality fixes/.test(await r1.locator(".wu").innerText())) F("FILES: FS3's Windows Update doesn't warn once the update is off");
+      await r1.locator('[id^="wu-pause-"]').selectOption("1"); await wb1("Pause updates for the chosen number of weeks").click();
+      if (!/paused until 13 October 2026/.test(await r1.locator(".wu").innerText())) F("FILES: FS3's pause doesn't say until when");
+      await wb1("Show the desktop").click(); await wb1("Open the LabelPro shortcut on the desktop").click(); await p.waitForTimeout(150);
+      const f3 = await p.evaluate(() => { const E = window.__LAP.engine; return { st: E.ticket().stage(E.fleet()), g: E.T().guesses, b: E.machine("WS1").build }; });
+      if (f3.st !== "done" || f3.g || f3.b !== "10.0.22631.4317") F("FILES: FS3 through the screens ends " + JSON.stringify(f3) + ", not done with no wrong moves on build 22631.4317");
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click(); await p.waitForTimeout(200);
+      if ((await guesses(p)) !== 1 || !/every other PC/.test(await hd(p).innerText())) F("FILES: FS3's Resolve after the fix wasn't refused with Tier 2's reason");
+      await hd(p).getByRole("button", { name: "Escalate to Tier 2", exact: true }).click(); await p.waitForTimeout(200);
+      if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("FILES: FS3's Escalate was refused");
     });
 
     await step("INSTRUCTOR", async (p) => {
@@ -987,6 +1037,8 @@ const PLANTS = [
   ["INSTALL", "the upgrade never finishes at the restart", { "assets/install.js": [["if (I.up && I.up.copied && !I.up.applied) { const r = applyUpgrade(m); if (r) return r; }", ""]] }],
   ["LOAD", "the laptop's taskbar back at the left", { "assets/laptop.css": [[".task { display: grid; grid-template-columns: 1fr auto 1fr; }", ".task { display: flex; }"], [".task-mid { flex: 1; display: flex; justify-content: center;", ".task-mid { flex: 1; display: flex; justify-content: flex-start;"]] }],
   ["INSTALL", "a Windows 11 PC's taskbar at the left", { "assets/style.css": [[".taskbar:not(.w10) { display: grid; grid-template-columns: 1fr minmax(0, max-content) 1fr; }", ".taskbar:not(.w10) { display: flex; }"], [".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: center;", ".tb-mid { flex: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; justify-content: flex-start;"]] }],
+  ["FILES", "Restart now never finishes the updates", { "assets/machine.js": [["if (WU.pendingRestart(m)) {", "if (false) {"]] }],
+  ["FILES", "Uninstall updates lists nothing", { "assets/desktop.js": [["const R = WU.removable(mm);", "const R = [];"]] }],
   ["FILES", "Format keeps the drive's old file system", { "assets/desktop.js": [["const r = FX.format(mm, d.L, d.fs, d.label);", "const r = FX.format(mm, d.L, FX.drive(mm, d.L).fs, d.label);"]] }],
   ["FILES", "a drive's Properties don't say its file system", { "assets/desktop.js": [['["File system", dv.fs]', '["File system", "Local"]']] }],
   ["INSTALL", "the new phone's refusals shown without their words", { "assets/newphoneui.js": [["const err = function () { if (m.error) {", "const err = function () { if (false) {"]] }],
