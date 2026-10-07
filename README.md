@@ -49,7 +49,9 @@ on the laptop:
   Port Forwarding diagram, the Wi-Fi office map, the three houses of
   Neighboring Routers, the Tier 1 Router scenario, the Wireless
   Reliability checkpoints, App Launch's tasks and evidence, App
-  Deployment's tabs, the Email Threat inbox and the Malware network map.
+  Deployment's tabs, the Email Threat inbox, the Malware network map and
+  the two Help Desk chats (the customer's messages, a reply to choose and
+  Send, then Submit for the score, as the chat sims do it).
   Each one is the sim's own task plus five more.
   Work it Guided, with a Checklist, or On my own.
 - **Chat with Mason,** your team lead. He guides you, and never gives you

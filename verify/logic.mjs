@@ -65,7 +65,11 @@
                 keyed with its own category; each infected PC keyed to be
                 contained and showing its malware, no clean PC showing any; right
                 values check done, a wrong one stays red and counts; rung 3
-                leaves two alive; no hint names the answer; spread
+                leaves two alive; no hint names the answer; spread; the
+                Help Desk chat views each their own ticket (keys, pool,
+                the sim's own replies, the hands-on check card before the
+                reply it decides and showing what decides it), with their
+                own spread
 
    A plant run that passes is reported as a failure: a check that cannot
    fail is not a check.
@@ -441,6 +445,15 @@ const SIM_REPLIES = {
     wrong: ["Try restarting your phone.", "Are you sure it's not your internet?", "Check if your inbox is full.", "Did you charge your phone?", "Try toggling airplane mode.", "Blow on the SIM card.", "Switch to POP3 protocol.", "Use port 80 instead."] },
   CR1: { keys: ["I am happy to assist you today.", "Is this the first router in your office?", "Create a new password with an uppercase, a lowercase, and special character.", "Yes, reboot please."],
     wrong: ["Have you tried using the FAQ?", "You should know how to do that!", "This is wasting my time!", "Type the password printed on the label on the bottom of the router.", "Use Summer21 as the administrative password so we can assist you in the future.", "Leave the password field blank for easy access in the future.", "If you think you should, you can.", "No, it is not necessary."] }
+};
+/* what each practice's check card must show: the thing that decides the
+   reply after it, as the ticket's own check would show it */
+const CHAT_CARD = {
+  CE2: /SMTP · port 587 · STARTTLS · sign-in required/, CE3: /Incoming: IMAP · port 993 · SSL\/TLS/, CE4: /Server: mail\.rafiki\.local/,
+  CE5: /Receiving: Authentication failed/, CE6: /Incoming: IMAP · port 993 · SSL\/TLS/,
+  CR2: /Wi-Fi password: 92series1234[\s\S]*sticker: network 92Series-4F1A, password 92series1234/, CR3: /Wi-Fi password: 92series1234/,
+  CR4: /Firmware installed: 1\.0\.4\nFirmware available: 1\.1\.2/, CR5: /Old laptop: can't connect: .*WPA2/,
+  CR6: /channel 6 · 40 MHz[\s\S]*CafeGuest · channel 1[\s\S]*Flat2-WiFi · channel 6/
 };
 /* the fault each chat starts with */
 const CHAT_FAULT = {
@@ -1662,8 +1675,13 @@ export const KEYS = {
   "t1:t1": { q1: "Change the default administrative password to a strong, complex password", q2: "Save the changes and reboot the router", q3: "Document findings and escalate to Tier 2 support" },
   "wr:wrA": { constraint: "Signal range and wall penetration", band: "2.4 GHz", channel: "Use a non-overlapping channel", security: "Modern encrypted security with strong authentication" },
   "wr:wrB": { constraint: "Wireless congestion from nearby networks", band: "5 GHz", channel: "Use a non-overlapping channel", security: "Modern encrypted security with strong authentication" },
-  "wr:wrC": { constraint: "Signal range and wall penetration", band: "Dual-band with client steering", channel: "Allow automatic channel selection only", security: "Modern encrypted security with strong authentication" }
+  "wr:wrC": { constraint: "Signal range and wall penetration", band: "Dual-band with client steering", channel: "Allow automatic channel selection only", security: "Modern encrypted security with strong authentication" },
+  /* the Help Desk chat sims: their own four replies, in order */
+  "hc:hc1": { r1: "Good afternoon, I will be happy to assist you with your email.", r2: "I will be glad to help, but first I need to know what type of device you are using.", r3: "Let's take a look at your phone settings.", r4: "Please change the port number on your mail settings to 993." },
+  "hr:hr1": { r1: "I am happy to assist you today.", r2: "Is this the first router in your office?", r3: "Create a new password with an uppercase, a lowercase, and special character.", r4: "Yes, reboot please." }
 };
+/* a plant's copy of EXAMS with one chat view changed */
+function chatView(ex, vid, fn) { return EXAMS.map((e) => (e.id !== ex ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== vid ? v : Object.assign({}, v, fn(v)))) }))); }
 function examChecks(D, F) {
   const X = D.EXAMS || EXAMS; const pos = [0, 0, 0, 0, 0, 0]; let qs = 0, longest = 0;
   X.forEach((ex) => {
@@ -1689,6 +1707,30 @@ function examChecks(D, F) {
           if (simKey && kinds[0] !== "change") F(P + "RUNS: the sim's old robocopy never copied anything (" + kinds[0] + "), so its failing proves nothing");
           const ev = v.fields.find((f) => f.id === "ev"), row = v.evidence.events.find((e) => String(e[0]) === PQ.rightValue(ev));
           if (!row || !(row[2] === "Error" || row[2] === "Warning")) F(P + "EVENT: the keyed entry is not the one marked Error or Warning"); } }
+      /* Help Desk chats: each view is its ticket's conversation (the same
+         ticket a ticket's exam link opens), every reply keyed as the ticket
+         keys it, every option from the ticket's own pool, the sim's own
+         wrong replies all on show in the sim itself, and each practice
+         carrying the ticket's first hands-on check before the reply it decides */
+      if (ex.layout === "chat") { const mine = D.TICKETS.filter((x) => x.sim === ex.sim), t = mine[ex.variants.indexOf(v)];
+        if (!t || t.id !== v.src) F(P + "MATCH: view " + (ex.variants.indexOf(v) + 1) + " is " + v.src + ", but its ticket link opens " + (t ? t.id : "nothing"));
+        else { const replies = t.chat.filter((it) => it.type === "reply");
+          if (replies.length !== v.fields.length || v.steps.length !== v.fields.length) F(P + "MATCH: " + v.fields.length + " replies, the ticket has " + replies.length);
+          v.fields.forEach((f, i) => { const it = replies[i]; if (!it) return; const pool = [it.right.label].concat(it.wrong.map((w) => w.label));
+            if (PQ.rightValue(f) !== it.right.label) F(P + "MATCH: " + f.id + " is keyed \"" + PQ.rightValue(f) + "\", the ticket's reply is \"" + it.right.label + "\"");
+            f.options.forEach((o) => { if (pool.indexOf(o.label) < 0) F(P + "MATCH: " + f.id + " offers \"" + o.label + "\", which isn't in the ticket's pool"); }); });
+          const sim = SIM_REPLIES[t.id];
+          if (v.base && sim) { const shown = [].concat.apply([], v.fields.map((f) => f.options.map((o) => o.label))); sim.wrong.forEach((w) => { if (shown.indexOf(w) < 0) F(P + "SIM: the sim's own reply \"" + w + "\" isn't among the six"); }); }
+          const cards = [].concat.apply([], v.steps.map((s, i) => s.lines.filter((l) => l.who === "check").map(() => i)));
+          const firstDo = t.chat.findIndex((it) => it.type === "do"), before = t.chat.slice(0, firstDo).filter((it) => it.type === "reply").length;
+          if (v.base ? cards.length : firstDo >= 0 && (cards.length !== 1 || cards[0] !== before)) F(P + "CHECK: " + (v.base ? "the sim itself has a check the sim doesn't" : "the ticket's hands-on check is " + (cards.length ? "before the wrong reply" : "missing")));
+          const card = v.steps.map((s) => s.lines.filter((l) => l.who === "check").map((l) => l.title + "\n" + l.rows.map((r) => r.join(": ")).join("\n")).join("")).join("");
+          if (CHAT_CARD[t.id] && !CHAT_CARD[t.id].test(card)) F(P + "EXHIBITED: the check card doesn't show what decides the reply (" + CHAT_CARD[t.id] + ")"); } }
+      /* a chat's replies are long sentences, so its own spread is checked:
+         the right reply the longest of the six in at most a third */
+      if (ex.layout === "chat" && v === ex.variants[ex.variants.length - 1]) { let q = 0, l = 0;
+        ex.variants.forEach((x) => x.fields.forEach((f) => { q++; const L = f.options.map((o) => o.label.length), r = PQ.rightValue(f).length; if (r === Math.max(...L) && L.filter((y) => y === r).length === 1) l++; }));
+        if (l > Math.ceil(q / 3)) F("EXAM: SPREAD: in " + ex.sim + " the right reply is the longest in " + l + " of " + q); }
       /* Email: each email keyed with its own category from the mail tickets */
       if (ex.id === "em") v.fields.forEach((f) => { const e = emailById(f.id), c = e && CATS.find((x) => x.key === e.cat); if (!c || PQ.rightValue(f) !== c.label) F(P + "CAT: " + f.id + " is keyed " + PQ.rightValue(f) + ", its email is " + (c ? c.label : "missing")); });
       /* Malware: the infected PCs are keyed to be contained, and each one's
@@ -1865,6 +1907,17 @@ const PLANTS = [
   ["EXAM mw:mw1: EXHIBITED", "a clean PC shown running an unsigned program from AppData", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "mw" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "mw1" ? v : Object.assign({}, v, { devices: v.devices.map((d) => (d.id !== "WS3" ? d : Object.assign({}, d, { procs: d.procs.concat([{ name: "upd.exe", desc: "upd", cpu: 40, image: "C:\\Users\\dpatel\\AppData\\Roaming\\upd.exe", publisher: "" }]) }))) }))) }))) })],
   ["EXAM mw:mw3: INFECTED", "an infected PC keyed to stay on the network", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "mw" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.id !== "mw3" ? v : Object.assign({}, v, { fields: v.fields.map((f) => (f.id !== "WS5" ? f : Object.assign({}, f, { options: f.options.map((o) => Object.assign({}, o, { correct: /^Leave it/.test(o.label) })) }))) }))) }))) })],
   ["EXAM: SPREAD", "the exam questions shown in authored order", () => ({ ordered: (o) => o.slice() })],
+  /* the Help Desk chat exam views */
+  ["EXAM hc:hc1: KEY", "the email sim's last reply keyed to its own joke (port 80)", () => ({ KEYS: Object.assign({}, KEYS, { "hc:hc1": Object.assign({}, KEYS["hc:hc1"], { r4: "Use port 80 instead." }) }) })],
+  ["EXAM hr:hr1: KEY", "the router sim keyed with the sticker's password", () => ({ EXAMS: chatView("hr", "hr1", (v) => ({ fields: v.fields.map((f) => (f.id !== "r3" ? f : Object.assign({}, f, { options: f.options.map((o) => Object.assign({}, o, { correct: /printed on the label/.test(o.label) })) }))) })) })],
+  ["EXAM hc:hc1: SIM", "\"Blow on the SIM card.\" left out of the sim itself", () => ({ EXAMS: chatView("hc", "hc1", (v) => ({ fields: v.fields.map((f) => Object.assign({}, f, { options: f.options.map((o) => (o.label === "Blow on the SIM card." ? Object.assign({}, o, { label: "Try a different SIM card." }) : o)) })) })) })],
+  ["EXAM hc:hc3: MATCH", "two practices swapped, so a ticket's exam link opens the wrong chat", () => ({ EXAMS: EXAMS.map((e) => (e.id !== "hc" ? e : Object.assign({}, e, { variants: [e.variants[0], e.variants[2], e.variants[1]].concat(e.variants.slice(3)) }))) })],
+  ["EXAM hr:hr4: MATCH", "a practice offers a reply from another chat", () => ({ EXAMS: chatView("hr", "hr4", (v) => ({ fields: v.fields.map((f, i) => (i ? f : Object.assign({}, f, { options: f.options.map((o, j) => (j === 1 ? Object.assign({}, o, { label: "Please change the port number on your mail settings to 993." }) : o)) }))) })) })],
+  ["EXAM hr:hr6: CHECK", "Ben's router check left out", () => ({ EXAMS: chatView("hr", "hr6", (v) => ({ steps: v.steps.map((s) => Object.assign({}, s, { lines: s.lines.filter((l) => l.who !== "check") })) })) })],
+  ["EXAM hc:hc2: CHECK", "the mail server check placed after the reply it decides", () => ({ EXAMS: chatView("hc", "hc2", (v) => ({ steps: v.steps.map((s, i) => Object.assign({}, s, { lines: i === 2 ? s.lines.filter((l) => l.who !== "check") : i === 3 ? v.steps[2].lines.filter((l) => l.who === "check").concat(s.lines) : s.lines })) })) })],
+  ["EXAM hr:hr6: EXHIBITED", "Ben's router check shown without the neighbours", () => ({ EXAMS: chatView("hr", "hr6", (v) => ({ steps: v.steps.map((s) => Object.assign({}, s, { lines: s.lines.map((l) => (l.who !== "check" ? l : Object.assign({}, l, { rows: l.rows.filter((r) => !/^Nearby/.test(r[0])) }))) })) })) })],
+  ["EXAM hc:hc5: EXHIBITED", "Dev's sync check read from a phone that works", () => ({ EXAMS: chatView("hc", "hc5", (v) => ({ steps: v.steps.map((s) => Object.assign({}, s, { lines: s.lines.map((l) => (l.who !== "check" ? l : Object.assign({}, l, { rows: [["Receiving", "Synced just now over IMAP on 993 (SSL/TLS)."], ["Sending", "Sent."]] }))) })) })) })],
+  ["EXAM: SPREAD", "the chat practices offer the wrong replies farthest from the right one in length", () => ({ EXAMS: EXAMS.map((e) => (e.layout !== "chat" ? e : Object.assign({}, e, { variants: e.variants.map((v) => (v.base ? v : Object.assign({}, v, { fields: v.fields.map((f) => { const t = BASE.TICKETS.find((x) => x.id === v.src), it = t.chat.filter((x) => x.type === "reply")[Number(f.id.slice(1)) - 1]; const far = it.wrong.slice().sort((a, b) => a.label.length - b.label.length).slice(0, 5); return Object.assign({}, f, { options: [f.options[0]].concat(far.map((w) => ({ label: w.label, correct: false, why: w.why }))) }); }) }))) }))) })],
   ["NOTE", "the note check accepts anything forty letters long", () => ({ noteOK: (t, s) => ({ ok: String(s).length >= 40, missing: [] }) })],
   ["CHAT POOL", "a chat step's pool loses a wrong reply", () => ({ TICKETS: withTicket("CE2", (t) => ({ chat: t.chat.map((it, i) => (i === 0 ? Object.assign({}, it, { wrong: it.wrong.slice(1) }) : it)) })) })],
   ["CHAT SIM", "CE1 drops the sim's joke reply", () => ({ TICKETS: withTicket("CE1", (t) => ({ chat: t.chat.map((it) => (it.type === "reply" ? Object.assign({}, it, { wrong: it.wrong.map((w) => (w.label === "Blow on the SIM card." ? Object.assign({}, w, { label: "Check the SIM card." }) : w)) }) : it)) })) })],

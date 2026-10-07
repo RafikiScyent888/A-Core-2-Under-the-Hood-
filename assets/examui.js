@@ -51,8 +51,10 @@ export function drawExam(host, ctx, ui) {
   top.appendChild(ms); main.appendChild(top);
   const brief = el("div", "ex-brief"); v.brief.forEach(function (p) { brief.appendChild(el("p", null, p)); }); main.appendChild(brief);
 
-  const g = P.guidance(v, st), next = P.stuck(v, st);
-  if (st.done) { const d = el("div", "ex-done"); d.setAttribute("role", "status"); d.appendChild(el("strong", null, "✓ Every setting is right.")); d.appendChild(el("p", null, "That's how it looks on the exam. Try the next practice, or do it for real as a ticket in Help Desk.")); main.appendChild(d); }
+  /* a chat is worked a step at a time, so Mason's "next" is the reply not
+     yet sent; his hints stay on the first reply not yet right */
+  const g = P.guidance(v, st), next = ex.layout === "chat" ? chatNext(v, st) : P.stuck(v, st);
+  if (st.done) { const d = el("div", "ex-done"); d.setAttribute("role", "status"); d.appendChild(el("strong", null, ex.layout === "chat" ? "✓ Every reply is right: " + v.fields.length + " / " + v.fields.length + "." : "✓ Every setting is right.")); d.appendChild(el("p", null, "That's how it looks on the exam. Try the next practice, or do it for real as a ticket in Help Desk.")); main.appendChild(d); }
   else if (mode === "guided" && v.visit && (st.visited || []).length < v.devices.length) { const d = v.devices.filter(function (x) { return (st.visited || []).indexOf(x.id) < 0; })[0]; const c = el("div", "ex-coach"); c.setAttribute("role", "status"); c.appendChild(el("strong", null, "Mason: next, inspect " + d.host)); c.appendChild(el("p", null, "Open it on the map, then read its Task Manager, System Logs and Browser History before you decide anything.")); main.appendChild(c); }
   else if (mode === "guided" && next) { const c = el("div", "ex-coach"); c.setAttribute("role", "status"); c.appendChild(el("strong", null, "Mason: next, " + next.label.replace(/^Task \d+: |^Checkpoint \d+ · /, ""))); c.appendChild(el("p", null, next.hint[0])); main.appendChild(c); }
   if (!st.done && g.rung) { const h = el("div", "ex-hint"); h.setAttribute("role", "status"); h.appendChild(el("strong", null, "Mason · " + (g.rung === 3 ? "narrowing it down" : "a pointer"))); h.appendChild(el("p", null, g.where)); if (g.principle) h.appendChild(el("p", "ex-princ", g.principle)); if (g.narrow) h.appendChild(el("p", "ex-princ", g.narrow)); main.appendChild(h); }
@@ -62,13 +64,20 @@ export function drawExam(host, ctx, ui) {
   const ring = mode === "guided" && next ? next.id : null;
   const area = el("div", "ex-area ex-" + ex.layout); main.appendChild(area);
   const F = { v: v, st: st, g: g, ring: ring, ui: ui, ctx: ctx, ex: ex };
-  ({ diagram: drawDiagram, map: drawMap, houses: drawHouses, tasks: drawTasks, checkpoints: drawCheckpoints, evidence: drawEvidence, inbox: drawInbox, network: drawNetwork, deploy: drawDeploy })[ex.layout](area, F);
+  ({ diagram: drawDiagram, map: drawMap, houses: drawHouses, tasks: drawTasks, checkpoints: drawCheckpoints, evidence: drawEvidence, inbox: drawInbox, network: drawNetwork, deploy: drawDeploy, chat: drawChat })[ex.layout](area, F);
   /* check and reset */
   const row = el("div", "ex-row");
   row.appendChild(btn(ex.layout === "map" || ex.layout === "houses" ? "Save settings" : "Submit", "b pri", function () {
     /* as in the sim: every device on the network is inspected first */
     if (v.visit) { const seen = (st.visited || []).length, all = v.devices.length; if (seen < all) { ui.msg = "Inspect every device on the network first: " + seen + " of " + all + " so far. You can't call a network clean until you've looked at all of it."; ctx.draw(); return; } }
+    /* as in the chat sim: every reply is sent first, then it is scored */
+    if (ex.layout === "chat") { const sent = v.fields.filter(function (f) { return (st.sent || {})[f.id]; }).length; if (sent < v.fields.length) { ui.msg = "Send a reply at every step first: " + sent + " of " + v.fields.length + " sent."; ctx.draw(); return; } }
     const r = P.check(v, st); ui.msg = r.done ? "" : (r.wrong ? r.wrong + " not right yet. Each one stays marked, with why, until you change it." : r.missing ? "Fill in every part first: " + r.missing + " still empty." : "Not right yet.");
+    /* a wrong reply goes back to its step, red with why, to be chosen again;
+       the replies that were right stay sent */
+    if (ex.layout === "chat") { const right = v.fields.filter(function (f) { return st.ok[f.id]; }).length;
+      v.fields.forEach(function (f) { if (!st.ok[f.id]) { delete st.sent[f.id]; delete st.vals[f.id]; } });
+      ui.msg = "Score: " + right + " / " + v.fields.length + (r.done ? "" : ". " + (v.fields.length - right) + " " + (v.fields.length - right === 1 ? "reply is" : "replies are") + " back on " + (v.fields.length - right === 1 ? "its step" : "their steps") + ", the wrong one red with why. Choose again from there."); }
     ctx.save(); if (r.done && ctx.onDone) ctx.onDone(ex, v); ctx.draw();
   }));
   row.appendChild(btn("Reset", "b", function () { const n = P.resetAll(st); if (st.visited) n.visited = st.visited.slice(); L.exam[ex.id + ":" + v.id] = n; ui.msg = "Reset: everything's back to the start. Mason's help carries on from where it was."; ctx.save(); ctx.draw(); }, "Reset this exam view: clears your answers and the red marks; Mason's help carries on"));
@@ -262,4 +271,52 @@ function drawCheckpoints(area, F) {
   const right = el("section", "ex-card"); right.setAttribute("aria-label", "Decision checkpoints"); right.appendChild(el("h3", null, "Decision Checkpoints"));
   F.v.fields.forEach(function (f) { right.appendChild(fieldBox(f, F)); });
   area.appendChild(left); area.appendChild(right);
+}
+
+/* ------------------------------ Help Desk Chat: the conversation, as
+   the sim has it. HELP DESK and the task; the customer's messages; under
+   the newest, the reply to choose and Send; what you sent; the next
+   message after it. Submit scores the lot, as the sim does. */
+function chatNext(v, st) { return v.fields.filter(function (f) { return !st.ok[f.id] && !(st.sent || {})[f.id]; })[0] || null; }
+function drawChat(area, F) {
+  const v = F.v, st = F.st; st.sent = st.sent || {}; st.reach = st.reach || 1;
+  const box = el("div", "ex-hd"); area.appendChild(box);
+  box.appendChild(el("h3", "ex-hdh", "HELP DESK"));
+  box.appendChild(el("p", "ex-hdt", F.ex.task));
+  const log = el("div", "cc-log ex-hdlog"); log.setAttribute("role", "log"); log.setAttribute("aria-label", "Conversation with " + v.who); box.appendChild(log);
+  function line(x) {
+    /* what the technician sees when they check the phone or router */
+    if (x.who === "check") {
+      const card = el("figure", "cc-shot ex-hdcheck"); card.appendChild(el("figcaption", null, "You check · " + x.title));
+      const tb = el("table"); x.rows.forEach(function (r) { const tr = el("tr"); const th = el("th", null, r[0]); th.setAttribute("scope", "row"); tr.appendChild(th); tr.appendChild(el("td", null, r[1])); tb.appendChild(tr); }); card.appendChild(tb); log.appendChild(card); return;
+    }
+    const b = el("div", "cc-line " + (x.who === "you" ? "you" : "cust"));
+    const w = el("span", "cc-who"); if (x.who !== "you") w.appendChild(el("span", "ex-av", v.who.charAt(0))); w.appendChild(document.createTextNode(x.who === "you" ? "You" : v.who)); b.appendChild(w);
+    if (x.attach) {
+      const card = el("figure", "cc-shot"); card.appendChild(el("figcaption", null, "Screenshot · " + x.attach.title));
+      const tb = el("table"); x.attach.rows.forEach(function (r) { const tr = el("tr"); const th = el("th", null, r[0]); th.setAttribute("scope", "row"); tr.appendChild(th); tr.appendChild(el("td", null, r[1])); tb.appendChild(tr); }); card.appendChild(tb); b.appendChild(card);
+    } else b.appendChild(el("p", null, x.text));
+    log.appendChild(b);
+  }
+  v.steps.forEach(function (s, i) {
+    const k = i + 1; if (k > st.reach) return;
+    const f = v.fields.filter(function (x) { return x.id === s.field; })[0];
+    s.lines.forEach(line);
+    if (st.sent[f.id]) {
+      const b = el("div", "cc-line you" + (st.ok[f.id] ? " ex-hdok" : ""));
+      b.appendChild(el("span", "cc-who", "You · " + f.label + (st.ok[f.id] ? " · ✓ right" : "")));
+      b.appendChild(el("p", null, st.vals[f.id]));
+      if (!st.ok[f.id]) b.appendChild(btn("Change reply " + k, "b small", function () { delete st.sent[f.id]; F.ctx.save(); F.ctx.draw(); }, "Change reply " + k));
+      log.appendChild(b);
+      return;
+    }
+    /* the reply to choose, under the message it answers */
+    const pick = el("div", "ex-hdpick"); pick.appendChild(fieldBox(f, F));
+    const send = btn("Send", "b pri", function () { if (!st.vals[f.id]) return; st.sent[f.id] = true; st.reach = Math.max(st.reach, k + 1); F.ctx.save(); F.ctx.draw(); }, "Send reply " + k);
+    if (!st.vals[f.id]) { send.disabled = true; send.setAttribute("aria-disabled", "true"); }
+    const row = el("div", "ex-hdsend"); row.appendChild(send); row.appendChild(el("span", "ex-hdn", st.vals[f.id] ? "Send it, and " + v.who + " answers." : "Select a reply, then Send.")); pick.appendChild(row);
+    log.appendChild(pick);
+  });
+  if (st.done) v.closing.forEach(line);
+  else if (st.reach > v.steps.length && !chatNext(v, st)) { const c = el("p", "ex-hdend", "Every reply is sent. Submit to score the chat, as the sim does."); c.setAttribute("role", "status"); box.appendChild(c); }
 }

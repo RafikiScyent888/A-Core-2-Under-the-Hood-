@@ -40,7 +40,10 @@
      EXAM      Exam Practice: each sim's own exam view, laid out as the
                sim is (the malware map refuses Submit until every device
                is inspected, and Reset keeps the inspections; the inbox
-               shows a disguised link's real destination and a Reply-To);
+               shows a disguised link's real destination and a Reply-To;
+               a Help Desk chat answers only after Send, scores only when
+               every reply is sent, sends a wrong reply back to its step
+               red and keeps the right ones, and shows the check card);
                sim, completes with the right answers through the UI; a wrong
                pick is marked three ways and stays after a redraw; Reset
                clears the marks; the way of working (Guided, Checklist, On
@@ -1098,6 +1101,8 @@ async function run(rewrites, groups) {
           const box = x.locator('.ex-f[data-field="' + f.id + '"]');
           if (f.kind === "text") await box.locator("input").fill(f.right);
           else await box.locator(".ex-o", { hasText: f.right }).filter({ hasText: new RegExp("^(● )?" + f.right.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$") }).first().click();
+          /* a chat reply is sent before the customer answers, as in the sim */
+          if (V.layout === "chat") await x.getByRole("button", { name: "Send reply " + (V.fields.indexOf(f) + 1) }).click();
         }
         await x.getByRole("button", { name: /^(Submit|Save settings)$/ }).click();
         if (!(await x.locator(".ex-done").count())) F("EXAM: " + V.sim + ": the right answers did not complete it");
@@ -1116,6 +1121,45 @@ async function run(rewrites, groups) {
       await x.getByRole("button", { name: /^Email Threat Classification: practice 4/ }).click();
       await x.locator(".ex-mlist .ex-nb").nth(1).click();
       if (!/Reply-To: mason\.lead\.office@gmail\.com/.test(await x.innerText())) F("EXAM: Email: the Reply-To is not shown");
+      /* the Help Desk chats: the customer answers only after a reply is
+         sent; nothing is scored until every reply is; a wrong reply goes back
+         to its step, red three ways with why, while the right ones stay
+         sent; and the customer's screenshot is on show */
+      {
+        await x.getByRole("button", { name: /^Help Desk Chat: Email Issue: practice 2/ }).click();
+        const C = await p.evaluate(async () => { const m = await import("./assets/exams.js"); const P = await import("./assets/pbq.js"); const v = m.EXAMS.find((e) => e.id === "hc").variants[1]; return { steps: v.steps.map((s) => s.lines.filter((l) => l.text).map((l) => l.text)), fields: v.fields.map((f) => ({ id: f.id, right: P.rightValue(f), wrong: f.options.find((o) => !o.correct).label })), closing: v.closing.filter((l) => l.text).map((l) => l.text) }; });
+        const log = () => x.locator(".ex-hdlog").innerText();
+        if (!/HELP DESK/.test(await x.locator(".ex-hd").innerText()) || !/Assist the customer with their email issue!/.test(await x.locator(".ex-hd").innerText())) F("EXAM CHAT: the HELP DESK heading and task line are missing");
+        if ((await log()).indexOf(C.steps[1][0]) >= 0) F("EXAM CHAT: the customer's second message shows before the first reply is sent");
+        const pickIn = (f, label) => x.locator('.ex-f[data-field="' + f.id + '"] .ex-o').filter({ hasText: new RegExp("^(● )?" + label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$") }).first().click();
+        await pickIn(C.fields[0], C.fields[0].wrong); await x.getByRole("button", { name: "Send reply 1" }).click();
+        if ((await log()).indexOf(C.steps[1][0]) < 0) F("EXAM CHAT: sending reply 1 did not bring the customer's next message");
+        if ((await log()).indexOf("Outgoing Server") >= 0) F("EXAM CHAT: the screenshot shows before its step");
+        await x.getByRole("button", { name: "Submit" }).click();
+        if (!/Send a reply at every step first: 1 of 4 sent/.test(await x.innerText()) || await x.locator(".ex-o.out").count()) F("EXAM CHAT: Submit scored the chat before every reply was sent");
+        for (let i = 1; i < C.fields.length; i++) { await pickIn(C.fields[i], C.fields[i].right); await x.getByRole("button", { name: "Send reply " + (i + 1) }).click();
+          if (i === 2 && (!/Screenshot · Outgoing Server/.test(await log()) || !/You check · Mobile devices · the company mail server[\s\S]*587 · STARTTLS/.test(await log()))) F("EXAM CHAT: John's screenshot or the mail server check is not shown before reply 3"); }
+        await x.getByRole("button", { name: "Submit" }).click();
+        if (!/Score: 3 \/ 4/.test(await x.innerText())) F("EXAM CHAT: the score is not shown as the sim shows it (3 / 4)");
+        const red = await x.locator('.ex-f[data-field="r1"] .ex-o.out').first().evaluate((e) => ({ t: e.innerText, sh: getComputedStyle(e).boxShadow })).catch(() => null);
+        if (!red || !/Ruled out/.test(red.t) || !/inset/.test(red.sh) || red.t.indexOf(C.fields[0].wrong) < 0) F("EXAM CHAT: the wrong reply is not back on its step, marked three ways");
+        if (await x.locator(".ex-done").count() || !(await x.getByRole("button", { name: "Send reply 1" }).count())) F("EXAM CHAT: the wrong reply was not sent back to be chosen again");
+        if (await x.getByRole("button", { name: /^Send reply [234]$/ }).count() || !/You · Reply 4 · ✓ right/.test(await log())) F("EXAM CHAT: the right replies did not stay sent");
+        await pickIn(C.fields[0], C.fields[0].right); await x.getByRole("button", { name: "Send reply 1" }).click(); await x.getByRole("button", { name: "Submit" }).click();
+        if (!(await x.locator(".ex-done").count()) || !/Every reply is right: 4 \/ 4/.test(await x.innerText())) F("EXAM CHAT: the right replies did not complete the chat");
+        /* the email sim, done in the loop above, ends on the customer's thanks */
+        await x.getByRole("button", { name: /^Help Desk Chat: Email Issue: the sim itself/ }).click();
+        if (!/Great, it works now! Thanks for helping!/.test(await log())) F("EXAM CHAT: the email sim's closing words are missing once it's right");
+        /* the router sim keeps its own line of yours before reply 3 */
+        await x.getByRole("button", { name: /^Help Desk Chat: Router Setup: the sim itself/ }).click();
+        if (!/The first thing you need to do is change the default password\./.test(await log())) F("EXAM CHAT: the router sim's own line before reply 3 is missing");
+        /* the ticket's hands-on check is in the chat: Ben's neighbours' channels */
+        await x.getByRole("button", { name: /^Help Desk Chat: Router Setup: practice 6/ }).click();
+        for (let i = 0; i < 2; i++) { await x.locator('.ex-f[data-field="r' + (i + 1) + '"] .ex-o').first().click(); await x.getByRole("button", { name: "Send reply " + (i + 1) }).click(); }
+        const card = await x.locator(".ex-hdcheck").innerText().catch(() => "");
+        if (!/You check/.test(card) || !/CafeGuest · channel 1/.test(card) || !/Flat2-WiFi · channel 6/.test(card)) F("EXAM CHAT: the router check card does not show the neighbours' channels");
+        await x.getByRole("button", { name: /^Reset this exam view/ }).click();
+      }
       /* a wrong pick stays red; Reset clears it; the mode is kept */
       const V = views[3]; await x.getByRole("button", { name: new RegExp("^" + V.sim + ": practice 2") }).click();
       const f0 = await p.evaluate(async () => { const m = await import("./assets/exams.js"); const f = m.EXAMS[3].variants[1].fields[0]; return { id: f.id, wrong: f.options.find((o) => !o.correct).label }; });
@@ -1198,6 +1242,9 @@ const PLANTS = [
   ["SAFETY", "the UPS's overload isn't shown", { "assets/tickets-safety.js": [["if (n > 100) return [\"OVERLOAD\", \"Load \" + n + \"%\", \"Remove load\"];", "if (false) return [];"]] }],
   ["SAFETY", "Revert to snapshot on the spot does nothing", { "assets/safetyui.js": [["btn(\"Revert to snapshot\", \"b small\", function () { ctx.revert(); }", "btn(\"Revert to snapshot\", \"b small\", function () { }"]] }],
   ["EXAM", "Submit never grades", { "assets/examui.js": [["const r = P.check(v, st);", "const r = { done: false, wrong: 0, missing: 0 };"]] }],
+  ["EXAM", "the chat shows every customer message at once, sent or not", { "assets/examui.js": [["const k = i + 1; if (k > st.reach) return;", "const k = i + 1;"]] }],
+  ["EXAM", "a wrong chat reply stays sent after Submit, so it can't be chosen again", { "assets/examui.js": [["if (!st.ok[f.id]) { delete st.sent[f.id]; delete st.vals[f.id]; }", "if (false) {}"]] }],
+  ["EXAM", "the chat practices lose the ticket's hands-on check", { "assets/examui.js": [["if (x.who === \"check\") {", "if (x.who === \"check\") { return;"]] }],
   ["PERSIST", "the dyslexia setting is not saved", { "assets/laptop.js": [["put(\"c2vm.reading\", on ? \"dyslexia\" : \"default\");", ""]] }]
 ];
 

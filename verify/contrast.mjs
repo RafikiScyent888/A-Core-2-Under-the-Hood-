@@ -335,6 +335,13 @@ export async function run(extraCss) {
     await ex.getByRole("button", { name: "System Logs" }).click();
     await sweep(tag + ": Exam Practice, Malware network map, System Logs");
     await ex.getByRole("button", { name: "Guided" }).click();
+    /* the Help Desk chats: the check card, a sent right reply, a wrong one
+       back on its step in red with why, the score, Mason's ring */
+    await ex.getByRole("button", { name: /^Help Desk Chat: Router Setup: practice 6/ }).click();
+    const hv = await page.evaluate(async () => { const m = await import("./assets/exams.js"); const P = await import("./assets/pbq.js"); return m.EXAMS.find((e) => e.id === "hr").variants[5].fields.map((f) => ({ right: P.rightValue(f), wrong: f.options.find((o) => !o.correct).label })); });
+    for (let i = 0; i < hv.length; i++) { await ex.locator('.ex-f[data-field="r' + (i + 1) + '"] .ex-o', { hasText: i === 0 ? hv[i].wrong : hv[i].right }).first().click(); await ex.getByRole("button", { name: "Send reply " + (i + 1) }).click(); }
+    await ex.getByRole("button", { name: "Submit" }).click();
+    await sweep(tag + ": Exam Practice, Help Desk Chat, a wrong reply back on its step, the check card, the score");
 
     /* the 92 Series app and the customer on the phone */
     const toFront = (id) => page.evaluate((i) => window.__LAP.openWin(i), id);
@@ -744,6 +751,7 @@ const PLANTS = {
   "a flagged-message banner in a pale amber": ".mx-flag { color: #c79a1a !important; }",
   "text typed into a field in a faint grey": ".field, .w-input { color: #9ca3af !important; }",
   "a ruled-out exam option's reason dimmed": ".ex-o.out .ow { color: #9a6b6b !important; }",
+  "the chat exam's check card labels in a faint grey": ".ex-hdcheck th { color: #8b93a1 !important; }",
   "the blue screen's text in a muted blue": ".ex-bsod { color: #7d8db8 !important; }",
   "the router app's not-saved bar in a dim amber": ".rt-state.warn { color: #8a7a1c !important; }",
   "a device's not-connected reason in a pale red": ".rt-t td.rt-bad { color: #e08a8a !important; }",

@@ -1692,8 +1692,8 @@ the street went live:
   - contrast: the chat with wrong replies, Mason's rung 3 in the replies,
     the hands-on wait, Mobile devices (phone, failed sync, mail server).
     Two plants.
-- **Still to come:** exam views for the two chat sims (laid out as the sims
-  are).
+- **Exam views for the two chat sims:** built 7 October 2026 (see "Exam
+  views for the two Help Desk chat sims").
 
 ### Extra training, X1: backup and recovery (5 October 2026, live)
 
@@ -2623,5 +2623,78 @@ six replies on screen, or names six hands-on moves with four struck.
     and a wrong move's message; Mason's rung 3 striking replies; a lasting
     hazard; SF4's plug lists with the UPS overloaded; SF5's grounded
     bench. Three new plants.
-- **Next:** the owner picks. Left in Core 2: exam views for the two chat
-  sims. Then Networking, then Core 1 improvements.
+- **Next (then):** exam views for the two chat sims, built 7 October (below).
+
+### Exam views for the two Help Desk chat sims (7 October 2026, live)
+
+The owner asked what "exam views for the two chat sims" meant, then said
+"build them".
+
+- **`assets/exams-chat.js`**: the views are built from the chat tickets
+  themselves (`CHATS`). The sim itself is CE1 or CR1; practices 2 to 6 are
+  CE2 to CE6 and CR2 to CR6. The same conversation is used in each, so a
+  ticket's "See this sim the way the exam shows it" link opens its own
+  chat.
+- **Laid out as the sims are** (Core-2-Sims, Help Desk - Email.html and
+  Help Desk - Router.html):
+  - HELP DESK and the task line, then the customer's messages
+  - under the newest message, the reply to choose (the program's six) and
+    Send; the customer's next message appears only after Send
+  - "Change reply k" until it is scored
+  - Submit, which needs every reply sent, scores it as the sim does
+    ("Score: 3 / 4")
+  - the router sim's own line of yours before reply 3 is kept, and the
+    email sim ends on its "Great, it works now! Thanks for helping!"
+- **The six on each reply:** the right one, then the sim's own wrong
+  replies (jokes kept), then those from the ticket's pool nearest the right
+  one in length. The sims' keys are unchanged.
+- **The ticket's hands-on check carries over as a card**, "You check · …",
+  read from the same model after the ticket's own setup:
+  - the mail server's published settings
+  - Dev's failed sync
+  - the router's Wireless, Status or Administration page (Ben's neighbours
+    on channels 1 and 6, Mia's old laptop that can't join WPA3)
+
+  Only the first check is carried. The second one confirms the fix, and the
+  customer says how that went. The sims themselves have no check, so they
+  have no card.
+- **Wrong replies, the program's way:** after Submit, a wrong reply goes
+  back to its step, red three ways with its reason, to be chosen again. The
+  replies that were right stay sent. The ladder counts it as a guess.
+  Mason's hints follow the first reply that isn't right yet, and in Guided
+  his ring is on the next reply not yet sent.
+- **The ticket pools were rebalanced first.** The right reply had been the
+  longest of the six in about 42 of 48 questions. 101 wrong replies in
+  `tickets-chat.js` were rewritten as longer near misses, and the shared
+  close was lengthened. The sims' own lines, every reaction and every
+  reason are unchanged. Now the right reply is the longest in 0 of 48, and
+  usually sits in the middle by length. The live CE/CR tickets get the same
+  rebalanced pools.
+- **Checks:**
+  - logic, EXAM:
+    - KEYS `hc:hc1` and `hr:hr1` (the sims' four replies)
+    - MATCH: each view is its ticket, in the link's order; every key is the
+      ticket's; every option is from the ticket's pool
+    - SIM: the sim's own wrong replies are all among the sim's six
+    - CHECK: one card in each practice, placed before the reply it
+      decides; none in the sims
+    - EXHIBITED: each card shows what decides the reply after it
+      (`CHAT_CARD`)
+    - a per-sim SPREAD for the chats
+    - 10 new plants
+  - page, EXAM:
+    - both sims driven by their keys
+    - Email practice 2: the next message only after Send; Submit refused
+      at 1 of 4 sent; the score; the wrong reply back on its step, red
+      three ways; the right ones kept; 4 / 4
+    - the email sim's closing line; the router sim's own line before
+      reply 3; Ben's check card with both neighbours' channels
+    - 3 new plants
+  - contrast: Router practice 6 with a wrong reply back on its step, the
+    check card, the sent replies and the score. 1 new plant.
+- **Found on the way, not fixed here:** the global SPREAD check passes,
+  but per sim the right answer is still the longest too often in Tier 1
+  Router (10 of 18) and App Deployment (5 of 12). This is queued as a
+  separate task.
+- **Next:** Networking, then Core 1 improvements (the owner's order). Core
+  2's exam views are now complete: all 11 sims.

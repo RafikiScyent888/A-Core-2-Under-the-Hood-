@@ -217,6 +217,7 @@ const WR = [
 ];
 
 import { MORE } from "./exams-more.js";
+import { CHAT_EXAMS } from "./exams-chat.js";
 export const EXAMS = [
   { id: "pf", sim: "Port Forwarding Configuration", layout: "diagram", image: "assets/sims/port-forwarding.png", objective: "Security measures", variants: PF },
   { id: "wifi", sim: "WiFi Access Point Configuration", layout: "map", image: "assets/sims/office-map.png", objective: "Security measures", variants: WIFI },
@@ -225,4 +226,5 @@ export const EXAMS = [
   { id: "wr", sim: "Wireless Reliability Decision Lab", layout: "checkpoints", objective: "Security measures", variants: WR }
 ];
 MORE.forEach(function (e) { EXAMS.push(e); });
+CHAT_EXAMS.forEach(function (e) { EXAMS.push(e); });
 export function examById(id) { return EXAMS.filter(function (e) { return e.id === id; })[0]; }
