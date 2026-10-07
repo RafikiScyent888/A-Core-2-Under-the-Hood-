@@ -35,6 +35,8 @@ import * as NP from "./newphone.js";
 import * as FX from "./fsys.js";
 import { drawNewPhoneScreen, paintNewPhone } from "./newphoneui.js";
 import { drawHandset } from "./phoneui.js";
+import * as SF from "./safety.js";
+import { drawSafety } from "./safetyui.js";
 import * as CH from "./chat.js";
 import * as MB from "./mobile.js";
 import * as RT from "./router.js";
@@ -117,7 +119,8 @@ const APPS = {
   custchat: { title: "Customer chat — Rafiki's IT Services help desk", mini: "CC", cls: "g-cc", geo: [0.30, 0.03, 0.62, 0.93], draw: drawChatWin },
   mobile: { title: "Mobile devices — company phones", mini: "MD", cls: "g-md", geo: [0.04, 0.03, 0.72, 0.93], draw: drawMobileWin },
   macbench: { title: "Your bench — the Mac", mini: "MC", cls: "g-mac", geo: [0.03, 0.02, 0.80, 0.95], draw: drawMacWin },
-  phonebench: { title: "Your bench — the new phone", mini: "NP", cls: "g-np", geo: [0.03, 0.02, 0.80, 0.95], draw: drawPhoneBenchWin }
+  phonebench: { title: "Your bench — the new phone", mini: "NP", cls: "g-np", geo: [0.03, 0.02, 0.80, 0.95], draw: drawPhoneBenchWin },
+  safety: { title: "On the spot — a safety job", mini: "OS", cls: "g-sf", geo: [0.03, 0.02, 0.84, 0.95], draw: drawSafetyWin }
 };
 function appOf(id) { return id.indexOf("rdp:") === 0 ? { title: rosterOf(id.slice(4)).host + " — Remote support", mini: "RS", cls: "g-rdp", geo: [0.08, 0.03, 0.86, 0.92], draw: drawRdp } : APPS[id]; }
 function openWin(id) {
@@ -164,7 +167,7 @@ function drag(w) {
   w.bar.addEventListener("dblclick", function (e) { if (!e.target.closest("button")) { w.max = !w.max; place(w); } });
 }
 function redraw(id) { const w = W[id]; if (w) w.a.draw(w); }
-function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); redraw("floor"); redraw("street"); redraw("custchat"); redraw("mobile"); redraw("macbench"); redraw("phonebench"); drawTask(); coachTick(); }
+function refresh() { redraw("helpdesk"); redraw("chat"); redraw("mail"); redraw("mailadmin"); redraw("router"); redraw("browser"); redraw("floor"); redraw("street"); redraw("custchat"); redraw("mobile"); redraw("macbench"); redraw("phonebench"); redraw("safety"); drawTask(); coachTick(); }
 
 /* ------------------------------------------------ desktop and taskbar */
 function drawDesk() {
@@ -189,7 +192,7 @@ function drawTask() {
   const ids = pinned.concat(Object.keys(W).filter(function (k) { return pinned.indexOf(k) < 0; }));
   ids.forEach(function (id) {
     const a = appOf(id); const w = W[id];
-    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : id === "floor" ? "Floor plan" : id === "street" ? "Street view" : id === "custchat" ? "Customer chat" : id === "mobile" ? "Mobile devices" : id === "macbench" ? "Your bench: the Mac" : id === "phonebench" ? "Your bench: the new phone" : rosterOf(id.slice(4)).host;
+    const label = id === "helpdesk" ? "Help Desk" : id === "chat" ? "Chat" : id === "mstsc" ? "Remote Desktop" : id === "mail" ? "Mail" : id === "mailadmin" ? "Mail admin" : id === "exam" ? "Exam Practice" : id === "router" ? "92 Series" : id === "browser" ? "Browser" : id === "floor" ? "Floor plan" : id === "street" ? "Street view" : id === "custchat" ? "Customer chat" : id === "mobile" ? "Mobile devices" : id === "macbench" ? "Your bench: the Mac" : id === "phonebench" ? "Your bench: the new phone" : id === "safety" ? "On the spot" : rosterOf(id.slice(4)).host;
     const b = btn("", "tb" + (w ? " open" : "") + (front === id && w && !w.min ? " front" : ""), function () {
       if (!w) return openWin(id);
       if (front === id && !w.min) { w.min = true; place(w); front = null; drawTask(); } else { w.min = false; place(w); focusWin(id); }
@@ -322,7 +325,7 @@ function askMason(q) {
 function nextStepAdvice(t, st) {
   const r = rosterOf(t.machine), who = t.from.split(" ")[0];
   const ev = evs(t.machine);
-  if (st.stage === "close" && t.kind !== "backup" && t.kind !== "files" && t.kind !== "install") return t.kind === "malware" ? "Every PC is done. Last of CompTIA's steps: what do you tell the user, so it doesn't happen again? Pick it on the ticket." : "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
+  if (st.stage === "close" && t.kind !== "backup" && t.kind !== "files" && t.kind !== "install" && t.kind !== "safety") return t.kind === "malware" ? "Every PC is done. Last of CompTIA's steps: what do you tell the user, so it doesn't happen again? Pick it on the ticket." : "You've fixed it. Now pick the cause on the ticket that fits everything you saw: the message, what Windows recorded, and what fixed it.";
   if (t.kind === "email") { const e = t.current(E.fleet()); if (!e) return "Every email is dealt with. Resolve the ticket."; const p = mailPart(E.fleet(), e), who = staffOf(e.to).first;
     return p === "cat" ? (e.noForward ? who + "'s email can't be forwarded, so go and look at it: connect to " + who + "'s PC from Devices, open Mail there, and read the message and its details. Then say what it is on the ticket." : "Open Mail from the taskbar and read " + who + "'s forward: who it's really from, where its links really go (point at them, don't click), and what it wants. Then say what it is on the ticket.")
       : p === "tell" ? "Now the giveaway: which one detail proves it? The address, a link's real destination, an attachment's full name, or (for one that can't be forwarded) the headers."
@@ -342,6 +345,7 @@ function nextStepAdvice(t, st) {
     return W.mobile ? t.adviceWork : t.adviceStart;
   }
   if (t.kind === "install" || t.kind === "mac" || t.kind === "newphone") return st.stage === "close" ? t.closeAdvice : t.advice(E.fleet());
+  if (t.kind === "safety") return st.stage === "close" ? t.closeAdvice : t.advice(E.fleet(), onSiteFor(t));
   if (t.kind === "backup" || t.kind === "files") {
     if (st.stage === "close") return t.id === "X1" ? "Farah's file is back and her backup is tested. Now answer her question on the ticket: why wasn't today's rescue a backup?" : "The job's done. Now answer " + who + "'s question on the ticket.";
     if (!W["rdp:" + t.machine] && !ev.length) return t.adviceStart || "Connect to " + r.host + " from the ticket, and look at the file first: open Q3-budget.xlsx in her Documents and see what's in it now.";
@@ -448,8 +452,9 @@ function drawTicket(t) {
   p.appendChild(el("h2", null, t.title));
   const exl = examFor(t); if (exl) { const xb = btn("See this sim the way the exam shows it", "b small", function () { L.examSel = { ex: exl.ex.id, v: exl.v.id }; saveL(); if (W.exam) { redraw("exam"); W.exam.min = false; place(W.exam); focusWin("exam"); } else openWin("exam"); }, "Open Exam Practice at " + exl.ex.sim + (exl.v.base ? ", the sim itself" : ", " + exl.v.title)); xb.classList.add("t-exam"); p.appendChild(xb); }
   const dl = el("dl", "t-grid");
-  const mal = t.kind === "malware", em = t.kind === "email", rt = t.kind === "router", wf = t.kind === "wifi", ch = t.kind === "chat", mo = t.kind === "mobile", mc = t.kind === "mac", np = t.kind === "newphone";
-  if (np) { [["Status", s[0]], ["Requester", name], ["Device", "TechCom T7 company phone, new, on your bench"], ["For", "Priya Nair (starts Monday)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
+  const mal = t.kind === "malware", em = t.kind === "email", rt = t.kind === "router", wf = t.kind === "wifi", ch = t.kind === "chat", mo = t.kind === "mobile", mc = t.kind === "mac", np = t.kind === "newphone", sf = t.kind === "safety";
+  if (sf) { [["Status", s[0]], ["Requester", name], ["Where", t.place.where.charAt(0).toUpperCase() + t.place.where.slice(1)], ["On the spot", t.person + " (" + t.role + ")"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
+  else if (np) { [["Status", s[0]], ["Requester", name], ["Device", "TechCom T7 company phone, new, on your bench"], ["For", "Priya Nair (starts Monday)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (mc) { [["Status", s[0]], ["Requester", name], ["Device", "MacBook, on your bench (13-inch, Apple silicon)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (mo) { [["Status", s[0]], ["Requester", name], ["Department", t.from.split(",")[1] ? t.from.split(",")[1].trim() : ""], ["Device", "Company phone (in Mobile devices, with Remote help)"], ["Category", t.category], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
   else if (ch) { [["Status", s[0]], ["Requester", name], ["Customer", t.site], ["Channel", "Help desk chat"], ["Device", t.channel === "email" ? "Company phone (in Mobile devices)" : "92 Series AX1800 router (shared in the 92 Series app)"], ["Category", t.channel === "email" ? "Communication › Mobile email" : "Communication › Router setup"], ["Tier", "Tier " + t.tier], ["Assigned to", st ? "You (RAFIKI\\tech)" : "Unassigned"]].forEach(function (kv) { const d = el("div"); d.appendChild(el("dt", null, kv[0])); d.appendChild(el("dd", null, kv[1])); dl.appendChild(d); }); }
@@ -459,7 +464,7 @@ function drawTicket(t) {
   p.appendChild(dl);
 
   const m = el("section", "t-sec"); m.appendChild(el("h3", null, "Request"));
-  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, mal || em || rt || wf || ch || mo ? name : name + " (" + r.host + ")")); mh.appendChild(el("span", null, mal || wf ? "assigned by your team lead" : ch ? "by chat" : mo ? "by email" : rt ? "by phone" : em ? (t.devices.length ? "by phone" : "help desk mailbox") : "via email")); msg.appendChild(mh);
+  const msg = el("div", "msg"); const mh = el("div", "msg-h"); mh.appendChild(el("strong", null, mal || em || rt || wf || ch || mo || sf ? name : name + " (" + r.host + ")")); mh.appendChild(el("span", null, mal || wf || (sf && /^Mason/.test(t.from)) ? "assigned by your team lead" : sf ? "by phone" : ch ? "by chat" : mo ? "by email" : rt ? "by phone" : em ? (t.devices.length ? "by phone" : "help desk mailbox") : "via email")); msg.appendChild(mh);
   t.brief.forEach(function (x) { msg.appendChild(el("p", null, x)); }); m.appendChild(msg); p.appendChild(m);
 
   const acts = el("div", "t-acts");
@@ -467,7 +472,7 @@ function drawTicket(t) {
     acts.appendChild(coachTag("assign", btn(st ? "Work it again" : "Assign to me and start", "b pri", function () {
       if (st) E.state().tickets[t.id] = null;
       Object.keys(W).filter(function (k) { return k.indexOf("rdp:") === 0; }).forEach(closeWin);
-      E.openTicket(t.id); L.said[t.id] = {}; L.log[t.id] = []; L.coach[t.id] = {}; L.lines[t.id] = []; L.calls[t.id] = []; logT(t.id, "Assigned to you"); refresh();
+      E.openTicket(t.id); L.said[t.id] = {}; L.log[t.id] = []; L.coach[t.id] = {}; L.lines[t.id] = []; L.calls[t.id] = []; L.onSite[t.id] = false; logT(t.id, "Assigned to you"); refresh();
     })));
   } else if (!isCur) {
     acts.appendChild(btn("Switch to this ticket", "b pri", function () { Object.keys(W).filter(function (k) { return k.indexOf("rdp:") === 0; }).forEach(closeWin); E.openTicket(t.id); logT(t.id, "Picked back up"); refresh(); }));
@@ -475,6 +480,12 @@ function drawTicket(t) {
     acts.appendChild(coachTag("open-web", btn("Open 192.168.1.1 in the browser", "b pri", function () { openWin("browser"); })));
     if (planRouter()) { acts.appendChild(coachTag("walk-break", btn("Walk to the break room", "b", function () { walkOver("BREAK"); }))); acts.appendChild(coachTag("open-floor", btn("Open the floor plan", "b", function () { openWin("floor"); }))); }
     acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: every device connects as it should" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
+    acts.appendChild(coachTag("escalate", btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); })));
+  } else if (st.stage === "work" && sf) {
+    const here = onSiteFor(t);
+    if (!here) acts.appendChild(coachTag("sf-go", btn(t.place.go, "b pri", function () { walkOver(t.place.walk, { safety: true }); })));
+    acts.appendChild(coachTag("open-safety", btn(t.place.walk ? "Open On the spot" : t.place.go, "b" + (here ? " pri" : ""), function () { openWin("safety"); })));
+    acts.appendChild(coachTag("resolve", btn("Resolve", "b", function () { const x = E.submit("resolve"); logT(t.id, x.ok ? "Marked resolved: it's safe, and " + t.who + " is sorted" : "Tried to resolve: " + (x.say || "not finished yet")); after(); })));
     acts.appendChild(coachTag("escalate", btn("Escalate to Tier 2", "b", function () { const x = E.submit("escalate"); logT(t.id, x.ok ? "Escalated to Tier 2" : "Tried to escalate: " + (x.say || "")); after(); })));
   } else if (st.stage === "work" && np) {
     acts.appendChild(coachTag("open-phonebench", btn("Open the phone on your bench", "b pri", function () { openWin("phonebench"); })));
@@ -838,6 +849,34 @@ function drawPhoneBenchWin(w) {
   else if (!ui.mounting) { ui.mounting = true; import("./phoneview.js").then(function (mod) { if (!mod.webglOK()) throw new Error("no webgl"); ui.phone = mod.mountPhone(stage, { height: 300, dist: 380, draw: function (c, w2, h2) { ui.paint(c, w2, h2); } }); }).catch(function () { stage.appendChild(el("p", "cc-note", "3D isn't available on this computer: the phone's screen beside it is the same.")); }); }
   w.onClose = function () { if (ui.phone) { ui.phone.dispose(); ui.phone = null; } };
 }
+/* On the spot: a safety job, where the hazard is. The approved 3D models,
+   what you can see in words, your hands, and the person on the spot.
+   Everything done goes through the engine: type "safety" for the hands,
+   "chat-reply" for what you say. */
+function safetyNow() { const t = E.ticket(), st = E.T(); return t && t.kind === "safety" && st && st.stage !== "done" ? t : null; }
+function onSiteFor(t) { return !(t.place && t.place.walk) || !!L.onSite[t.id]; }
+function drawSafetyWin(w) {
+  w.ui = w.ui || {}; const t = safetyNow(), x = t ? SF.get(E.fleet(), t.id) : null;
+  if (!x) { if (w.ui.v3) { w.ui.v3.dispose(); } w.ui = {}; w.body.innerHTML = ""; w.body.appendChild(el("p", "cc-note", "Nothing to deal with here. A safety job appears when its ticket is open in Help Desk.")); return; }
+  if (w.ui.forTicket !== t.id) { if (w.ui.v3) w.ui.v3.dispose(); w.ui = { forTicket: t.id }; }
+  const ui = w.ui; if (!ui.stage) ui.stage = el("div", "mac-3d sf-3d");
+  const keep = w.body.scrollTop; w.body.classList.add("macb-host");
+  const here = onSiteFor(t), s3 = t.state3d ? t.state3d(x.s) : x.s, key = JSON.stringify(s3);
+  drawSafety(w.body, { ticket: t, fleet: E.fleet(), sc: x, onSite: here, stage: ui.stage,
+    walk: function () { walkOver(t.place.walk, { safety: true }); },
+    act: function (id, value) { const b = E.before(); const r = SF.run(E.fleet(), t, id, value); if (!r) return; const a = { type: "safety", op: id, value: value == null ? null : value, res: r, machine: "TECH", before: b }; E.onAct(a); actLog(a, "On the spot"); after(); },
+    reply: function (label) { const b = E.before(); const o = CH.reply(E.fleet(), t, label); if (!o) return; E.onAct({ type: "chat-reply", correct: o.correct, why: o.why, machine: "TECH", before: b }); logT(t.id, (o.correct ? "Said to " + t.who + ": " : "Said to " + t.who + ", and it didn't help: ") + label); after(); },
+    strike: function () { const g = E.guidance(); return g && g.qstrike && g.qstrike.id === "safety" ? g.qstrike.strike : {}; },
+    revert: function () { E.revert(); logT(t.id, "Reverted to the last snapshot"); refresh(); },
+    view: function (name) { if (ui.v3) ui.v3.show(name); } });
+  w.body.scrollTop = keep;
+  /* the 3D, mounted once and rebuilt only when what it shows has changed */
+  if (here) {
+    if (ui.v3) { if (ui.key !== key) { ui.key = key; ui.v3.update(s3); } }
+    else if (!ui.mounting) { ui.mounting = true; ui.key = key; import("./safetyview.js").then(function (mod) { if (!mod.webglOK()) throw new Error("no webgl"); ui.v3 = mod.mountSafety(ui.stage, { height: 300, scene: t.scene3d, state: s3, view: t.views[0][0] }); }).catch(function () { ui.stage.appendChild(el("p", "cc-note", "3D isn't available on this computer: What you can see, beside it, says the same in words.")); }); }
+  }
+  w.onClose = function () { if (ui.v3) { ui.v3.dispose(); ui.v3 = null; } };
+}
 /* a QR-style code, drawn the same every time for one serial: scenery, the
    words beside it say what it is */
 function qrCanvas(seed) {
@@ -961,7 +1000,8 @@ function actLog(a, host) {
     "router-ask": function () { return "Asked " + t.who + ": " + a.q + (a.lost ? " (unsaved changes on the page were lost)" : ""); },
     osinst: function () { return osLog(a); },
     mac: function () { return macLog(a); },
-    newphone: function () { return npLog(a); }
+    newphone: function () { return npLog(a); },
+    safety: function () { const r = a.res || {}; return a.value != null ? r.text : r.label + (r.text ? ": " + r.text : ""); }
   }[a.type];
   if (say) logT(t.id, host + ": " + say());
 }
@@ -1093,7 +1133,7 @@ function drawMstsc(w) {
    student has really done it on the machine. Nothing is done for them.
    WALK and RUN come after (walk: the checklist; run: on your own).
    ===================================================================== */
-const LEVEL = { FS1: "crawl", FS2: "walk", OI1: "crawl", OI2: "walk", L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk", MB1: "crawl", MB2: "walk" };
+const LEVEL = { SF1: "crawl", SF2: "walk", FS1: "crawl", FS2: "walk", OI1: "crawl", OI2: "walk", L1: "crawl", L2: "walk", D1: "crawl", D2: "walk", M1: "crawl", M2: "walk", E1: "crawl", E2: "walk", R1: "crawl", R2: "walk", W1: "crawl", W2: "walk", P1: "crawl", P2: "walk", N1: "crawl", N2: "walk", WR1: "crawl", WR2: "walk", CE1: "crawl", CE2: "walk", CR1: "crawl", CR2: "walk", X1: "crawl", X2: "walk", MB1: "crawl", MB2: "walk" };
 function coachTag(name, b) { b.dataset.coach = name; return b; }
 function rd(id) { return document.querySelector('[data-win="rdp:' + id + '"]'); }
 function evs(id) { const m = E.machine(id); return (m && m.events) || []; }
@@ -2044,6 +2084,86 @@ WALKS.FS2 = { mode: "walk", machine: "WS5", steps: [
   { goal: "Resolve the ticket", win: "helpdesk", how: "Back in Help Desk.", done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
   { goal: "Answer Rosa's question, and write the notes", win: "helpdesk", how: "What was paused, what went on and what didn't, the active hours, the restart, the build.", done: function () { const st = E.state().tickets.FS2; return !!(st && st.stage === "done"); } }
 ], end: "That's the walk: updates flowing again, only what policy allows, restarts kept out of the staffed day, and the result checked. FS3 and FS4 are yours to run." };
+/* ------------------------------------------------ SF1: extra training,
+   safety. A crawl through John's smoking PC. */
+function sfx(id) { return SF.get(E.fleet(), id); }
+function sfs(id) { const x = sfx(id); return x ? x.s : null; }
+function sfDid(id, act) { const x = sfx(id); return !!x && SF.did(x, act) > 0; }
+function sfBtn(name) { return document.querySelector('[data-win=safety] [data-coach="' + name + '"]'); }
+function sfOpts() { return document.querySelector("[data-win=safety] .sf-opts"); }
+WALKS.SF1 = { machine: "TECH", steps: [
+  { tag: "See it for yourself", win: "helpdesk",
+    say: "Extra training: safety. Read John's message and Mason's note, then press Assign to me and start.",
+    why: "Smoke from a PC is a job you go to straight away. Notice what John is worried about, too: his unsaved file.",
+    target: function () { return document.querySelector('[data-coach="assign"]'); },
+    done: function () { const t = E.ticket(); return !!(t && t.id === "SF1" && E.T()); } },
+  { tag: "Go there", win: function () { return W.safety ? "safety" : "helpdesk"; },
+    say: "A safety job is done where the hazard is. Press Walk to John's desk.",
+    why: "You can't make a smoking PC safe from your desk.",
+    /* no ring under the cutscene; On the spot's own walk button if it's open */
+    target: function () { return walkUI ? null : sfBtn("sf-walk") || document.querySelector('[data-coach="sf-go"]'); },
+    waiting: function () { return walkUI ? "Walking to John's desk…" : null; },
+    done: function () { return !!L.onSite.SF1; } },
+  { tag: "People first", win: "safety",
+    say: "You're there, and On the spot is open. Read What you can see, and what John says. Before the PC comes John: choose the reply that gets him clear of it, calmly.",
+    why: "People before property, and before files. A calm, clear instruction works better than alarm.",
+    target: sfOpts, done: function () { return chatPast("SF1", 0); } },
+  { tag: "Have the right extinguisher", win: "safety",
+    say: "Before you go near the PC, look: press Read the labels on the corridor's extinguishers.",
+    why: "Looking never counts against you. Two extinguishers, two very different jobs.",
+    target: function () { return sfBtn("sf-look-ext"); }, done: function () { return sfDid("SF1", "look-ext"); } },
+  { tag: "Have the right extinguisher", win: "safety",
+    say: "CO₂ is for electrical fires. Water conducts electricity, so it's never used on electrical equipment. Press Fetch the CO₂ extinguisher.",
+    why: "You don't spray it: there's smoke, not flame. You have it at hand in case that changes.",
+    target: function () { return sfBtn("sf-fetch-co2"); }, done: function () { const s = sfs("SF1"); return !!s && s.ext === "co2"; } },
+  { tag: "Cut the power", win: "safety",
+    say: "Now look before you touch: press Look at the back of the PC, without touching it.",
+    why: "Find where the smoke comes from, and where its power comes from.",
+    target: function () { return sfBtn("sf-look-back"); }, done: function () { return sfDid("SF1", "look-back"); } },
+  { tag: "Cut the power", win: "safety",
+    say: "The smoke comes from the power supply, and its cord runs to a switched wall socket. Cut it there: press Switch off at the wall socket and pull the plug.",
+    why: "The PC's power button only tells the PC to stop: the power supply would stay on the mains. The wall cuts it completely, from a safe distance.",
+    target: function () { return sfBtn("sf-unplug-wall"); }, done: function () { const s = sfs("SF1"); return !!s && !s.plugged; } },
+  { tag: "Talk it through", win: "safety",
+    say: "The smoke has stopped. John asks two things: is it safe, and what about his payroll? Choose the reply that tells him plainly, and gets him working.",
+    why: "Never guess at bad news, and never power up something that has just smoked.",
+    target: sfOpts, done: function () { return chatPast("SF1", 3); } },
+  { tag: "Make sure nobody else gets hurt", win: "safety",
+    say: "John's leaving his desk, and the next person could plug the PC back in. Press Tag the PC: DO NOT USE.",
+    why: "A tag says what's wrong, that it mustn't be plugged in, who and when. A sticky note does none of that.",
+    target: function () { return sfBtn("sf-tag"); }, done: function () { const s = sfs("SF1"); return !!s && s.tagged; } },
+  { tag: "Talk it through", win: "safety",
+    say: "John asks what happens to his PC now. Choose the reply that says who has it, and that he'll hear back.",
+    why: "Own the handover: the person shouldn't have to chase you.",
+    target: sfOpts, done: function () { const t = TICKETS.filter(function (x) { return x.id === "SF1"; })[0]; return CH.finished(E.fleet(), t); } },
+  { tag: "Hand it on", win: "helpdesk",
+    say: "It's safe and tagged. A new power supply is a repair, not Tier 1's job: back in Help Desk, press Escalate to Tier 2.",
+    why: "Tier 2 gets a PC that's safe, tagged, and a ticket that says what happened.",
+    target: function () { return document.querySelector('[data-coach="escalate"]'); },
+    done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Mason asks why you cut it at the wall, not at the power button. Pick the answer that's true.",
+    why: "Think about what was still connected after the PC itself was off.",
+    target: function () { return document.querySelector("[data-win=helpdesk] .opts"); },
+    done: function () { const st = E.T(); return !!(st && (st.closeOK || st.stage === "done")); } },
+  { tag: "Document it", win: "helpdesk",
+    say: "Write the notes: what you found, how you cut the power, the extinguisher you had ready and why, the tag, and who has it now. Then press Close the ticket.",
+    why: "For example: \"Smoke from WS1's power supply. Got John clear, CO2 extinguisher at hand (not water), switched off and unplugged at the wall, tagged DO NOT USE, escalated to Tier 2 for a new PSU.\" Your own words.",
+    target: function () { return document.querySelector("#res-note"); },
+    done: function () { const st = E.state().tickets.SF1; return !!(st && st.stage === "done"); } }
+], end: "That's safety on the spot: people clear first, the right extinguisher at hand, the power cut where it's safe to cut it, the hazard tagged so nobody else meets it, and the person told what happens next. SF2 is a walk; the rest are yours to run." };
+/* ------------------------------------------------ SF2: the walk */
+WALKS.SF2 = { mode: "walk", machine: "TECH", steps: [
+  { goal: "Take the ticket, and go to Brenda", win: "helpdesk", how: "Assign it to yourself, then walk over from the ticket.", done: function () { return !!L.onSite.SF2 && E.ticket() && E.ticket().id === "SF2"; } },
+  { goal: "Tell Brenda what it is, calmly", how: "What in a laptop sits under the touchpad? Name it, and stop the risky use.", done: function () { return chatPast("SF2", 0); } },
+  { goal: "Take it out of use completely", how: "What's still feeding the battery, and what's still drawing on it?", done: function () { const s = sfs("SF2"); return !!s && !s.charging && s.power === "off"; } },
+  { goal: "Put it where it can't start a fire", how: "Think about what's around it now, and the kit in the closet.", done: function () { const s = sfs("SF2"); return !!s && s.where === "bin"; } },
+  { goal: "Make sure it's handled properly from here", how: "The next person to open that lid, and where batteries go.", done: function () { const s = sfs("SF2"); return !!s && s.labelled && s.logged; } },
+  { goal: "Get Brenda working again, and check it", how: "The closet shelf, and the thing she actually needs at two.", done: function () { const s = sfs("SF2"); return !!s && s.spare && s.deck; } },
+  { goal: "Answer Brenda before you leave", how: "What happens to her laptop now, and who's handling it?", done: function () { const t = TICKETS.filter(function (x) { return x.id === "SF2"; })[0]; return CH.finished(E.fleet(), t); } },
+  { goal: "Resolve the ticket", win: "helpdesk", how: "Back in Help Desk.", done: function () { const st = E.T(); return !!(st && st.stage !== "work"); } },
+  { goal: "Answer Brenda's question, and write the notes", win: "helpdesk", how: "What you found, how you took it out of use, where it went, its disposal, and how she's working now.", done: function () { const st = E.state().tickets.SF2; return !!(st && st.stage === "done"); } }
+], end: "That's the walk: the hazard named calmly, the battery out of use, contained where it can't burn, labelled and logged for recycling, and Brenda working again with her demo. SF3 to SF6 are yours to run." };
 /* ------------------------------------------------ X2: the walk */
 function x2m() { return E.machine("WS3"); }
 function x2ev(kind, test) { const m = x2m(); return !!m && (m.events || []).some(function (e) { return e.kind === kind && (!test || test(e)); }); }
@@ -2641,8 +2761,8 @@ const ROUTES = {
 };
 let walkUI = null;
 function reduceMotion() { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
-function walkOver(id) {
-  if (walkUI) return;
+function walkOver(id, opts) {
+  if (walkUI) return; opts = opts || {};
   const place = id === "BREAK";
   const r = place ? { id: "BREAK", fullName: "Break counter", host: "the break counter", where: "the conference and break room", dept: "" } : rosterOf(id), first = r.fullName.split(" ")[0], whose = place ? "the break counter" : r.id === "FS01" || r.id === "MAIL01" ? "the " + r.fullName.toLowerCase() : first + "'s desk";
   const t = E.ticket(); if (t) logT(t.id, "Walked to " + r.host + " (" + r.where + ")");
@@ -2670,6 +2790,7 @@ function walkOver(id) {
   function arrived() {
     besideCoach(true);
     if (place) { arrivedBreak(); return; }
+    if (opts.safety) { arrivedSafety(); return; }
     if (office && window.innerWidth > 760) office.shift(0.3);
     say.textContent = "You're at " + whose + ": " + r.host + ", " + r.where + ".";
     const skip = bar.querySelector(".wo-skip"); if (skip) skip.remove();
@@ -2729,6 +2850,13 @@ function walkOver(id) {
     panel.appendChild(back);
     ov.appendChild(panel);
     setTimeout(function () { back.focus({ preventScroll: true }); }, 0);
+  }
+  /* a safety job: you're there. The cutscene ends, and On the spot opens
+     on the laptop's screen with the job in front of you */
+  function arrivedSafety() {
+    const t0 = E.ticket(); if (t0) { L.onSite[t0.id] = true; saveL(); logT(t0.id, "Arrived: " + t0.place.where); }
+    ov.remove(); walkUI = null; if (office) office.dispose(); besideCoach(false);
+    openWin("safety"); refresh();
   }
   /* at the break counter: what's there, and the floor plan to move it on */
   function arrivedBreak() {

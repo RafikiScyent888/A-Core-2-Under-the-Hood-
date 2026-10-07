@@ -2504,3 +2504,124 @@ The objectives were re-read on 6 October 2026; the wording is unchanged.
     upgrade's question. One new plant.
 - **File systems is complete:** FS1 to FS6, a crawl, a walk and four run
   tickets, covering file systems, updates and OS upgrades.
+
+### Extra training, SF1–SF6: Safety (7 October 2026)
+
+The owner: "Safety next, build it out". The objectives were re-read on
+7 October 2026; the Core 2 wording is unchanged. This covers
+**Operational procedures, Safety and communication: "following safety
+protocols and communicating effectively"**.
+
+**The owner's answers (6 October 2026), SETTLED:**
+- **Safety only, no repairs.** Physical safety at the bench and around the
+  office; nothing is fitted or fixed, which keeps Core 1's hardware out.
+- **3D models, previewed first.** Generic and unbranded: the antistatic
+  strap and mat, the swollen laptop, the toner spill and toner vacuum, the
+  CO₂ and water extinguishers, the UPS and surge protector. The owner saw
+  the renders and said "Use those models, build SF1–SF6".
+- **Communication woven in.** Every job has the person on the spot: six
+  replies to choose from (one right, five wrong, from a pool of nine, as
+  the Help Desk chats are) and their mood in words.
+
+**New files:**
+- `safety3d.js`: the approved kit. In the labs the models follow the job's
+  state: the strap clipped or loose and the mat grounded or not, the spill
+  there or cleaned, the UPS's display, a second (chained) surge strip.
+  The chained strip is the same approved strip, a second time.
+- `safetyview.js`: the 3D in a window, turnable, with named views per scene.
+- `safety.js`: the model, on TECH-01's record as `fleet.TECH.safety`, so
+  snapshots cover it. A ticket's acts are judged on the state before they
+  happen: Look (never counts), right, or wrong (counts, with the reason);
+  some wrong moves leave a lasting hazard (`poison`) that holds the ticket
+  until a revert. A wrong move in front of the person worries them too.
+- `safetyui.js`: the On the spot window.
+- `tickets-safety.js`: SF1–SF6. The conversation is `chat.js`'s, so a
+  hands-on step in it ticks off when the scene really is that way.
+
+**On the spot, a window on the laptop:**
+- Left: the 3D model, with buttons for its views; What you can see, in
+  words; With your own hands, the actions grouped as the job is, Look
+  first (dashed, never counts); the last move's result, red with ✕ when it
+  was wrong; a "Made worse" alert for a lasting hazard.
+- Right: Talking with the person, their mood (Calm, Impatient, Frustrated,
+  Upset, in words and a meter), the conversation, and the six replies; a
+  wrong reply stays in the conversation and stays red, marked three ways.
+  Revert to snapshot at the foot.
+- **A job done where the hazard is starts with a walk there** (SF1 John's
+  desk, SF2 Brenda's office, SF3 reception): the walk-over cutscene, and on
+  arrival On the spot opens. From the desk the window offers only the walk.
+  SF4 and SF6 are in the closet beside your bench, SF5 at your bench.
+
+**The tickets:**
+
+| | Level | Who | The job | Outcome |
+|---|---|---|---|---|
+| SF1 | Crawl (13 steps) | John, HR | smoke from his PC's power supply: get him clear, the CO₂ at hand (not water), cut it at the wall (not the power button, not the cord at the back), tag it DO NOT USE | escalate |
+| SF2 | Walk (9 items) | Brenda, Sales | swollen laptop battery: unplug, shut down, carry it flat to the metal battery bin, label and log it for recycling, a spare with her deck checked | resolve |
+| SF3 | Run | Rosa, Reception | toner spill: wet-floor sign, the Safety Data Sheet, mask and gloves, the toner vacuum then a cold damp cloth, the cartridge in its return bag | resolve |
+| SF4 | Run | Dev (helping) | the new UPS: team lift or cart, warn everyone before 12:30, shut the servers down properly, servers and switch on battery outlets and the laser printer on surge only, UPS on, servers up, self-test, the all-clear | resolve |
+| SF5 | Run | Farah (delivering) | spare parts: ground the mat, strap on and clipped, read module B's part number by its edges, sign the note, antistatic bags, the parts cabinet | resolve |
+| SF6 | Run | Pat Morgan, facilities | the closet walk-round: unchain the strips, clear the vent, route the doorway cable under a cover, read the extinguisher, report it to Pat (and why, when Pat pushes back) | resolve |
+
+**Lasting hazards (only a revert undoes them):** water or CO₂ sprayed on
+John's PC, plugging it back in; pressing Brenda's swollen battery; the
+office vacuum on toner, a hot cloth; shutting the servers down unannounced,
+pulling a running server's plug; handling module B or the SSD ungrounded.
+
+**Mason's crawl and walk:** SF1's crawl rings each step on the spot
+(including the Look buttons: the labels, the back of the PC); SF2's walk is
+a checklist that ticks itself off. The run tickets get Mason's pointer
+before any wrong move, then the standing ladder; rung 3 strikes four of the
+six replies on screen, or names six hands-on moves with four struck.
+
+**Found while building:**
+- The right reply was the longest of its nine in all nineteen steps (the
+  wrong ones were short and blunt). The wrong ones were rewritten as
+  near misses a technician might really say; the right one is now the
+  longest of the six shown in 3 of 19 steps, and a check holds it to a
+  third.
+- Several rung-2 hints said the answer outright ("labelled... battery
+  recycling", "a two-person lift, or a cart", "Shut computers down
+  properly"); reworded as the principle, and each ticket's leak list now
+  guards them.
+- A page check run with ONLY naming a group that didn't exist yet passed
+  with nothing run. ONLY now fails on a group name it doesn't know.
+- **Found while checking:**
+  - During SF1's walk, "Walk to John's desk" kept Mason's ring under the
+    cutscene. The page check's follower clicked it, and the click landed
+    on John's replies the instant On the spot opened in the same place
+    (a wrong reply counted that no one chose). There's no ring during a
+    walk now.
+  - A student who opened On the spot before walking found Mason's ring
+    hidden behind it, on Help Desk's walk button. The ring now goes on On
+    the spot's own walk button when that window is open.
+- **Checks:**
+  - logic: 96 tickets, 168 plants. SF1–SF6 table-driven (the hazard there
+    at the start, the right path closing with no wrong moves and the right
+    outcome, not without its last step, each near miss costing one,
+    looking none, six moves with rung 3 and no leak at every stage, the
+    close question, the note), plus the model (the power button leaves the
+    power supply on the mains; water, a punctured battery, the office
+    vacuum, a running server's plug and ungrounded handling are lasting
+    hazards that revert undoes; the printer on battery overloads the UPS
+    and fails the self-test) and SAFETY (pools of one right and eight
+    wrong, Look never counts, a wrong reply counts, stays red, worries the
+    person and doesn't move the talk on, a wrong move worries them too,
+    the spread over the six shown, rung 3 on a reply). Eighteen new
+    plants.
+  - page: LOAD (96; 16 crawl, 16 walk, 64 run); EXTRA (SF1–SF6 badged
+    "Extra training · Safety and communication"); SAFETY: On the spot
+    offers only the walk from your desk; SF1 by Mason's rings, walk
+    included, with no wrong moves; SF4 through the screens (the 3D
+    mounted, a wrong reply counted, red three ways, Dev's mood in words,
+    the printer on battery counted and the overload in words, the
+    self-test passing with it on surge only, resolved with exactly its
+    two wrong moves); SF3's stain shown as made worse, Resolve refused
+    with the way back, Revert clearing it with the hints carried. Five new
+    plants.
+  - contrast: On the spot from the desk; a wrong reply red with the mood
+    and a wrong move's message; Mason's rung 3 striking replies; a lasting
+    hazard; SF4's plug lists with the UPS overloaded; SF5's grounded
+    bench. Three new plants.
+- **Next:** the owner picks. Left in Core 2: exam views for the two chat
+  sims. Then Networking, then Core 1 improvements.

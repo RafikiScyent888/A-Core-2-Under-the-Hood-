@@ -47,12 +47,18 @@
                my own) is kept
      CINE      the walk-over plays as a cutscene (letterbox bars, a caption)
                and drops it at the desk; reduced motion cuts straight there
+     SAFETY    On the spot offers only the walk from your desk; SF1 by
+               Mason's rings, walk included; SF4 through the screens (a
+               wrong reply red three ways with the mood, the printer on
+               battery overloading the UPS, the self-test); SF3's stain made
+               worse, refused, then reverted with the hints carried
    ===================================================================== */
 import { serve, browser } from "./serve.mjs";
 import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491", OI5: "INC20492", OI6: "INC20493", FS1: "INC20494", FS2: "INC20495", FS3: "INC20496", FS4: "INC20497", FS5: "INC20498", FS6: "INC20499" };
+const INC = { L1: "INC20410", L2: "INC20411", L4: "INC20413", D1: "INC20416", D4: "INC20419", D5: "INC20420", M1: "INC20422", M2: "INC20423", M3: "INC20424", M4: "INC20425", M5: "INC20426", M6: "INC20427", E1: "INC20428", E2: "INC20429", E4: "INC20431", R1: "INC20434", R3: "INC20436", R4: "INC20437", W1: "INC20440", W3: "INC20442", P1: "INC20446", P3: "INC20448", N1: "INC20452", N4: "INC20455", WR1: "INC20458", WR4: "INC20461", CE1: "INC20464", CE3: "INC20466", CR3: "INC20472", X1: "INC20476", X2: "INC20477", X5: "INC20480", MB1: "INC20482", MB5: "INC20486", OI1: "INC20488", OI2: "INC20489", OI3: "INC20490", OI4: "INC20491", OI5: "INC20492", OI6: "INC20493", FS1: "INC20494", FS2: "INC20495", FS3: "INC20496", FS4: "INC20497", FS5: "INC20498", FS6: "INC20499", SF1: "INC20500", SF2: "INC20501", SF3: "INC20502", SF4: "INC20503", SF5: "INC20504", SF6: "INC20505" };
 const NOTES = {
+  SF1: "Smoke from the back of WS1, from its power supply. Got John to step back, brought the CO2 extinguisher (not the water one), switched off at the wall socket and unplugged it, and the smoke stopped. Tagged it DO NOT USE and escalated to Tier 2 for a new power supply.",
   FS2: "Updates were paused, so I resumed them and checked. Installed the cumulative update KB5069213, .NET and Defender's update; left the optional Intel driver and the 24H2 feature update, as policy says Tier 2 tests those. Set active hours 8:00 to 18:00 for reception, restarted, and Update history shows the build.",
   FS1: "Copying the 6 GB video failed: the stick was FAT32, which can't hold a file of 4 GB or more. Copied her pitch and price list to her Desktop first, formatted the stick as exFAT because the client's Mac must write to it (a Mac only reads NTFS), then copied her files back and the video on.",
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
@@ -79,7 +85,7 @@ const NOTES = {
   E4: "Farah's gift card email from Mason came from rafiki-lt.com with a Gmail reply-to; the headers show SPF and DMARC failed. Phishing: reported, purged, blocked, external tag policy on. Dev's course genuine, John's chairs spam, Brenda's bonus .exe malicious.",
   M1: "Checked all seven PCs. SCVHOST.exe (PDF Pro Updater) on WS2 had spread to FS01, the file server. Quarantined both by unplugging them, disabled System Restore on WS2, updated definitions from USB, ran a Defender Offline scan, scheduled scans, updates, a new restore point. Advised Brenda to use Software Center."
 };
-const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT", "EXTRA", "BACKUP", "MOBILE", "INSTALL", "FILES", "INSTRUCTOR"];
+const GROUPS = ["LOAD", "CRAWL", "WALK", "RUN", "RED", "NOTE", "REVERT", "DROP", "WALKOVER", "PERSIST", "MALWARE", "CINE", "MALRUN", "MAIL", "EXAM", "ROUTER", "WIFI", "PF", "NR", "WR", "CHAT", "EXTRA", "BACKUP", "MOBILE", "INSTALL", "FILES", "SAFETY", "INSTRUCTOR"];
 
 async function run(rewrites, groups) {
   const fails = []; const F = (s) => fails.push(s);
@@ -126,7 +132,7 @@ async function run(rewrites, groups) {
       if (!(await t.count())) { await p.waitForTimeout(2600); if (!(await t.count())) return false; }
       const tag = await t.first().evaluate((e) => e.tagName + "." + e.className + " " + (e.getAttribute("aria-label") || ""));
       /* a chat step: send the reply Mason is walking them to */
-      if (/cc-opts/.test(tag)) { await p.evaluate(() => { const E = window.__LAP.engine, t = E.ticket(), c = E.fleet().TECH.chats[t.id], lab = t.chat[c.step].right.label; const b = Array.from(document.querySelectorAll("[data-win=custchat] .cc-opts .opt2")).filter((x) => x.querySelector(".ol").textContent === lab)[0]; if (b) b.click(); }); continue; }
+      if (/cc-opts/.test(tag)) { await p.evaluate(() => { const E = window.__LAP.engine, t = E.ticket(), c = E.fleet().TECH.chats[t.id], lab = t.chat[c.step].right.label; const b = Array.from(document.querySelectorAll("[data-win=custchat] .cc-opts .opt2, [data-win=safety] .sf-opts .opt2")).filter((x) => x.querySelector(".ol").textContent === lab)[0]; if (b) b.click(); }); continue; }
       if (/^A\.mx-link/.test(tag)) { await t.first().hover(); await p.waitForTimeout(150); continue; }
       if (/^INPUT/.test(tag) && /mxa-/.test(await t.first().getAttribute("id") || "")) { await t.first().fill(await p.locator(".coach-cmd").innerText()); await t.first().press("Enter"); continue; }
       if (/TEXTAREA/.test(tag)) { await t.first().fill(NOTES[id]); await p.getByRole("button", { name: "Close the ticket" }).click(); continue; }
@@ -152,9 +158,9 @@ async function run(rewrites, groups) {
       if (!/incorrect/.test(await p.locator(".lock-err").innerText())) F("LOAD: a wrong password was not refused");
       await p.locator("#lock-pw").fill("TechStart-2026"); await p.locator("#lock-pw").press("Enter"); await p.waitForTimeout(300);
       const items = await p.locator(".qi").allInnerTexts();
-      if (items.length !== 90) F("LOAD: the queue shows " + items.length + " tickets, not 90");
+      if (items.length !== 96) F("LOAD: the queue shows " + items.length + " tickets, not 96");
       const count = (re) => items.filter((x) => re.test(x)).length;
-      if (count(/Crawl: guided/) !== 15 || count(/Walk: checklist/) !== 15 || count(/Run: on your own/) !== 60) F("LOAD: the queue's labels are not 15 crawl, 15 walk, 60 run");
+      if (count(/Crawl: guided/) !== 16 || count(/Walk: checklist/) !== 16 || count(/Run: on your own/) !== 64) F("LOAD: the queue's labels are not 16 crawl, 16 walk, 64 run");
       if (!/Cyber Warrior Program — built by an instructor/.test(await p.locator("footer").innerText())) F("LOAD: the full footer is missing");
       /* Windows 11: the taskbar's icons sit in a cluster in the middle of the screen, Start first */
       const tbc = await p.evaluate(() => { const b = Array.from(document.querySelectorAll(".task-mid .tb")); const l = b[0].getBoundingClientRect(), r = b[b.length - 1].getBoundingClientRect(); return { off: (l.left + r.right) / 2 - innerWidth / 2, first: b[0].getAttribute("aria-label") }; });
@@ -170,7 +176,7 @@ async function run(rewrites, groups) {
       const order = await p.evaluate(() => Array.from(document.querySelectorAll(".hd2-q h3.qsec, .hd2-q .qi")).map((e) => e.tagName === "H3" ? "H" : (e.querySelector(".badge") ? e.querySelector(".badge").textContent : "NONE")));
       const hx = order.indexOf("H", 1); const sims = order.slice(1, hx), extra = order.slice(hx + 1);
       if (sims.length !== 66 || sims.some((x) => !/^Exam sim · /.test(x))) F("EXTRA: the sims section does not hold 66 tickets each badged Exam sim");
-      if (extra.length !== 24 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12, 18).some((x) => x !== "Extra training · OS installation") || extra.slice(18).some((x) => x !== "Extra training · File systems")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6, OI1–OI6 and FS1–FS6 badged with their objectives: " + JSON.stringify(extra));
+      if (extra.length !== 30 || extra.slice(0, 6).some((x) => x !== "Extra training · Backup and recovery") || extra.slice(6, 12).some((x) => x !== "Extra training · Mobile troubleshooting") || extra.slice(12, 18).some((x) => x !== "Extra training · OS installation") || extra.slice(18, 24).some((x) => x !== "Extra training · File systems") || extra.slice(24).some((x) => x !== "Extra training · Safety and communication")) F("EXTRA: the extra-training section is not X1–X6, MB1–MB6, OI1–OI6, FS1–FS6 and SF1–SF6 badged with their objectives: " + JSON.stringify(extra));
       if (await p.locator(".qi .badge").evaluateAll((bs) => bs.some((b) => !b.querySelector("svg.ico")))) F("EXTRA: a badge has no icon");
       await p.locator(".hd2-jb", { hasText: "Extra training" }).click();
       if (!(await p.locator(".qi", { hasText: INC.X1 }).isVisible())) F("EXTRA: Jump to Extra training does not bring X1 into view");
@@ -560,6 +566,55 @@ async function run(rewrites, groups) {
       if ((await p.evaluate(() => window.__LAP.engine.T().stage)) !== "close") F("FILES: FS6's Resolve was refused");
     });
 
+    /* SF1 to SF6, safety on the spot: no hands from your desk; SF1 by
+       Mason's rings, walk included; SF4 through the screens, with a wrong
+       reply marked three ways, the printer overloading the UPS, and the
+       self-test; SF3's lasting hazard, refused, then reverted */
+    await step("SAFETY", async (p) => {
+      p.setDefaultTimeout(20000); await signIn(p);
+      const sw = p.locator("[data-win=safety]");
+      const sayRight = () => p.evaluate(() => { const E = window.__LAP.engine, t = E.ticket(), c = E.fleet().TECH.chats[t.id], lab = t.chat[c.step].right.label; const b = Array.from(document.querySelectorAll("[data-win=safety] .sf-opts .opt2")).filter((x) => x.querySelector(".ol").textContent === lab)[0]; if (b) b.click(); return !!b; });
+      const hand = async (id) => { await sw.locator('[data-coach="sf-' + id + '"]').click(); await p.waitForTimeout(80); };
+      await take(p, "SF1"); await hd(p).locator("[data-coach=open-safety]").click(); await p.waitForTimeout(200);
+      if (!(await sw.locator("[data-coach=sf-walk]").count()) || (await sw.locator(".sf-hands").count())) F("SAFETY: On the spot lets John's PC be handled from your desk, without walking there");
+      if (!(await crawl(p, "SF1", 60))) F("SAFETY: SF1 could not be finished by following Mason's rings");
+      const g1 = await p.evaluate(() => window.__LAP.engine.state().tickets.SF1); if (!g1 || g1.stage !== "done" || g1.guesses) F("SAFETY: SF1's crawl cost wrong moves, or didn't close (" + JSON.stringify(g1 && g1.says) + ")");
+      /* SF4, in the closet beside your bench: no walk */
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await take(p, "SF4"); await hd(p).locator("[data-coach=open-safety]").click(); await p.waitForTimeout(400);
+      if (!(await sw.locator(".sf-hands").count())) F("SAFETY: SF4 (beside your bench) asks for a walk");
+      await p.waitForFunction(() => document.querySelector("[data-win=safety] .sf-3d canvas") || /3D isn't available/.test((document.querySelector("[data-win=safety] .sf-3d") || {}).textContent || ""), null, { timeout: 30000 }).catch(() => {});
+      if (!(await sw.locator(".sf-3d canvas").count())) F("SAFETY: the approved 3D model didn't mount in On the spot");
+      const wrongLab = await p.evaluate(() => { const E = window.__LAP.engine, t = E.ticket(), c = E.fleet().TECH.chats[t.id], right = t.chat[c.step].right.label; const b = Array.from(document.querySelectorAll("[data-win=safety] .sf-opts .opt2")).find((x) => x.querySelector(".ol").textContent !== right); b.click(); return b.querySelector(".ol").textContent; });
+      await p.waitForTimeout(150);
+      const red = sw.locator(".sf-opts .opt2", { hasText: wrongLab });
+      if ((await guesses(p)) !== 1) F("SAFETY: a wrong reply to Dev wasn't counted");
+      if (!/\bout\b/.test(await red.getAttribute("class") || "") || !/✕ Ruled out/.test(await red.innerText()) || !(await red.isDisabled())) F("SAFETY: a wrong reply isn't marked three ways (colour, the rule, the words) and left red");
+      if (!/Mood: Impatient/.test(await sw.locator(".cc-mood").innerText())) F("SAFETY: Dev's mood didn't change, in words, after a wrong reply");
+      if (!/didn't help/.test(await sw.locator(".cc-log").innerText())) F("SAFETY: the wrong reply isn't kept in the conversation");
+      await sayRight(); await hand("lift-team"); await sayRight(); await hand("notify"); await hand("shutdown-srv");
+      for (const [d, v] of [["fs01", "batt"], ["mail01", "batt"], ["switch", "batt"], ["printer", "batt"]]) { await sw.locator("#sf-SF4-plug-" + d).selectOption(v); await p.waitForTimeout(80); }
+      if ((await guesses(p)) !== 2) F("SAFETY: the laser printer on a battery outlet wasn't counted");
+      await hand("ups-on"); await hand("start-srv"); await hand("self-test");
+      if (!/OVERLOAD/.test(await sw.locator(".sf-msg").innerText()) || !/OVERLOAD/.test(await sw.locator(".sf-see").innerText())) F("SAFETY: the printer on battery didn't show the UPS overloaded, in words");
+      await sw.locator("#sf-SF4-plug-printer").selectOption("surge"); await p.waitForTimeout(80); await hand("self-test");
+      if (!/SELF-TEST OK/.test(await sw.locator(".sf-see").innerText())) F("SAFETY: the self-test didn't pass with the printer on surge only");
+      await hand("all-clear"); await sayRight(); await p.waitForTimeout(150);
+      await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click(); await p.waitForTimeout(150);
+      const g4 = await p.evaluate(() => window.__LAP.engine.state().tickets.SF4); if (!g4 || g4.stage !== "close" || g4.guesses !== 2) F("SAFETY: SF4 through the screens didn't resolve with exactly its two wrong moves (" + JSON.stringify(g4 && { stage: g4.stage, guesses: g4.guesses, says: g4.says }) + ")");
+      /* SF3: a lasting hazard holds the ticket; revert clears it */
+      await take(p, "SF3"); await hd(p).locator("[data-coach=sf-go]").click();
+      await p.waitForSelector("[data-win=safety] .sf-hands", { timeout: 90000 }).catch(() => {});
+      if (!(await sw.locator(".sf-hands").count())) F("SAFETY: walking to reception didn't put you on the spot");
+      else {
+        await sayRight(); await hand("sign"); await hand("read-sds"); await hand("ppe"); await sayRight(); await hand("toner-vac"); const g0 = await guesses(p); await hand("hot-wipe");
+        if (!(await sw.locator(".sf-poison[role=alert]").count())) F("SAFETY: the stain melted into the carpet isn't shown as made worse");
+        await p.evaluate(() => window.__LAP.openWin("helpdesk")); await hd(p).locator("[data-coach=resolve]").click(); await p.waitForTimeout(150);
+        if (!/Revert/.test(await hd(p).locator(".say").innerText().catch(() => ""))) F("SAFETY: Resolve with the stain there isn't refused with the way back");
+        const gb = await guesses(p); await p.evaluate(() => window.__LAP.openWin("safety")); await hand("revert"); await p.waitForTimeout(150);
+        if (await sw.locator(".sf-poison").count()) F("SAFETY: Revert to snapshot didn't clear the stain");
+        if ((await guesses(p)) !== gb || gb !== g0 + 2) F("SAFETY: the hint count didn't carry across the revert (" + g0 + ", " + gb + ")");
+      }
+    });
     await step("INSTRUCTOR", async (p) => {
       await signIn(p);
       await p.locator(".tb", { hasText: "Settings" }).click(); await p.locator("#instructorBtn").click(); await p.locator("#pin-in").fill("3693"); await p.locator("#pin-in").press("Enter"); await p.waitForTimeout(200);
@@ -1137,12 +1192,18 @@ const PLANTS = [
   ["CHAT", "starting again shows the same six", { "assets/chat.js": [["c.step = 0; c.out = {}; c.said = {}; c.seed++; c.mood = c.startMood;", "c.step = 0; c.out = {}; c.said = {}; c.mood = c.startMood;"]] }],
   ["WR", "windows open before Mason's panel stay under it", { "assets/laptop.js": [["desk.style.right = \"var(--coach-w)\"; fitWins(); }", "desk.style.right = \"var(--coach-w)\"; }"]] }],
   ["WR", "the microwave can be moved without walking there", { "assets/laptop.js": [["onSite: function () { const t = E.ticket(); return !!(t && L.onSite[t.id]); }", "onSite: function () { return true; }"]] }],
+  ["SAFETY", "On the spot works from your desk, without walking there", { "assets/laptop.js": [["function onSiteFor(t) { return !(t.place && t.place.walk) || !!L.onSite[t.id]; }", "function onSiteFor(t) { return true; }"]] }],
+  ["SAFETY", "arriving at John's desk doesn't put you on the spot", { "assets/laptop.js": [["if (t0) { L.onSite[t0.id] = true; saveL(); logT(t0.id, \"Arrived: \" + t0.place.where); }", "if (t0) { logT(t0.id, \"Arrived: \" + t0.place.where); }"]] }],
+  ["SAFETY", "a wrong reply on the spot isn't marked red", { "assets/safetyui.js": [["const b = el(\"button\", \"opt2\" + (wrong || struck ? \" out\" : \"\"));", "const b = el(\"button\", \"opt2\");"]] }],
+  ["SAFETY", "the UPS's overload isn't shown", { "assets/tickets-safety.js": [["if (n > 100) return [\"OVERLOAD\", \"Load \" + n + \"%\", \"Remove load\"];", "if (false) return [];"]] }],
+  ["SAFETY", "Revert to snapshot on the spot does nothing", { "assets/safetyui.js": [["btn(\"Revert to snapshot\", \"b small\", function () { ctx.revert(); }", "btn(\"Revert to snapshot\", \"b small\", function () { }"]] }],
   ["EXAM", "Submit never grades", { "assets/examui.js": [["const r = P.check(v, st);", "const r = { done: false, wrong: 0, missing: 0 };"]] }],
   ["PERSIST", "the dyslexia setting is not saved", { "assets/laptop.js": [["put(\"c2vm.reading\", on ? \"dyslexia\" : \"default\");", ""]] }]
 ];
 
 if (!process.argv.includes("--plant")) {
   const groups = process.env.ONLY ? process.env.ONLY.split(",") : null;
+  (groups || []).forEach((g) => { if (GROUPS.indexOf(g) < 0) { console.log("FAIL ONLY names a group that doesn't exist: " + g); process.exit(1); } });
   const f = await run({}, groups); f.forEach((x) => console.log("FAIL " + x));
   console.log(f.length ? f.length + " failure(s)" : "PASS — page: " + (groups || GROUPS).join(", "));
   process.exit(f.length ? 1 : 0);

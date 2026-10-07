@@ -97,6 +97,8 @@ import * as FXM from "../assets/fsys.js";
 import * as WUM from "../assets/winupdate.js";
 import * as EDM from "../assets/edition.js";
 import * as FSM from "../assets/tickets-files.js";
+import * as SFM from "../assets/safety.js";
+import * as SFT from "../assets/tickets-safety.js";
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 function memStore() { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: (k) => { delete d[k]; } }; }
@@ -199,6 +201,12 @@ const NOTES = {
   FS5: "The replacement came with Windows 11 Home, which can't join a domain. Changed the product key to the company's Pro key (not the Store, not the generic key), restarted: Pro, activated. Joined RAFIKI as itadmin and restarted; System Properties shows the domain.",
   FS6: "Ran sudo apt update to refresh the lists, then sudo apt upgrade: 9 packages including a new kernel. Rebooted, and uname -r shows 6.8.0-51-generic. Didn't run do-release-upgrade: Dev stays on 24.04, not 26.04, until the project ships.",
   FS4: "The archive wouldn't copy because D: was FAT32: no file of 4 GB or more, and no Security tab for permissions. Formatting would have erased the audits, so I ran convert D: /FS:NTFS as administrator; every file was kept. Copied the 5.4 GB archive to D:, which now has a Security tab.",
+  SF1: "Smoke from the back of WS1, from its power supply. Got John to step back first, brought the CO2 extinguisher (not the water one), switched off at the wall socket and unplugged it, and the smoke stopped. Tagged it DO NOT USE and escalated to Tier 2 for a new power supply.",
+  SF2: "Brenda's laptop battery was swollen: the base bulged and the touchpad lifted. Unplugged the charger and shut it down, carried it flat to the metal battery bin in the closet, labelled it and logged it for battery recycling. Gave her a spare laptop, and her deck opened from OneDrive.",
+  SF3: "Rosa spilled toner at reception. Put the wet-floor sign up, read the safety data sheet, put on a mask and gloves, picked it up with the toner vacuum (not the office one) and dabbed it with a cold, damp cloth. Sealed the cracked cartridge in its return bag for recycling.",
+  SF4: "Lifted the 28 kg UPS with Dev as a team lift. Emailed everyone before 12:30, shut down FS01 and MAIL01 properly, put them and the switch on the battery outlets and the laser printer on surge only. UPS on, servers started, self-test passed, and emailed the all-clear.",
+  SF5: "Farah put the parcel on my mat. Plugged the mat's ground cord into the earth point, put on the wrist strap and clipped it to the mat. Read module B's part number on its sticker, holding it by the edges, signed the note, and stored all three in antistatic bags in the parts cabinet.",
+  SF6: "Walk-round with Pat from facilities. Removed the daisy-chained second strip, moved the paper boxes off the vent, and routed the doorway cable under a cable cover. The extinguisher by the rack is water: reported it to Pat to swap for a CO2 one.",
   OI6: "Held the power button, then tapped the welcome screen six times for the QR set-up and scanned the enrolment code from device management. Joined Rafiki-Staff, accepted that the organisation owns it (fully managed). Set a 6-digit PIN as the policy requires. The update refused at 18% battery, so I plugged in the charger and installed the 1 September 2026 security update. Device management shows it compliant.",
   OI1: "Vendor's drive was MBR and the PC boots UEFI, which needs GPT: Setup refused it. Deleted the vendor partition and installed Windows 11 Pro (digital licence, no key) to the unallocated space. Named it WS3-DEV, local account, joined the RAFIKI domain from System Properties, restarted. Dev signed in.",
   MB6: "Outlook's background battery use was Restricted and its background data was off, so mail waited until it opened. Set battery to Optimized and turned background data on. A test email arrived by itself.",
@@ -372,7 +380,59 @@ export function check(D) {
   extraMore(D, F);
   mobileChecks(D, F);
   installChecks(D, F);
+  safetyChecks(D, F);
   return fails;
+}
+
+/* ---- SAFETY: the safety tickets' shared rules (owner, 6 October 2026:
+   safety only, the approved 3D models, the person on the spot with six
+   replies and their mood) ----
+     SHAPE    six tickets, a crawl's worth of conversation in each: every
+              step's pool is one right and eight wrong, all different, each
+              wrong one with a reaction and a reason; every act has a label
+              and a group; a known 3D scene with its views; what you can see
+     LOOK     a Look action never counts, on any ticket, at the start
+     MOOD     a wrong reply counts, stays red, worries the person and
+              doesn't move the talk on; a wrong action worries them too
+     POISON   a lasting hazard holds the ticket, gives the revert moves
+     SPREAD   the right reply isn't usually the longest of the six shown
+     STRIKE   rung 3 on a reply leaves two of the six, the right one alive */
+const SF_SCENES = ["ext2", "laptop", "toner", "ups", "strap", "closet"];
+function safetyChecks(D, F) {
+  const T = D.TICKETS.filter((t) => t.kind === "safety");
+  if (T.length !== 6) F("SAFETY: SHAPE: " + T.length + " safety tickets, not six");
+  let steps = 0, longest = 0;
+  T.forEach((t) => {
+    const P = t.id + ": ";
+    if (!t.extra || t.topic !== "Safety and communication") F("SAFETY: SHAPE: " + P + "not extra training under Safety and communication");
+    if (SF_SCENES.indexOf(t.scene3d) < 0 || !(t.views || []).length) F("SAFETY: SHAPE: " + P + "no approved 3D scene, or no views of it");
+    if (!t.place || !t.place.where || !t.place.go) F("SAFETY: SHAPE: " + P + "it doesn't say where the job is");
+    const ids = t.acts.map((a) => a.id); if (new Set(ids).size !== ids.length || t.acts.some((a) => !a.label || !a.group)) F("SAFETY: SHAPE: " + P + "an act has no label or group, or two share an id");
+    if (!t.chat.some((it) => it.type === "reply") || !t.chat.some((it) => it.type === "do")) F("SAFETY: SHAPE: " + P + "the job needs both talking and doing");
+    t.chat.forEach((it, i) => { if (it.type !== "reply") return; const all = [it.right].concat(it.wrong || []);
+      if (!it.right || !it.right.correct || (it.wrong || []).length !== 8 || new Set(all.map((o) => o.label)).size !== 9 || it.wrong.some((o) => o.correct || !o.reaction || !o.why)) F("SAFETY: POOL: " + P + "step " + i + " isn't one right and eight wrong, all different, each with a reaction and a reason"); });
+    const f = D.makeFleet(); t.setup(f); const x = f.TECH.safety[t.id]; const lines = t.see(x.s, x);
+    if (!lines.length || lines.some((l) => !String(l).trim())) F("SAFETY: SHAPE: " + P + "What you can see is empty");
+    /* LOOK: every Look action available at the start, on a fresh scene */
+    D.SF.available(t, x).filter((a) => a.look).forEach((a) => { const g = D.makeFleet(); t.setup(g); const r = D.SF.run(g, t, a.id); if (!r || r.wrong || r.poison) F("SAFETY: LOOK: " + P + "\"" + a.label + "\" counts as a wrong move"); });
+    /* SPREAD, over the six shown at the start of every reply step */
+    t.chat.forEach((it, i) => { if (it.type !== "reply") return; steps++; const c = D.CH.get(f, t.id); const sh = D.CH.shown(t, c, i); const L = sh.map((o) => o.label.length), cl = it.right.label.length;
+      if (!sh.some((o) => o.correct) || sh.length !== 6) F("SAFETY: SIX: " + P + "step " + i + " doesn't show six with the right one among them");
+      if (cl === Math.max(...L) && L.filter((n) => n === cl).length === 1) longest++; });
+  });
+  if (steps && longest > Math.ceil(steps / 3)) F("SAFETY: SPREAD: the right reply is the longest of the six shown in " + longest + " of " + steps + " steps");
+  /* MOOD and STRIKE, on SF1's first step and SF3's first act */
+  withLive(D, "SF1", (t) => { const E = D.createEngine(memStore()); E.openTicket("SF1"); const f = E.fleet(), c = D.CH.get(f, "SF1"), m0 = c.mood;
+    const o = D.CH.shown(t, c, 0).find((r) => !r.correct); const b = E.before(); const r = D.CH.reply(f, t, o.label); E.onAct({ machine: "TECH", type: "chat-reply", correct: r.correct, why: r.why, before: b });
+    if (E.T().guesses !== 1) F("SAFETY: MOOD: a wrong reply wasn't counted"); if (c.step !== 0) F("SAFETY: MOOD: a wrong reply moved the talk on");
+    if ((c.out[0] || []).indexOf(o.label) < 0) F("SAFETY: MOOD: a wrong reply doesn't stay red"); if (c.mood <= m0) F("SAFETY: MOOD: a wrong reply didn't worry John");
+    const m1 = c.mood; sfDo(D, "monitor")(E); if (c.mood <= m1 && m1 < 3) F("SAFETY: MOOD: a wrong move in front of John didn't worry him");
+    E.T().guesses = 7; const g = E.guidance(); const sh = D.CH.shown(t, c, 0), alive = sh.filter((x) => !(g.qstrike && g.qstrike.strike[x.label]) && (c.out[0] || []).indexOf(x.label) < 0);
+    if (!g.qstrike || alive.length !== 2 || !alive.some((x) => x.correct)) F("SAFETY: STRIKE: rung 3 on a reply doesn't leave two, the right one alive"); });
+  /* POISON: a lasting hazard holds the ticket and gives the revert moves */
+  withLive(D, "SF3", (t) => { const E = D.createEngine(memStore()); E.openTicket("SF3"); [sfSay(D), sfDo(D, "sign"), sfDo(D, "read-sds"), sfDo(D, "ppe"), sfSay(D)].forEach((go) => go(E)); sfDo(D, "toner-vac")(E); sfDo(D, "hot-wipe")(E);
+    const mv = t.moves(E.fleet()); if (t.stage(E.fleet()) !== "poison" || !mv.find((x) => x.correct && /revert/i.test(x.label))) F("SAFETY: POISON: a stain melted into the carpet doesn't call for a revert");
+    [sfDo(D, "cart-bag")].forEach((go) => go(E)); if (t.goal(E.fleet())) F("SAFETY: POISON: the ticket closes with the stain still there"); });
 }
 
 /* ---- CHAT: the Help Desk chats ---- */
@@ -409,7 +469,7 @@ function chatDrive(D, t, f) {
    recovery: the fault is on the machine, the right path closes it with
    no wrong moves, the near misses count, rung 3 leaves the right move
    alive at every stage, no hint names the move, the note check holds. */
-const OBJECTIVES = { "OS installation": ["Operating systems", "working with Windows, macOS, Linux, and mobile operating systems"], "Backup and recovery": ["Operational procedures", "setting up workstation backups and recovery processes"], "Mobile troubleshooting": ["Software troubleshooting", "addressing connectivity, app, and performance issues"], "File systems": ["Operating systems", "handling file systems, updates, and OS upgrades"] };
+const OBJECTIVES = { "OS installation": ["Operating systems", "working with Windows, macOS, Linux, and mobile operating systems"], "Backup and recovery": ["Operational procedures", "setting up workstation backups and recovery processes"], "Mobile troubleshooting": ["Software troubleshooting", "addressing connectivity, app, and performance issues"], "File systems": ["Operating systems", "handling file systems, updates, and OS upgrades"], "Safety and communication": ["Operational procedures", "following safety protocols and communicating effectively"] };
 function extraChecks(D, F) {
   const X = D.TICKETS.filter((t) => t.extra);
   if (!X.length) { F("EXTRA: no extra-training ticket"); return; }
@@ -1043,6 +1103,103 @@ XI.OI6 = (D) => { const N = D.NP, g = (f) => f.TECH.newPhones.OI6;
       { const E = fresh(); S[0](E); qr(E); personal.forEach((go) => go(E)); E.revert(); if (t.stage(E.fleet()) === "personal") F(P + "SNAPSHOT: revert after a personal finish keeps it"); }
     } };
 };
+/* SF1 to SF6: safety on the spot. The hands go through the safety model
+   (D.SF, so a plant can break it), what's said through the chat model */
+function sfDo(D, act, value) { return (E) => { const t = E.ticket(), b = E.before(); const res = D.SF.run(E.fleet(), t, act, value); if (!res) return null; /* not available: the SOLVABLE checks say so */ E.onAct({ machine: "TECH", type: "safety", op: act, value: value == null ? null : value, res, before: b }); return res; }; }
+function sfSay(D, wrong) { return (E) => { const t = E.ticket(), f = E.fleet(), c = D.CH.get(f, t.id), it = t.chat[c.step]; if (!it || it.type !== "reply") return null; /* none due: the SOLVABLE checks say so */
+  const lab = wrong ? D.CH.shown(t, c, c.step).find((o) => !o.correct).label : it.right.label; const b = E.before(); const o = D.CH.reply(f, t, lab); E.onAct({ machine: "TECH", type: "chat-reply", correct: o.correct, why: o.why, before: b }); return o; }; }
+function sfTable(D, id, o) { const g = (f) => (f.TECH.safety || {})[id]; return Object.assign({ get: g }, o); }
+XI.SF1 = (D) => { const A = (a, v) => sfDo(D, a, v), say = sfSay(D), bad = sfSay(D, true);
+  const S = [say, A("look-ext"), A("fetch-co2"), A("look-back"), A("unplug-wall"), say, A("tag"), say];
+  return sfTable(D, "SF1", { S, leak: [/\bwall\b/i, /\bunplug/i, /\bco2\b|co₂|carbon dioxide/i, /\btag\b/i, /do not use/i, /step back/i],
+    exh: (x) => (!x ? "there's no scene" : !x.s.plugged || !x.s.smoke ? "the PC isn't plugged in and smoking" : x.s.ext ? "an extinguisher is already at hand" : null),
+    after: (x) => (x.poison ? "a lasting hazard is left: " + x.poison.text : x.s.plugged ? "it's still plugged in" : !x.s.tagged ? "it isn't tagged" : x.s.ext !== "co2" ? "the CO2 extinguisher isn't at hand" : null),
+    near: [["the water extinguisher", 1, [A("fetch-water")]], ["holding the power button", 3, [A("hold-power")]], ["the cord at the back of the PC", 3, [A("cord-back")]], ["opening the side panel", 3, [A("panel")]],
+      ["spraying the CO2", 3, [A("spray")]], ["switching off the monitor", 3, [A("monitor")]], ["plugging it back in", 5, [A("replug")]], ["a tag while it still smokes", 1, [A("tag")]], ["a sticky note", 5, [A("postit")]], ["the bins", 5, [A("bins")]], ["a wrong first reply", 0, [bad]]],
+    look: [["the labels, the back of the PC and the window", 0, [A("look-ext"), A("look-back"), A("window")]], ["putting the extinguisher back, and fetching it again", 3, [A("put-back"), A("fetch-co2")]]],
+    extra: (fresh, F, P, t) => {
+      /* the power button leaves the power supply on the mains: still smoking */
+      { const E = fresh(); S.slice(0, 3).forEach((go) => go(E)); A("hold-power")(E); const x = E.fleet().TECH.safety.SF1; if (!x.s.smoke || !x.s.plugged) F(P + "MODEL: holding the power button stopped the smoke"); }
+      /* water sprayed is a lasting hazard: it holds the ticket until a revert */
+      { const E = fresh(); S.slice(0, 1).forEach((go) => go(E)); A("fetch-water")(E); A("spray")(E); if (t.stage(E.fleet()) !== "poison") F(P + "MODEL: spraying water on the PC didn't leave a lasting hazard");
+        E.revert(); if (t.stage(E.fleet()) === "poison" || E.fleet().TECH.safety.SF1.s.sprayed) F(P + "SNAPSHOT: revert after the water didn't put it back"); }
+      /* the wrong outcome says why */
+      { const E = fresh(); S.forEach((go) => go(E)); const r = E.submit("resolve"); if (r.ok || !/tier 2/i.test(r.say || "")) F(P + "JUDGE: Resolve isn't refused with Tier 2's reason"); }
+    } });
+};
+XI.SF2 = (D) => { const A = (a, v) => sfDo(D, a, v), say = sfSay(D), bad = sfSay(D, true);
+  const S = [say, A("unplug"), A("shutdown"), A("carry-bin"), A("label-log"), say, A("spare"), A("deck"), say];
+  return sfTable(D, "SF2", { S, leak: [/\bunplug/i, /shut (it )?down/i, /\bmetal\b/i, /battery bin/i, /\blabel/i, /recycl/i, /\bspare\b/i, /onedrive/i],
+    exh: (x) => (!x ? "there's no scene" : !x.s.charging || x.s.power !== "on" ? "the laptop isn't charging and running" : x.s.where !== "desk" ? "the laptop isn't on her desk" : null),
+    after: (x) => (x.poison ? "a lasting hazard is left: " + x.poison.text : x.s.charging ? "it's still charging" : x.s.where !== "bin" ? "it isn't in the battery bin" : !x.s.labelled || !x.s.logged ? "it isn't labelled and logged" : !x.s.deck ? "Brenda's deck isn't checked on the spare" : null),
+    near: [["plugging the charger back in", 2, [A("replug")]], ["pressing the bulge", 1, [A("press")]], ["the screwdriver", 1, [A("screwdriver")]], ["the freezer", 1, [A("freezer")]], ["carrying it while it's still on", 2, [A("carry-bin")]],
+      ["the desk drawer", 3, [A("drawer")]], ["the office bin", 3, [A("office-bin")]], ["the e-waste cage", 3, [A("ewaste")]], ["the post", 3, [A("post")]], ["a wrong reply about the demo", 5, [bad]]],
+    look: [["the side view and OneDrive", 0, [A("look-side"), A("look-onedrive")]]],
+    extra: (fresh, F, P, t) => {
+      /* a punctured battery holds the ticket, even with everything else done */
+      { const E = fresh(); S.slice(0, 1).forEach((go) => go(E)); A("press")(E); [A("unplug"), A("shutdown"), A("carry-bin"), A("label-log"), A("spare"), A("deck")].forEach((go) => go(E));
+        const c = E.fleet().TECH.chats.SF2; c.step = t.chat.length;
+        if (t.goal(E.fleet())) F(P + "SAFETY: POISON: the ticket closes with the battery punctured"); }
+      { const E = fresh(); S.slice(0, 2).forEach((go) => go(E)); A("carry-bin")(E); if (E.fleet().TECH.safety.SF2.s.where !== "desk") F(P + "MODEL: a running laptop was carried to the bin"); }
+    } });
+};
+XI.SF3 = (D) => { const A = (a, v) => sfDo(D, a, v), say = sfSay(D), bad = sfSay(D, true);
+  const S = [say, A("sign"), A("read-sds"), A("ppe"), say, A("toner-vac"), A("cold-wipe"), A("cart-bag"), say];
+  return sfTable(D, "SF3", { S, leak: [/toner vacuum/i, /\bcold\b/i, /\bmask/i, /wet-floor/i, /return bag/i, /recycl/i, /\bgloves?\b/i],
+    exh: (x) => (!x ? "there's no scene" : !x.s.spill ? "there's no spill" : x.s.cart !== "floor" ? "the cartridge is already dealt with" : null),
+    after: (x) => (x.poison ? "a lasting hazard is left: " + x.poison.text : x.s.spill ? "the spill is still there" : !x.s.vac || !x.s.wiped ? "it wasn't vacuumed and wiped" : x.s.cart !== "bagged" ? "the cartridge isn't bagged" : null),
+    near: [["the office vacuum", 5, [A("office-vac")]], ["the toner vacuum with no mask", 3, [A("toner-vac")]], ["sweeping", 5, [A("sweep")]], ["a hot cloth", 6, [A("hot-wipe")]], ["a cold cloth before vacuuming", 5, [A("cold-wipe")]],
+      ["the cartridge in the bin", 7, [A("cart-bin")]], ["the cartridge back in the printer", 7, [A("cart-back")]], ["a wrong reply to Rosa's worry", 4, [bad]]],
+    look: [["the data sheet and the cartridge's label", 0, [A("read-sds"), A("look-cart")]]],
+    extra: (fresh, F, P, t) => {
+      /* the data-sheet step's hints never name the data sheet */
+      { const E = fresh(); S.slice(0, 2).forEach((go) => go(E)); if (t.stage(E.fleet()) !== "sds") F(P + "SHAPE: the data-sheet step isn't where it should be"); t.hints(E.fleet()).forEach((h, i) => { if (/data sheet|\bsds\b|binder/i.test(h)) F(P + "NO LEAK: rung " + (i + 1) + " at the data-sheet step names it"); }); }
+      { const E = fresh(); S.slice(0, 5).forEach((go) => go(E)); A("office-vac")(E); if (t.stage(E.fleet()) !== "poison") F(P + "MODEL: the office vacuum didn't leave a lasting hazard"); E.revert(); if (t.stage(E.fleet()) === "poison") F(P + "SNAPSHOT: revert after the office vacuum didn't put it back"); }
+    } });
+};
+XI.SF4 = (D) => { const A = (a, v) => sfDo(D, a, v), say = sfSay(D), bad = sfSay(D, true);
+  const S = [say, A("lift-team"), say, A("notify"), A("shutdown-srv"), A("plug-fs01", "batt"), A("plug-mail01", "batt"), A("plug-switch", "batt"), A("plug-printer", "surge"), A("ups-on"), A("start-srv"), A("self-test"), A("all-clear"), say];
+  return sfTable(D, "SF4", { S, leak: [/surge.only/i, /self-test/i, /team lift/i, /\bcart\b/i, /\bemail/i, /shut down (fs01|mail01|the servers)/i, /lift (it )?together/i],
+    exh: (x) => (!x ? "there's no scene" : x.s.placed ? "the UPS is already in place" : x.s.srv !== "on" ? "the servers aren't running" : Object.values(x.s.plugs).some((v) => v !== "old") ? "something is already moved off the old strip" : null),
+    after: (x) => (x.poison ? "a lasting hazard is left: " + x.poison.text : x.s.plugs.printer !== "surge" ? "the printer isn't on surge only" : ["fs01", "mail01", "switch"].some((d) => x.s.plugs[d] !== "batt") ? "something that must stay up isn't on the battery" : !x.s.test ? "the self-test didn't pass" : !x.s.back ? "nobody was told it's back" : SFT.upsLoad(x.s) > 100 ? "the UPS is overloaded" : null),
+    near: [["lifting it alone", 1, [A("lift-alone")]], ["lifting it bent at the waist", 1, [A("lift-bend")]], ["dragging it by the strap", 1, [A("drag")]], ["shutting the servers down before telling anyone", 3, [A("shutdown-srv")]], ["pulling the servers' plugs", 4, [A("pull-srv")]],
+      ["the printer on a battery outlet", 8, [A("plug-printer", "batt")]], ["FS01 on surge only", 5, [A("plug-fs01", "surge")]], ["the old strip into the UPS", 5, [A("strip-in-ups")]], ["the breaker", 10, [A("breaker")]], ["a wrong reply to Dev's offer", 0, [bad]]],
+    look: [["the box and the quick-start card", 0, [A("read-box"), A("read-card")]], ["starting the servers before the UPS", 9, [A("start-srv")]], ["the self-test with the servers still off", 10, [A("self-test")]]],
+    extra: (fresh, F, P, t) => {
+      /* the printer on battery overloads it, and the self-test says so */
+      { const E = fresh(); S.slice(0, 8).forEach((go) => go(E)); A("plug-printer", "batt")(E); A("ups-on")(E); A("start-srv")(E); const x = E.fleet().TECH.safety.SF4; const r = A("self-test")(E);
+        if (SFT.upsLcd(x.s)[0] !== "OVERLOAD" || x.s.test || !/overload/i.test((r && r.text) || "")) F(P + "MODEL: the printer on battery didn't overload the UPS"); if (!t.see(x.s).some((l) => /OVERLOAD/.test(l))) F(P + "MODEL: What you can see doesn't say it's overloaded"); }
+      /* moving a running server's plug is a lasting hazard */
+      { const E = fresh(); S.slice(0, 4).forEach((go) => go(E)); A("plug-fs01", "batt")(E); if (t.stage(E.fleet()) !== "poison") F(P + "MODEL: moving FS01's plug while it ran didn't corrupt anything"); }
+    } });
+};
+XI.SF5 = (D) => { const A = (a, v) => sfDo(D, a, v), say = sfSay(D), bad = sfSay(D, true);
+  const S = [say, A("ground-mat"), A("strap-on"), A("clip"), say, A("read-b"), A("tick"), A("bag-b"), A("ssd-esd"), A("store"), say];
+  return sfTable(D, "SF5", { S, leak: [/\bclip/i, /earth point/i, /antistatic bag/i, /parts cabinet/i, /\bsticker\b/i],
+    exh: (x) => (!x ? "there's no scene" : x.s.grounded || x.s.strap || x.s.clipped ? "the bench is already grounded" : x.s.modB !== "bag" || x.s.ssd !== "bubble" ? "the parts are already dealt with" : null),
+    after: (x) => (x.poison ? "a lasting hazard is left: " + x.poison.text : x.s.modB !== "bagged" || x.s.ssd !== "esd" ? "a part isn't in an antistatic bag" : !x.s.stored ? "they aren't stored" : !x.s.ticked ? "the note isn't signed" : null),
+    near: [["handling module B ungrounded", 1, [A("read-b")]], ["touching the bench leg", 1, [A("touch-leg")]], ["rubber gloves", 1, [A("gloves")]], ["passing module B to Farah", 5, [A("pass-b")]], ["the sandwich bag", 5, [A("ssd-plastic")]],
+      ["signing the note unchecked", 5, [A("tick")]], ["the windowsill", 9, [A("sill")]], ["the top of the UPS", 9, [A("on-ups")]], ["storing the SSD in bubble wrap", 7, [A("bag-b"), A("store")]], ["a wrong reply to Farah", 0, [bad]]],
+    look: [["the humidity sensor, the note, and the bag", 1, [A("humidity"), A("read-note"), A("through-bag")]]],
+    extra: (fresh, F, P, t) => {
+      /* grounded means all three: the mat, the strap on, the strap clipped */
+      { const E = fresh(); S.slice(0, 3).forEach((go) => go(E)); const g0 = E.T().guesses; A("read-b")(E); if (E.T().guesses - g0 !== 1 || t.stage(E.fleet()) !== "poison") F(P + "MODEL: handling module B with the strap unclipped wasn't counted as a hazard"); }
+      { const E = fresh(); S.slice(0, 4).forEach((go) => go(E)); const s3 = t.state3d(E.fleet().TECH.safety.SF5.s); if (!s3.grounded || !s3.clipped) F(P + "MODEL: the 3D isn't told the bench is grounded"); }
+    } });
+};
+XI.SF6 = (D) => { const A = (a, v) => sfDo(D, a, v), say = sfSay(D), bad = sfSay(D, true);
+  const S = [say, A("unchain"), A("vent"), A("cover"), A("look-ext"), say, say, say];
+  return sfTable(D, "SF6", { S, leak: [/cable cover/i, /second strip/i, /paper/i, /\bco2\b|co₂/i, /\bwater\b/i, /\bunplug/i],
+    exh: (x) => (!x ? "there's no scene" : !x.s.chained || x.s.vent !== "blocked" || x.s.cable !== "door" || x.s.ext !== "water" ? "a hazard is missing at the start" : null),
+    after: (x) => (x.poison ? "a lasting hazard is left" : x.s.chained ? "the strips are still chained" : x.s.vent !== "clear" ? "the vent is still blocked" : x.s.cable !== "routed" ? "the cable still crosses the door" : null),
+    near: [["a third strip", 1, [A("third-strip")]], ["the strip into the UPS", 1, [A("strip-ups")]], ["propping the door with the extinguisher", 2, [A("prop")]], ["a desk fan", 2, [A("fan")]], ["more tape", 3, [A("more-tape")]], ["a sign", 3, [A("sign")]],
+      ["taking the extinguisher away", 4, [A("take-ext")]], ["swapping it yourself", 5, [A("swap-ext")]], ["a wrong reply to Pat's push-back", 6, [bad]]],
+    look: [["the cords, the thermometer and the label", 0, [A("look-power"), A("look-temp"), A("look-ext")]]],
+    extra: (fresh, F, P, t) => {
+      /* reporting the extinguisher comes only after it's been read */
+      { const E = fresh(); S.slice(0, 4).forEach((go) => go(E)); if (t.stage(E.fleet()) !== "fire") F(P + "SHAPE: the walk-round reaches the report without reading the extinguisher"); }
+    } });
+};
 function instTable(D, F, t, X) {
   const P = "EXTRA " + t.id + ": ", fresh = () => { const E = D.createEngine(memStore()); E.openTicket(t.id); return E; };
   { const f = D.makeFleet(); t.setup(f); if (t.goal(f)) F(P + "EXHIBITED: the goal is met before the student starts"); const e = X.exh(X.get ? X.get(f) : f[X.mid]); if (e) F(P + "EXHIBITED: " + e); }
@@ -1639,7 +1796,7 @@ function routerChecks(D, F) {
   ({ f, r } = mk()); if (JSON.stringify(JSON.parse(JSON.stringify(f.TECH.routers))) !== JSON.stringify(f.TECH.routers)) F("ROUTER SNAP: a router doesn't survive the engine's copy");
 }
 
-const BASE = { ED: Object.assign({}, EDM), WU: Object.assign({}, WUM), FX: Object.assign({}, FXM), NP: Object.assign({}, NPM), MAC: Object.assign({}, MACM), IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
+const BASE = { SF: Object.assign({}, SFM), ED: Object.assign({}, EDM), WU: Object.assign({}, WUM), FX: Object.assign({}, FXM), NP: Object.assign({}, NPM), MAC: Object.assign({}, MACM), IN: Object.assign({}, INM), PH: Object.assign({}, PHM), BK: Object.assign({}, BKM), XT: Object.assign({}, XTM), CH: Object.assign({}, CHM), MB: Object.assign({}, MBM), R: Object.assign({}, RT), TICKETS: TK.TICKETS, score: TK.score, noteOK: TK.noteOK, makeFleet, createEngine, rungFor, ordered, FIX, SHOWS, ANSWER_WORDS, NOTES };
 function withTicket(id, over) { return BASE.TICKETS.map((t) => (t.id === id ? Object.assign({}, t, over(t)) : t)); }
 
 /* Each plant is one defect a check exists to catch, and the check it must
@@ -1794,6 +1951,24 @@ const PLANTS = [
   ["EXTRA OI6: NO LEAK", "a hint names the six taps", () => ({ TICKETS: withTicket("OI6", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0], h[1] + " Tap it six times."]; } })) })],
   ["EXTRA OI6: EXHIBITED", "the phone arrives already enrolled", () => ({ TICKETS: withTicket("OI6", (t) => ({ setup: (f) => { t.setup(f); f.TECH.newPhones.OI6.enrol = "managed"; } })) })],
   ["EXTRA OI6: MODEL", "a finished personal phone can still be scanned and enrolled", () => ({ NP: Object.assign({}, NPM, { scan: (m) => { const d = m.setup.done, sc = m.screen; m.setup.done = false; m.screen = "qr"; const r = NPM.scan(m); m.setup.done = d; if (d) m.screen = sc; return r; }, accept: (m) => { const d = m.setup.done; m.setup.done = false; const r = NPM.accept(m); m.setup.done = d; return r; } }) })],
+  ["EXTRA SF1: JUDGE", "fetching the water extinguisher isn't counted", () => ({ TICKETS: withTicket("SF1", (t) => ({ acts: t.acts.map((a) => (a.id === "fetch-water" ? Object.assign({}, a, { wrong: null }) : a)) })) })],
+  ["EXTRA SF1: SOLVABLE", "pulling the plug at the wall doesn't stop the smoke", () => ({ TICKETS: withTicket("SF1", (t) => ({ acts: t.acts.map((a) => (a.id === "unplug-wall" ? Object.assign({}, a, { run: (s) => { s.plugged = false; s.pc = "off"; return "Unplugged."; } }) : a)) })) })],
+  ["EXTRA SF1: NO LEAK", "a hint names the wall socket", () => ({ TICKETS: withTicket("SF1", (t) => ({ hints: (f) => { const h = t.hints(f); return [h[0], h[1] + " Switch it off at the wall."]; } })) })],
+  ["EXTRA SF1: MODEL", "the power button cuts the mains too", () => ({ TICKETS: withTicket("SF1", (t) => ({ acts: t.acts.map((a) => (a.id === "hold-power" ? Object.assign({}, a, { run: (s) => { s.pc = "off"; s.smoke = false; return "Off."; } }) : a)) })) })],
+  ["EXTRA SF2: EXHIBITED", "the laptop arrives unplugged and off", () => ({ TICKETS: withTicket("SF2", (t) => ({ setup: (f) => { t.setup(f); const s = f.TECH.safety.SF2.s; s.charging = false; s.power = "off"; } })) })],
+  ["EXTRA SF2: JUDGE", "the office bin isn't counted", () => ({ TICKETS: withTicket("SF2", (t) => ({ acts: t.acts.map((a) => (a.id === "office-bin" ? Object.assign({}, a, { wrong: null }) : a)) })) })],
+  ["EXTRA SF3: JUDGE", "the office vacuum isn't counted", () => ({ TICKETS: withTicket("SF3", (t) => ({ judge: (a, f) => (a.op === "office-vac" ? { guess: false } : t.judge(a, f)) })) })],
+  ["EXTRA SF3: NO LEAK", "the data-sheet step's hint names the data sheet", () => ({ TICKETS: withTicket("SF3", (t) => ({ hints: (f) => { const h = t.hints(f); return t.stage(f) === "sds" ? [h[0], h[1] + " It's in the binder."] : h; } })) })],
+  ["EXTRA SF4: JUDGE", "shutting the servers down unannounced isn't counted", () => ({ TICKETS: withTicket("SF4", (t) => ({ acts: t.acts.map((a) => (a.id === "shutdown-srv" ? Object.assign({}, a, { wrong: null }) : a)) })) })],
+  ["EXTRA SF4: MODEL", "a running server's plug moves safely", () => ({ TICKETS: withTicket("SF4", (t) => ({ acts: t.acts.map((a) => (a.id === "plug-fs01" ? Object.assign({}, a, { poison: () => null }) : a)) })) })],
+  ["EXTRA SF5: SOLVABLE", "clipping the strap doesn't clip it", () => ({ TICKETS: withTicket("SF5", (t) => ({ acts: t.acts.map((a) => (a.id === "clip" ? Object.assign({}, a, { run: () => "You clip it." }) : a)) })) })],
+  ["EXTRA SF6: EXHIBITED", "the strips aren't chained at the start", () => ({ TICKETS: withTicket("SF6", (t) => ({ setup: (f) => { t.setup(f); f.TECH.safety.SF6.s.chained = false; } })) })],
+  ["SAFETY: POOL", "a reply step is a reply short", () => ({ TICKETS: withTicket("SF3", (t) => ({ chat: t.chat.map((it, i) => (i === 0 ? Object.assign({}, it, { wrong: it.wrong.slice(1) }) : it)) })) })],
+  ["SAFETY: LOOK", "reading the humidity sensor counts", () => ({ TICKETS: withTicket("SF5", (t) => ({ acts: t.acts.map((a) => (a.id === "humidity" ? Object.assign({}, a, { wrong: () => "nope" }) : a)) })) })],
+  ["SAFETY: MOOD", "a wrong move in front of the person doesn't worry them", () => ({ SF: Object.assign({}, SFM, { run: (f, t, id, v) => { const c = f.TECH.chats[t.id], m = c ? c.mood : 0; const r = SFM.run(f, t, id, v); if (c) c.mood = m; return r; } }) })],
+  ["SAFETY: POISON", "a lasting hazard doesn't hold the ticket", () => ({ TICKETS: withTicket("SF3", (t) => ({ goal: (f) => { const x = f.TECH.safety.SF3; const p = x.poison; x.poison = null; const g = t.goal(f); x.poison = p; return g; }, moves: (f) => { const x = f.TECH.safety.SF3; const p = x.poison; x.poison = null; const m = t.moves(f); x.poison = p; return m; } })) })],
+  ["SAFETY: SPREAD", "every right reply padded to be the longest", () => ({ TICKETS: BASE.TICKETS.map((t) => (t.kind === "safety" ? Object.assign({}, t, { chat: t.chat.map((it) => (it.type === "reply" ? Object.assign({}, it, { right: Object.assign({}, it.right, { label: it.right.label + " That's how we'd always handle it here, step by step." }) }) : it)) }) : t)) })],
+  ["SAFETY: STRIKE", "rung 3 strikes nothing on a reply", () => ({ TICKETS: withTicket("SF1", (t) => ({ strikeNow: () => ({ id: "safety", which: 0, strike: {} }) })) })],
   ["EXTRA OI5: EXHIBITED", "the Mac arrives already wiped", () => ({ TICKETS: withTicket("OI5", (t) => ({ setup: (f) => { t.setup(f); f.TECH.macs.OI5.disk.hasData = false; f.TECH.macs.OI5.disk.erased = true; } })) })],
 ];
 

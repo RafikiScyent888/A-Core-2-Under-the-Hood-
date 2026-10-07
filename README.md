@@ -54,6 +54,11 @@ on the laptop:
   Work it Guided, with a Checklist, or On my own.
 - **Chat with Mason,** your team lead. He guides you, and never gives you
   the answer.
+- **On the spot,** for the safety jobs: the approved 3D models (the
+  extinguishers, the swollen laptop, the toner spill, the UPS, the
+  antistatic strap and mat) turnable beside what you can see in words,
+  your own hands, and the person there to talk to. A job where the hazard
+  is starts with a walk there.
 - **When remote can't reach a PC,** you walk over in 3D, played as a
   cutscene from your IT bench. That covers a PC that is switched off,
   blue-screened or unplugged, or one you have to take off the network. At
@@ -184,6 +189,28 @@ does. Each ticket names the objective it covers.
     then join RAFIKI.
   - FS6: patch Dev's Ubuntu at his desk: apt update, apt upgrade, reboot
     for the new kernel and check it, and never the release upgrade.
+- **SF, Safety** (Operational procedures, safety and communication), On
+  the spot: the approved 3D models, what you can see in words, your
+  hands, and the person there, with six replies and their mood. Safety
+  only: nothing is repaired.
+  - SF1: smoke from John's PC. Walk over, get him clear, have the CO₂
+    extinguisher at hand (never water), cut the power at the wall, tag it
+    DO NOT USE, and escalate the repair.
+  - SF2: Brenda's swollen laptop battery. Stop it charging and working,
+    move it to the metal battery bin, label it and log it for recycling,
+    and get her demo going on a spare.
+  - SF3: a toner spill at reception. A sign, the Safety Data Sheet, a mask
+    and gloves, the toner vacuum (not the office one), a cold cloth (never
+    hot), and the cartridge in its return bag.
+  - SF4: the new UPS. A team lift, warn everyone before the servers go
+    off, shut them down properly, servers and switch on battery outlets
+    and the laser printer on surge only, the self-test, the all-clear.
+  - SF5: spare parts at your bench. Ground the mat, strap on and clipped,
+    read the part number holding it by the edges, antistatic bags, the
+    parts cabinet.
+  - SF6: the closet's safety walk-round with facilities. Fix the chained
+    power strips, the blocked vent and the cable across the doorway;
+    report the water extinguisher, which isn't yours to move.
 
 The program's rules apply throughout:
 - unlimited tries

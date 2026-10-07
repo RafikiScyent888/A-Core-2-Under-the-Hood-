@@ -37,6 +37,7 @@ import { INSTALL_TICKETS } from "./tickets-install.js";
 import { MAC_TICKETS } from "./tickets-mac.js";
 import { NEWPHONE_TICKETS } from "./tickets-newphone.js";
 import { FILES_TICKETS } from "./tickets-files.js";
+import { SAFETY_TICKETS } from "./tickets-safety.js";
 
 function works(m, app) { return M.launchApp(M.clone(m), app).ok; }
 function has(m, kind, test) { return m.events.some(function (e) { return e.kind === kind && (!test || test(e)); }); }
@@ -327,6 +328,7 @@ INSTALL_TICKETS.forEach(function (t) { TICKETS.push(t); });
 MAC_TICKETS.forEach(function (t) { TICKETS.push(t); });
 NEWPHONE_TICKETS.forEach(function (t) { TICKETS.push(t); });
 FILES_TICKETS.forEach(function (t) { TICKETS.push(t); });
+SAFETY_TICKETS.forEach(function (t) { TICKETS.push(t); });
 
 /* How far along a Tier 2 fix is: used so a step that helps is never
    counted as a guess, even when the program does not run yet. */

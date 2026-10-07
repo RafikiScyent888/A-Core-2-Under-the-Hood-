@@ -676,3 +676,25 @@ tr.coach-target td:first-child { box-shadow: inset 4px 4px 0 #b88a00, inset 0 -4
 .ph-viewfinder { display: flex; align-items: center; justify-content: center; min-height: 9rem; border-radius: 12px; background: #1f2937; color: #f9fafb; box-shadow: inset 0 0 0 3px #f9fafb, inset 0 0 0 7px #1f2937; }
 .ph-apps { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.35rem; }
 .ph-apps li { padding: 0.4rem 0.5rem; border-radius: 10px; background: #f3f4f6; color: #111827; border: 1px solid #d1d5db; }
+
+/* ---- On the spot: the safety jobs (SF1–SF6). The approved 3D models,
+   what you can see in words, your hands, and the person on the spot ---- */
+.g-sf { background: #6b1d1d; }
+.sf-head { padding: 0.7rem 1rem 0; display: grid; gap: 0.15rem; }
+.sf-title { margin: 0; font-size: 1.15rem; }
+.sfb { padding-top: 0.6rem; }
+.sf-away { margin: 0.7rem 1rem; justify-items: start; }
+.sf-away p { margin: 0; }
+.sf-list { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+.sf-group { display: grid; gap: 0.35rem; }
+.sf-group + .sf-group { border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.sf-group h4 { margin: 0; font-size: 0.92rem; color: var(--muted); letter-spacing: 0.02em; }
+.sf-hands .b { text-align: left; }
+.sf-hands .b.sf-look { border-style: dashed; }
+.sf-msg { margin: 0; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--line); background: var(--win-2); box-shadow: inset 4px 0 0 var(--accent); }
+.sf-msg.bad { background: var(--bad-bg); color: var(--bad-ink); border-color: var(--bad-rule); box-shadow: inset 4px 0 0 var(--bad-rule); }
+.sf-plug { display: grid; gap: 0.2rem; }
+.sf-choice { font-weight: 600; }
+.sf-plug select { max-width: 100%; }
+.sf-talk .cc-log { max-height: 20rem; }
+.sf-foot { margin-top: 0.6rem; }

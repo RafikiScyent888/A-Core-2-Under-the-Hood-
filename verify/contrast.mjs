@@ -25,8 +25,11 @@
    at a desk after the walk-over; the Malware incident (Devices, Task
    Manager's process details, Edge, Windows Security, System Properties,
    Windows Update, Network Connections), the cutscene's caption, the USB
-   stick at the desk, a session ended by quarantine. Dark, light, and dark
-   with dyslexia text.
+   stick at the desk, a session ended by quarantine; On the spot for the
+   safety jobs (the walk asked for, a wrong reply red with the mood, a
+   wrong move's message, Mason's strikes, a lasting hazard, the UPS's plug
+   lists overloaded, a grounded bench). Dark, light, and dark with
+   dyslexia text.
 
    It does not measure text behind a modal's scrim, under the Start menu
    or Run box, scrolled out of its own box, inside a closed <details>, or
@@ -692,6 +695,31 @@ export async function run(extraCss) {
       for (const l of ["sudo apt update", "apt list --upgradable", "sudo do-release-upgrade"]) { await mo.locator('[id^="ub-in-"]').fill(l); await mo.locator('[id^="ub-in-"]').press("Enter"); await page.waitForTimeout(100); } }
     await sweep(tag + ": FS6, apt update, the upgradable list, and the release upgrade's question");
     await page.locator(".wo-back").click({ timeout: 60000 }); await page.waitForSelector(".walkover", { state: "detached", timeout: 90000 });
+    /* SF1 to SF6, On the spot: the walk asked for from your desk; on the
+       spot, a wrong reply red with the mood, a wrong move's message;
+       Mason's rung 3 striking replies; a lasting hazard; SF4's plug lists
+       and the UPS overloaded; SF5's bench grounded */
+    const sw = page.locator("[data-win=safety]"), sfh = (id) => sw.locator('[data-coach="sf-' + id + '"]').click();
+    const sfWrong = () => page.evaluate(() => { const E = window.__LAP.engine, t = E.ticket(), c = E.fleet().TECH.chats[t.id], right = t.chat[c.step].right.label; const b = Array.from(document.querySelectorAll("[data-win=safety] .sf-opts .opt2:not(.out)")).find((x) => x.querySelector(".ol").textContent !== right); if (b) b.click(); });
+    const sfRight = () => page.evaluate(() => { const E = window.__LAP.engine, t = E.ticket(), c = E.fleet().TECH.chats[t.id], lab = t.chat[c.step].right.label; const b = Array.from(document.querySelectorAll("[data-win=safety] .sf-opts .opt2")).find((x) => x.querySelector(".ol").textContent === lab); if (b) b.click(); });
+    const sfReopen = async () => { await sw.getByRole("button", { name: /^Close On the spot/ }).click(); await page.evaluate(() => window.__LAP.openWin("safety")); await page.waitForTimeout(300); };
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20500" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=open-safety]").click(); await page.waitForTimeout(200);
+    await sweep(tag + ": SF1, On the spot from your desk, asking for the walk");
+    await page.evaluate(() => { window.__LAP.L().onSite.SF1 = true; }); await sfReopen();
+    await sfWrong(); await page.waitForTimeout(100); await sfh("monitor"); await page.waitForTimeout(150);
+    await sweep(tag + ": SF1, on the spot: a wrong reply red, John's mood, a wrong move's message");
+    await sfWrong(); await page.waitForTimeout(100); await sfWrong(); await page.waitForTimeout(200);
+    await sweep(tag + ": SF1, Mason's rung 3 striking replies on the spot");
+    await sfRight(); await page.waitForTimeout(100); await sfh("fetch-water"); await page.waitForTimeout(100); await sfh("spray"); await page.waitForTimeout(200);
+    await sweep(tag + ": SF1, a lasting hazard: made worse");
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20503" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=open-safety]").click(); await page.waitForTimeout(300);
+    await sfRight(); await page.waitForTimeout(100); await sfh("lift-team"); await sfRight(); await page.waitForTimeout(100); await sfh("notify"); await sfh("shutdown-srv");
+    for (const [d, v] of [["fs01", "batt"], ["mail01", "batt"], ["switch", "batt"], ["printer", "batt"]]) { await sw.locator("#sf-SF4-plug-" + d).selectOption(v); await page.waitForTimeout(80); }
+    await sfh("ups-on"); await sfh("start-srv"); await sfh("self-test"); await page.waitForTimeout(200);
+    await sweep(tag + ": SF4, the plug lists and the UPS overloaded");
+    await toFront("helpdesk"); await page.locator(".qi", { hasText: "INC20504" }).click(); await hd.getByRole("button", { name: "Assign to me and start" }).click(); await hd.locator("[data-coach=open-safety]").click(); await page.waitForTimeout(300);
+    await sfRight(); await page.waitForTimeout(100); await sfh("ground-mat"); await sfh("strap-on"); await sfh("clip"); await page.waitForTimeout(200);
+    await sweep(tag + ": SF5, the bench grounded, the parts on the mat");
   }
 
   try {
@@ -748,7 +776,10 @@ const PLANTS = {
   "the new phone's compliance line in a faint grey": ".np-comp, .np-comp strong { color: #9ca3af !important; }",
   "File Explorer's drive bar in a faint grey": ".fx-drive, .fx-drive span { color: #b4bcc8 !important; }",
   "the feature update's card in a faint grey": ".wu .wu-card, .wu .wu-card p, .wu .wu-card h5 { color: #a3abb8 !important; }",
-  "Activation's edition and state in a faint grey": ".activation dd, .activation dt { color: #a3abb8 !important; }"
+  "Activation's edition and state in a faint grey": ".activation dd, .activation dt { color: #a3abb8 !important; }",
+  "On the spot's last-move message in a pale red": ".sf-msg.bad { color: #e08a8a !important; }",
+  "On the spot's What you can see in a faint grey": ".sf-list li { color: #9ca3af !important; }",
+  "On the spot's action group headings in a faint grey": ".sf-group h4 { color: #8b93a1 !important; }"
 };
 const plant = process.argv.includes("--plant");
 if (!plant) {
